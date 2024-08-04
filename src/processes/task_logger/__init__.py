@@ -1,1 +1,0 @@
-from .MailConfig import MailConfig

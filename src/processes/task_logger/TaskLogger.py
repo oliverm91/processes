@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-import inspect
 import logging
 from typing import Optional
 
@@ -31,15 +30,6 @@ class TaskLogger:
         self.logger.info(message)
 
     def log_error(self, exception: Exception, post_traceback_html_body: Optional[str] = None):
-        if not self._currently_in_except():
-            raise NotInExceptBlockError()
-        
         self.logger.exception(exception)
-
         if self.mail_handler is not None:
             self.mail_handler.send_exception_email(exception, f"Error in task {self.task_name}", post_traceback_html_body=post_traceback_html_body)
-
-    def _currently_in_except(self) -> bool:
-        return any(frame.frame.f_globals.get('__name__') == 'builtins' and 
-                    frame.frame.f_code.co_name in ('__exit__', '__enter__') 
-                    for frame in inspect.stack())

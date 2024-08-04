@@ -16,6 +16,12 @@ class CircularDependencyError(Exception):
 
 
 @dataclass(slots=True)
+class ProcessResult:
+    passed_tasks_results: dict[str, TaskResult]
+    failed_tasks: set[str]
+
+
+@dataclass(slots=True)
 class Process:
     tasks: list[Task]
 
@@ -49,20 +55,22 @@ class Process:
                     raise DependencyNotFoundError(f"Dependency not found: {dependency}. Task: {task.name}. Dependencies: {task_dependencies_names}")
             
         def check_circular_dependencies():
-            stack = set()
+            stack = []
 
             def dfs(task: Task):
                 if task.name in stack:
-                    raise CircularDependencyError(f"Found circular dependency involving task {task.name}")
-
-                stack.add(task.name)
+                    stack.append(task.name)
+                    circular_dependency_repr = " -> ".join(stack)
+                    raise CircularDependencyError(f"Found circular dependency: {circular_dependency_repr}")
+                
+                stack.append(task.name)
 
                 task_names_dependencies = task.get_dependencies_names()
                 for dependency_name in task_names_dependencies:
                     dependency_task = self.get_task(dependency_name)
                     if dependency_task.dependencies:
                         dfs(dependency_task)
-
+                    
                 stack.remove(task.name)
 
             for task in self.tasks:
@@ -71,20 +79,16 @@ class Process:
         check_circular_dependencies()
 
     def _sort_tasks(self):
-        # Sort tasks by dependencies:
-        # Non dependent tasks go first
-        # Then all tasks that depend on tasks already sorted
-
         sorted_tasks = []
-        tasks_to_sort = self.tasks.copy()
-
+        tasks_to_sort = [t.name for t in self.tasks]
         while tasks_to_sort:
-            for task in tasks_to_sort[:]:
+            for task_name in tasks_to_sort[:]:
+                task = self.get_task(task_name)
                 if all(dependency.task_name in sorted_tasks for dependency in task.dependencies):
-                    sorted_tasks.append(task)
-                    tasks_to_sort.remove(task)
+                    sorted_tasks.append(task_name)
+                    tasks_to_sort.remove(task_name)
 
-        self.tasks = sorted_tasks
+        self.tasks = [self.get_task(task_name) for task_name in sorted_tasks]
 
     def get_task(self, task_name: str) -> Task:
         for task in self.tasks:
@@ -104,7 +108,7 @@ class Process:
         dfs(task_name)
         return dependant_tasks
     
-    def run(self):
+    def run(self) -> ProcessResult:
         failed_tasks: set[str] = set()
         passed_results: dict[str, TaskResult] = {}
         for task in self.tasks:
@@ -118,24 +122,22 @@ class Process:
                 for dependant_task in dependant_tasks:
                     post_traceback_html_body += f"<li>{dependant_task.name}</li>"
                 post_traceback_html_body += "</ul>"
-            extra_args = set()
-            extra_kwargs = {}
-            for dependency in task.dependencies:
-                if dependency.use_result_as_additional_args:
-                    extra_args.add(passed_results[dependency.task_name].result)
-                if dependency.use_result_as_additional_kwargs:
-                    extra_kwargs[dependency.additional_kwarg_name] = passed_results[dependency.task_name].result
-            task.add_args(*extra_args)
-            task.add_kwargs(**extra_kwargs)
-            task_result: TaskResult = task.run(post_traceback_html_body=post_traceback_html_body)
+            else:
+                post_traceback_html_body = None
+            extra_args = tuple(passed_results[d.task_name].result for d in task.dependencies if d.use_result_as_additional_args)
+            extra_kwargs = {d.additional_kwarg_name: passed_results[d.task_name].result for d in task.dependencies if d.use_result_as_additional_kwargs}
+            task_result: TaskResult = task.run(post_traceback_html_body=post_traceback_html_body, aditional_args=extra_args, aditional_kwargs=extra_kwargs)
             if not task_result.worked:
                 failed_tasks.add(task.name)
-                print(f"Task {task.name} failed. Exception: {task_result.exception}")
             else:
                 passed_results[task.name] = task_result
-                print(f"Task {task.name} succeeded with result: {task_result.result}")
 
-        if not failed_tasks:
-            print("Process finished successfully.")
-        else:
-            print(f"Process finished with {len(failed_tasks)} failed tasks: {failed_tasks}")
+        return ProcessResult(passed_results, failed_tasks)
+
+    def close_loggers(self):
+        for task in self.tasks:
+            task_logger = task.logger
+            task_logger_logger = task_logger.logger
+            for handler in task_logger_logger.handlers[:]:
+                handler.close()
+                task_logger_logger.removeHandler(handler)
