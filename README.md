@@ -1,6 +1,6 @@
 # Library for process automation
 
-In processes a `Process` can execute a series of `Task`s sequentially. The `process` takes into account dependencies and result dependencies of `Task`s.
+In processes, a `Process` can execute a series of `Task`s sequentially. The `process` takes into account dependencies of `Task`s.
 
 All `Task`s write logs to a logfile. Logfiles can be shared across Tasks. Optionally, it can inform of raised exceptions via email with SMTP.
 
