@@ -27,7 +27,7 @@ def div(a: int, b: int, c: int=5) -> int:
     return (a + b) / c
 
 # Optional, defined in easy_smtp lib
-smtp_handler = HTMLSMTPHandler('sender@example.com', ['receiver@example.com'],'smtp_server', 587, use_tls=True, credentials=SMTPCredentials('username', 'password'))
+smtp_handler = HTMLSMTPHandler(('smtp_server', 587), 'sender@example.com', ['receiver@example.com'], use_tls=True, credentials=('username', 'password'))
 
 curdir = os.path.dirname(__file__)
 tasks = []

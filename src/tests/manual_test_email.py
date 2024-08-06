@@ -38,16 +38,16 @@ def send_mail_test():
     smtp_server = smtp_config_dict["smtp_server"]
     smtp_port = smtp_config_dict["smtp_port"]
     use_tls = smtp_config_dict["use_tls"]
-    credencials = smtp_config_dict["credencials"]
-    smtp_username = credencials["username"]
-    smtp_password = credencials["password"]
+    credentials = smtp_config_dict["credentials"]
+    smtp_username = credentials["username"]
+    smtp_password = credentials["password"]
     sender = smtp_config_dict["sender"]
     recipients = smtp_config_dict["recipients"]
 
     if use_tls:
-        smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, '', credencials=(smtp_username, smtp_password), secure=())
+        smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, credentials=(smtp_username, smtp_password), secure=())
     else:
-        smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, '', credencials=(smtp_username, smtp_password))
+        smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, credentials=(smtp_username, smtp_password))
 
     t1 = Task("task_1", log_file_path, div_zero_mail, args=(10,), html_mail_handler=smtp_handler)
     tasks.append(t1)

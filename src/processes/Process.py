@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .Task import Task, TaskResult
+from .task import Task, TaskResult
 
 
 class DependencyNotFoundError(Exception):
@@ -109,6 +109,21 @@ class Process:
         return dependant_tasks
     
     def run(self) -> ProcessResult:
+        """
+        Executes the tasks in the correct order, respecting their dependencies.
+
+        Each task is run only after its dependencies have successfully completed. If a task fails, 
+        all tasks depending on it will not be executed. The results of successful tasks are stored 
+        and passed as arguments to subsequent tasks if specified.
+
+        Returns:
+            ProcessResult: An object containing the results of the tasks that passed and a set of task names that failed.
+
+        Raises:
+            TaskNotFoundError: If a task required by a dependency is not found in the list of tasks.
+            DependencyNotFoundError: If a dependency for a task is not found in the list of tasks.
+            CircularDependencyError: If a circular dependency is detected among the tasks.
+        """
         failed_tasks: set[str] = set()
         passed_results: dict[str, TaskResult] = {}
         for task in self.tasks:
