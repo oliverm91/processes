@@ -136,8 +136,6 @@ class Process:
 
     def close_loggers(self):
         for task in self.tasks:
-            task_logger = task.logger
-            task_logger_logger = task_logger.logger
-            for handler in task_logger_logger.handlers[:]:
+            for handler in task.logger.handlers[:]:
                 handler.close()
-                task_logger_logger.removeHandler(handler)
+            task.logger.removeHandler(handler)
