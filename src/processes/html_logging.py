@@ -4,10 +4,14 @@ import logging
 import logging.handlers
 import smtplib
 import traceback
+from typing import List, Optional, Tuple
 
 
 class HTMLSMTPHandler(logging.handlers.SMTPHandler):
-    def __init__(self, mailhost: tuple[str, str], fromaddr: str, toaddrs: list[str], credentials: tuple[str, str] = None, secure: tuple[()] | tuple [str] |tuple[str, str] = None, timeout: int = 5):
+    def __init__(self, mailhost: tuple[str, str], fromaddr: str, toaddrs: list[str],
+                 credentials: Optional[tuple[str, str]] = None,
+                 secure: Optional[tuple | tuple [str] | tuple[str, str]] = None,
+                 timeout: Optional[int] = 5):
         super().__init__(mailhost, fromaddr, toaddrs, '', credentials=credentials, secure=secure, timeout=timeout)
     def emit(self, record):
         try:
