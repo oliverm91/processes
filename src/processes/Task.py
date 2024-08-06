@@ -47,7 +47,7 @@ class ExceptionHtmlFormatter(logging.Formatter):
             exception = record.getMessage()
             tb_str = "No traceback available"
 
-        post_traceback_html_body = ""  # Customize this as needed
+        post_traceback_html_body = getattr(record, 'post_traceback_html_body', "")
 
         # HTML content
         body = f"""
@@ -206,5 +206,5 @@ class Task:
             if post_traceback_html_body is None:
                 post_traceback_html_body = ""
             post_traceback_html_body += f"<br><p>Function was: {self.func.__name__}. Args were: {self.args}. Kwargs were: {self.kwargs}.</p>"
-            self.logger.exception(e)#, post_traceback_html_body=post_traceback_html_body)
+            self.logger.exception(e, extra={"post_traceback_html_body": post_traceback_html_body})
             return TaskResult(False, None, e)
