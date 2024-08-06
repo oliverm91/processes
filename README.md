@@ -8,9 +8,11 @@ If a `Task` raises an exception, the `Process` does not stop and it will execute
 
 Order of `Task`s is not relevant. `Process` will sort according to `Task`s dependencies.
 
-##### Example (`SMTPHandler`, and `SMTPCredentials` classes come from [easy_smtp](https://github.com/oliverm91/easy_smtp/) library):
+##### Example:
 
 ``` python
+from processes import Process, Task, HTMLSMTPHandler
+
 
 def random_routine_to_do_first():
     pass
@@ -25,13 +27,13 @@ def div(a: int, b: int, c: int=5) -> int:
     return (a + b) / c
 
 # Optional, defined in easy_smtp lib
-smtp_handler = SMTPHandler('sender@example.com', ['receiver@example.com'],'smtp_server', 587, use_tls=True, credentials=SMTPCredentials('username', 'password'))
+smtp_handler = HTMLSMTPHandler('sender@example.com', ['receiver@example.com'],'smtp_server', 587, use_tls=True, credentials=SMTPCredentials('username', 'password'))
 
 curdir = os.path.dirname(__file__)
 tasks = []
 # Task(name (unique in a process), logfile, function, Optional args, Optional kwargs, Optional mail_handler)
 t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"),
-            get_b, mail_handler=smtp_handler)
+            get_b, html_mail_handler=smtp_handler)
 tasks.append(t1)
 t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"),
             get_c, dependencies=[TaskDependency("task_1")]) # Need task_1 to complete first
