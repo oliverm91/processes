@@ -4,7 +4,7 @@ import logging
 import logging.handlers
 import smtplib
 import traceback
-from typing import List, Optional, Tuple
+from typing import Optional
 
 
 class HTMLSMTPHandler(logging.handlers.SMTPHandler):
