@@ -8,10 +8,9 @@ def clean_tasks_logs(tasks: list[Task]):
     curdir = os.path.dirname(__file__)
     for task in tasks:
             task_logger = task.logger
-            task_logger_logger = task_logger.logger
-            for handler in task_logger_logger.handlers[:]:
+            for handler in task_logger.handlers[:]:
                 handler.close()
-                task_logger_logger.removeHandler(handler)
+                task_logger.removeHandler(handler)
     for file in os.listdir(curdir):
         if file.endswith(".log"):
             os.remove(os.path.join(curdir, file))

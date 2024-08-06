@@ -23,9 +23,9 @@ def test_args():
     assert isinstance(task_result.exception, ZeroDivisionError)
     
     for task in [t1, t2]:
-        for handler in task.logger.logger.handlers[:]:
+        for handler in task.logger.handlers[:]:
             handler.close()
-            task.logger.logger.removeHandler(handler)
+            task.logger.removeHandler(handler)
     os.remove(os.path.join(curdir, "logfile_12.log"))
 
 
@@ -56,9 +56,9 @@ def test_args_kwargs():
     assert isinstance(task_result.exception, ZeroDivisionError)
     
     for task in [t1, t2, t3]:
-        for handler in task.logger.logger.handlers[:]:
+        for handler in task.logger.handlers[:]:
             handler.close()
-            task.logger.logger.removeHandler(handler)
+            task.logger.removeHandler(handler)
     os.remove(os.path.join(curdir, "logfile_123.log"))
 
 
@@ -84,9 +84,9 @@ def test_add_extra_args():
     assert process_result.passed_tasks_results["task_2"].result == 5
     
     for task in [t1, t2]:
-        for handler in task.logger.logger.handlers[:]:
+        for handler in task.logger.handlers[:]:
             handler.close()
-            task.logger.logger.removeHandler(handler)
+            task.logger.removeHandler(handler)
     os.remove(os.path.join(curdir, "logfile_12.log"))
 
 
@@ -128,9 +128,9 @@ def test_add_extra_args_kwargs():
     assert process_result.passed_tasks_results["task_3"].result == 4
 
     for task in [t0, t1, t2, t3]:
-        for handler in task.logger.logger.handlers[:]:
+        for handler in task.logger.handlers[:]:
             handler.close()
-            task.logger.logger.removeHandler(handler)
+            task.logger.removeHandler(handler)
     os.remove(os.path.join(curdir, "logfile_0.log"))
     os.remove(os.path.join(curdir, "logfile_12.log"))
     os.remove(os.path.join(curdir, "logfile_3.log"))

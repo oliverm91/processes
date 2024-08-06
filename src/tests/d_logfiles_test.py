@@ -22,9 +22,9 @@ def test_single_task_worked_log_entry():
         assert "Starting task_1." in lines[0]
         assert "Finished task_1." in lines[1]
 
-    for handler in t1.logger.logger.handlers[:]:
+    for handler in t1.logger.handlers[:]:
         handler.close()
-        t1.logger.logger.removeHandler(handler)
+        t1.logger.removeHandler(handler)
     os.remove(log_file_path)
 
 
@@ -52,9 +52,9 @@ def test_two_task_worked_log_entry_same_logfile():
         assert "Finished task_2." in lines[3]
 
     for task in tasks:
-        for handler in task.logger.logger.handlers[:]:
+        for handler in task.logger.handlers[:]:
             handler.close()
-            t1.logger.logger.removeHandler(handler)
+            t1.logger.removeHandler(handler)
     os.remove(log_file_path)
 
 
@@ -90,9 +90,9 @@ def test_two_task_worked_log_entry_different_logfile():
         assert "Finished task_2." in lines[1]
 
     for task in tasks:
-        for handler in task.logger.logger.handlers[:]:
+        for handler in task.logger.handlers[:]:
             handler.close()
-            t1.logger.logger.removeHandler(handler)
+            t1.logger.removeHandler(handler)
     os.remove(log_file_path1)
     os.remove(log_file_path2)
 
@@ -117,7 +117,7 @@ def test_exception_log_entry():
         assert "division by zero" in lines[1]
         assert "division by zero" in lines[-1]
 
-    for handler in t1.logger.logger.handlers[:]:
+    for handler in t1.logger.handlers[:]:
         handler.close()
-        t1.logger.logger.removeHandler(handler)
+        t1.logger.removeHandler(handler)
     os.remove(log_file_path)

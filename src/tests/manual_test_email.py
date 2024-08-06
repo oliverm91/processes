@@ -1,9 +1,10 @@
+import logging
 import json
+import logging.handlers
 import os
 
-from processes import Process, Task
+from processes import Process, Task, HTMLSMTPHandler
 
-from easy_smtp import SMTPHandler, SMTPCredentials
 
 
 def send_mail_test():
@@ -37,25 +38,27 @@ def send_mail_test():
     smtp_server = smtp_config_dict["smtp_server"]
     smtp_port = smtp_config_dict["smtp_port"]
     use_tls = smtp_config_dict["use_tls"]
-    credentials = smtp_config_dict["credentials"]
-    smtp_username = credentials["username"]
-    smtp_password = credentials["password"]
+    credencials = smtp_config_dict["credencials"]
+    smtp_username = credencials["username"]
+    smtp_password = credencials["password"]
     sender = smtp_config_dict["sender"]
     recipients = smtp_config_dict["recipients"]
 
-    smtp_credentials = SMTPCredentials(smtp_username, smtp_password)
-    smtp_handler = SMTPHandler(sender, recipients, smtp_server, smtp_port, use_tls=use_tls, credentials=smtp_credentials)
+    if use_tls:
+        smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, '', credencials=(smtp_username, smtp_password), secure=())
+    else:
+        smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, '', credencials=(smtp_username, smtp_password))
 
-    t1 = Task("task_1", log_file_path, div_zero_mail, args=(10,), mail_handler=smtp_handler)
+    t1 = Task("task_1", log_file_path, div_zero_mail, args=(10,), html_mail_handler=smtp_handler)
     tasks.append(t1)
 
     process = Process(tasks)
     process.run()
 
 
-    for handler in t1.logger.logger.handlers[:]:
+    for handler in t1.logger.handlers[:]:
         handler.close()
-        t1.logger.logger.removeHandler(handler)
+        t1.logger.removeHandler(handler)
     os.remove(log_file_path)
 
     print(f"Please, check that an email was sent to {recipients}.")
