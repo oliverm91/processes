@@ -17,13 +17,13 @@ from processes import Process, Task, HTMLSMTPHandler
 def random_routine_to_do_first():
     pass
 
-def get_b():
+def get_b() -> int:
     return 10
 
-def get_c():
+def get_c() -> int:
     return 5
 
-def div(a: int, b: int, c: int=5) -> int:
+def div(a: int, b: int, c: int=5) -> float:
     return (a + b) / c
 
 # Optional, defined in easy_smtp lib
