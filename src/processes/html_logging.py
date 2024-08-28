@@ -82,7 +82,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
             <h2>Exception Details</h2>
             <p class="exception">Exception: {exception}</p>
             <p><strong>Traceback:</strong></p>
-            <div class="traceback">{tb_str}</div>
+            <div class="traceback">{tb_str.replace('\n', '<br>')}</div>
             <br>
             {post_traceback_html_body}
         </body>
