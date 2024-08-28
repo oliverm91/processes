@@ -51,6 +51,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
         post_traceback_html_body = getattr(record, 'post_traceback_html_body', "")
 
         # HTML content
+        tb_str = tb_str.replace('\n', '<br>')
         body = f"""
         <html>
         <head>
@@ -82,7 +83,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
             <h2>Exception Details</h2>
             <p class="exception">Exception: {exception}</p>
             <p><strong>Traceback:</strong></p>
-            <div class="traceback">{tb_str.replace('\n', '<br>')}</div>
+            <div class="traceback">{tb_str}</div>
             <br>
             {post_traceback_html_body}
         </body>
