@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import logging
+import os
 from typing import Any, Callable, Optional
 
 from .html_logging import HTMLSMTPHandler, ExceptionHTMLFormatter
@@ -38,7 +39,7 @@ class TaskDependency:
 @dataclass(slots=True)
 class Task:
     name: str
-    log_file: str
+    log_dir: str
     func: Callable
     args: tuple = field(default_factory=tuple)
     kwargs: dict = field(default_factory=dict)
@@ -47,9 +48,12 @@ class Task:
     
     html_mail_handler: HTMLSMTPHandler = field(default=None, repr=False)
     logger: logging.Logger = field(init=False, repr=False)
+    log_path: str = field(init=False, repr=False)
 
     def __post_init__(self):
         self._check_input_types()
+        if ' ' in self.name:
+            raise ValueError(f"Task name cannot contain spaces. Got {self.name}")
 
         depedencies_names = []
         for dependency in self.dependencies:
@@ -64,7 +68,8 @@ class Task:
         if logger.hasHandlers():
             logger.handlers.clear()
         
-        file_handler = logging.FileHandler(self.log_file)
+        self.log_path = os.path.join(self.log_dir, f"{self.name}.log")
+        file_handler = logging.FileHandler(self.log_path)
         file_handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
