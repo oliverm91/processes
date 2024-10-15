@@ -12,7 +12,18 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
                  credentials: Optional[tuple[str, str]] = None,
                  secure: Optional[tuple | tuple [str] | tuple[str, str]] = None,
                  timeout: Optional[int] = 5):
+        self._crd = credentials
+        self._sec = secure
+        self._to = timeout
+
         super().__init__(mailhost, fromaddr, toaddrs, '', credentials=credentials, secure=secure, timeout=timeout)
+
+    def copy(self):
+        return HTMLSMTPHandler(self.mailhost, self.fromaddr, self.toaddrs, credentials=self._crd, secure=self._sec, timeout=self._to)
+    
+    def __copy__(self):
+        return self.copy()
+
     def emit(self, record):
         try:
             port = self.mailport

@@ -39,7 +39,7 @@ class TaskDependency:
 @dataclass(slots=True)
 class Task:
     name: str
-    log_dir: str
+    log_path: str
     func: Callable
     args: tuple = field(default_factory=tuple)
     kwargs: dict = field(default_factory=dict)
@@ -68,7 +68,6 @@ class Task:
         if logger.hasHandlers():
             logger.handlers.clear()
         
-        self.log_path = os.path.join(self.log_dir, f"{self.name}.log")
         file_handler = logging.FileHandler(self.log_path)
         file_handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -76,10 +75,11 @@ class Task:
         logger.addHandler(file_handler)
         
         if self.html_mail_handler is not None:
-            self.html_mail_handler.setFormatter(ExceptionHTMLFormatter())
-            self.html_mail_handler.setLevel(logging.ERROR)
-            self.html_mail_handler.subject = f"Error in task {self.name}"        
-            logger.addHandler(self.html_mail_handler)
+            _html_mail_handler = self.html_mail_handler.copy()
+            _html_mail_handler.setFormatter(ExceptionHTMLFormatter())
+            _html_mail_handler.setLevel(logging.ERROR)
+            _html_mail_handler.subject = f"Error in task {self.name}"        
+            logger.addHandler(_html_mail_handler)
 
         self.logger = logger
 
