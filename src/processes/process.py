@@ -99,8 +99,10 @@ class Process:
     def get_dependant_tasks(self, task_name: str) -> list[Task]:
         dependant_tasks = []
 
-        def dfs(current_task_name):
+        def dfs(current_task_name) -> list[str]:
             for task in self.tasks:
+                if task in dependant_tasks:
+                    continue
                 if current_task_name in task.get_dependencies_names():
                     dependant_tasks.append(task)
                     dfs(task.name)
