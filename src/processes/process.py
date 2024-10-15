@@ -129,10 +129,14 @@ class Process:
         failed_tasks: set[str] = set()
         passed_results: dict[str, TaskResult] = {}
         for task in self.tasks:
+            skip_task = False
             for dependency in task.dependencies:
                 if dependency.task_name in failed_tasks:
                     failed_tasks.add(task.name)
-                    continue
+                    skip_task = True
+                    break
+            if skip_task:
+                continue
             dependant_tasks = self.get_dependant_tasks(task.name)
             if dependant_tasks:
                 post_traceback_html_body = "<p>This failure led that the following dependant tasks will not run:</p><ul>"
