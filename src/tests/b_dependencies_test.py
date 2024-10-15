@@ -31,7 +31,7 @@ def test_present_dependencies():
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2, dependencies=[TaskDependency("task_1")])
         tasks.append(t2)
-        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,), dependencies=[TaskDependency("task_1"), TaskDependency("task_4")])
+        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, func_args=(1,), dependencies=[TaskDependency("task_1"), TaskDependency("task_4")])
         tasks.append(t3)
     except Exception as e:
         clean_tasks_logs(tasks)
@@ -57,7 +57,7 @@ def test_duplicate_dependency():
     curdir = os.path.dirname(__file__)
     did_not_fail = False
     with pytest.raises(ValueError, match="Duplicate dependency name: task_1"):
-        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,), dependencies=[TaskDependency("task_1"), TaskDependency("task_1")])
+        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, func_args=(1,), dependencies=[TaskDependency("task_1"), TaskDependency("task_1")])
         did_not_fail = True
 
     if did_not_fail:
@@ -71,7 +71,7 @@ def test_self_dependency():
     curdir = os.path.dirname(__file__)
     did_not_fail = False
     with pytest.raises(ValueError, match=f"Got dependency with same name as Task. Task: task_3. Dependency: task_3"):
-        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,), dependencies=[TaskDependency("task_1"), TaskDependency("task_3")])
+        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, func_args=(1,), dependencies=[TaskDependency("task_1"), TaskDependency("task_3")])
         did_not_fail = True
     
     if did_not_fail:
@@ -118,7 +118,7 @@ def test_circular_dependency_two_levels():
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2, dependencies=[TaskDependency("task_3")])
         tasks.append(t2)
-        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,), dependencies=[TaskDependency("task_1")])
+        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, func_args=(1,), dependencies=[TaskDependency("task_1")])
         tasks.append(t3)
     except Exception as e:
         clean_tasks_logs(tasks)
@@ -150,9 +150,9 @@ def test_circular_dependency_two_levels2():
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2, dependencies=[TaskDependency("task_1")])
         tasks.append(t2)
-        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,), dependencies=[TaskDependency("task_4")])
+        t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"), task_3, func_args=(1,), dependencies=[TaskDependency("task_4")])
         tasks.append(t3)
-        t4 = Task("task_4", os.path.join(curdir, "logfile_4.log"), task_4, args=(1,), dependencies=[TaskDependency("task_1")])
+        t4 = Task("task_4", os.path.join(curdir, "logfile_4.log"), task_4, func_args=(1,), dependencies=[TaskDependency("task_1")])
         tasks.append(t4)
     except Exception as e:
         clean_tasks_logs(tasks)

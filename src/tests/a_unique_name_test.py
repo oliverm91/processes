@@ -32,7 +32,7 @@ def test_unique_name():
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2)
         tasks.append(t2)
-        t3 = Task("task_2", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,))
+        t3 = Task("task_2", os.path.join(curdir, "logfile_3.log"), task_3, func_args=(1,))
         tasks.append(t3)
     except Exception as e:
         clean_tasks_logs(tasks)

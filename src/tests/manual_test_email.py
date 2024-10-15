@@ -49,7 +49,7 @@ def send_mail_test():
     else:
         smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, credentials=(smtp_username, smtp_password))
 
-    t1 = Task("task_1", log_file_path, div_zero_mail, args=(10,), html_mail_handler=smtp_handler)
+    t1 = Task("task_1", log_file_path, div_zero_mail, func_args=(10,), html_mail_handler=smtp_handler)
     tasks.append(t1)
 
     process = Process(tasks)

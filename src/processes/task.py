@@ -41,8 +41,8 @@ class Task:
     name: str
     log_path: str
     func: Callable
-    args: tuple = field(default_factory=tuple)
-    kwargs: dict = field(default_factory=dict)
+    func_args: tuple = field(default_factory=tuple)
+    func_kwargs: dict = field(default_factory=dict)
 
     dependencies: list[TaskDependency] = field(default_factory=list)
     
@@ -87,11 +87,11 @@ class Task:
         if not callable(self.func):
             raise TypeError(f"func must be callable. Got {type(self.func)}")
         
-        if not isinstance(self.args, tuple):
-            raise TypeError(f"args must be tuple. Got {type(self.args)}")
+        if not isinstance(self.func_args, tuple):
+            raise TypeError(f"args must be tuple. Got {type(self.func_args)}")
         
-        if not isinstance(self.kwargs, dict):
-            raise TypeError(f"kwargs must be dict. Got {type(self.kwargs)}")
+        if not isinstance(self.func_kwargs, dict):
+            raise TypeError(f"kwargs must be dict. Got {type(self.func_kwargs)}")
         
         if self.html_mail_handler is not None and not isinstance(self.html_mail_handler, HTMLSMTPHandler):
             raise TypeError(f"mail_cfg must be of type SMTPHandler (easy_smtp library). Got {type(self.html_mail_handler)}")
@@ -107,10 +107,10 @@ class Task:
         return {dependency.task_name for dependency in self.dependencies}
     
     def add_args(self, *args):
-        self.args += args
+        self.func_args += args
 
     def add_kwargs(self, **kwargs):
-        self.kwargs = {**self.kwargs, **kwargs}
+        self.func_kwargs = {**self.func_kwargs, **kwargs}
 
     def run(self, aditional_args: Optional[tuple[Any]] = None, aditional_kwargs: Optional[dict[str, Any]] = None, post_traceback_html_body: Optional[str] = None) -> TaskResult:
         try:
@@ -119,12 +119,12 @@ class Task:
             if aditional_kwargs:
                 self.add_kwargs(**aditional_kwargs)
             self.logger.info(f"Starting {self.name}.")
-            result = self.func(*self.args, **self.kwargs)
+            result = self.func(*self.func_args, **self.func_kwargs)
             self.logger.info(f"Finished {self.name}.")
             return TaskResult(True, result, None)
         except Exception as e:
             if post_traceback_html_body is None:
                 post_traceback_html_body = ""
-            post_traceback_html_body += f"<br><p>Function was: {self.func.__name__}. Args were: {self.args}. Kwargs were: {self.kwargs}.</p>"
+            post_traceback_html_body += f"<br><p>Function was: {self.func.__name__}. Args were: {self.func_args}. Kwargs were: {self.func_kwargs}.</p>"
             self.logger.exception(e, extra={"post_traceback_html_body": post_traceback_html_body})
             return TaskResult(False, None, e)
