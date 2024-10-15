@@ -47,7 +47,6 @@ class Task:
     
     html_mail_handler: HTMLSMTPHandler = field(default=None, repr=False)
     logger: logging.Logger = field(init=False, repr=False)
-    log_path: str = field(init=False, repr=False)
 
     def __post_init__(self):
         self._check_input_types()
