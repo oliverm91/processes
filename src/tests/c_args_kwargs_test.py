@@ -8,14 +8,14 @@ def test_args():
         return 10 / a
     
     curdir = os.path.dirname(__file__)
-    t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"), div10, func_args=(2,))
+    t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"), div10, args=(2,))
     task_result = t1.run()
 
     assert task_result.worked
     assert task_result.result == 5
     assert task_result.exception is None
 
-    t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), div10, func_args=(0,))
+    t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), div10, args=(0,))
     task_result = t2.run()
 
     assert not task_result.worked
@@ -34,21 +34,21 @@ def test_args_kwargs():
         return a / b
     
     curdir = os.path.dirname(__file__)
-    t1 = Task("task_1", os.path.join(curdir, "logfile_123.log"), div, func_args=(10,))
+    t1 = Task("task_1", os.path.join(curdir, "logfile_123.log"), div, args=(10,))
     task_result = t1.run()
 
     assert task_result.worked
     assert task_result.result == 5
     assert task_result.exception is None
 
-    t2 = Task("task_2", os.path.join(curdir, "logfile_123.log"), div, func_args=(10,), func_kwargs={"b":5})
+    t2 = Task("task_2", os.path.join(curdir, "logfile_123.log"), div, args=(10,), kwargs={"b":5})
     task_result = t2.run()
 
     assert task_result.worked
     assert task_result.result == 2
     assert task_result.exception is None
 
-    t3 = Task("task_3", os.path.join(curdir, "logfile_123.log"), div, func_args=(10,), func_kwargs={"b":0})
+    t3 = Task("task_3", os.path.join(curdir, "logfile_123.log"), div, args=(10,), kwargs={"b":0})
     task_result = t3.run()
 
     assert not task_result.worked
@@ -73,7 +73,7 @@ def test_add_extra_args():
     tasks = []
     t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"), t1)
     tasks.append(t1)
-    t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), div, func_args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)])
+    t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), div, args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)])
     tasks.append(t2)
     process = Process(tasks)
     process_result = process.run()
@@ -115,7 +115,7 @@ def test_add_extra_args_kwargs():
                 get_c, dependencies=[TaskDependency("task_1")])
     tasks.append(t2)
     t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"),
-                div, func_args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True),
+                div, args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True),
                                                 TaskDependency("task_2", use_result_as_additional_kwargs=True, additional_kwarg_name="c")])
     tasks.append(t3)
     process = Process(tasks)
