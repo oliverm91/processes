@@ -104,18 +104,10 @@ class Task:
     def get_dependencies_names(self) -> set[str]:
         return {dependency.task_name for dependency in self.dependencies}
     
-    def add_args(self, *args):
-        self.args += args
-
-    def add_kwargs(self, **kwargs):
-        self.kwargs = {**self.kwargs, **kwargs}
-
-    def run(self, aditional_args: tuple[Any] = None, aditional_kwargs: dict[str, Any] | None = None, post_traceback_html_body: str | None = None) -> TaskResult:
+    def run(self, aditional_args: tuple[Any] = (), aditional_kwargs: dict[str, Any] | None = None, post_traceback_html_body: str | None = None) -> TaskResult:
+        self.args += aditional_args
+        self.kwargs = {**self.kwargs, **(aditional_kwargs or {})}
         try:
-            if aditional_args:
-                self.add_args(*aditional_args)
-            if aditional_kwargs:
-                self.add_kwargs(**aditional_kwargs)
             self.logger.info(f"Starting {self.name}.")
             result = self.func(*self.args, **self.kwargs)
             self.logger.info(f"Finished {self.name}.")
