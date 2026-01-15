@@ -4,15 +4,14 @@ import logging
 import logging.handlers
 import smtplib
 import traceback
-from typing import Optional
 import ssl
 
 
 class HTMLSMTPHandler(logging.handlers.SMTPHandler):
     def __init__(self, mailhost: tuple[str, str], fromaddr: str, toaddrs: list[str],
-                 credentials: Optional[tuple[str, str]] = None,
-                 secure: Optional[tuple | tuple [str, str] | tuple[str, str, ssl.SSLContext]] = None,
-                 timeout: Optional[int] = 5):
+                 credentials: tuple[str, str] | None = None,
+                 secure: tuple | tuple[str, str] | tuple[str, str, ssl.SSLContext] | None = None,
+                 timeout: int = 5):
         self._crd = credentials
         self._sec = secure
         self._to = timeout
@@ -51,7 +50,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
 
 
 class ExceptionHTMLFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord):
+    def format(self, record: logging.LogRecord) -> str:
         # Format the exception details and traceback
         if record.exc_info:
             exception = record.exc_info[1]
