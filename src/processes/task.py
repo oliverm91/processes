@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from .html_logging import HTMLSMTPHandler, ExceptionHTMLFormatter
 
@@ -9,7 +9,7 @@ from .html_logging import HTMLSMTPHandler, ExceptionHTMLFormatter
 class TaskResult:
     worked: bool
     result: Any
-    exception: Optional[Exception]
+    exception: Exception | None = None
 
 
 @dataclass(slots=True)
@@ -17,7 +17,7 @@ class TaskDependency:
     task_name: str
     use_result_as_additional_args: bool = field(default=False, repr=False)
     use_result_as_additional_kwargs: bool = field(default=False, repr=False)
-    additional_kwarg_name: Optional[str] = field(default=None, repr=False)
+    additional_kwarg_name: str | None = field(default=None, repr=False)
 
     def __post_init__(self):
         if not isinstance(self.task_name, str):
@@ -110,7 +110,7 @@ class Task:
     def add_kwargs(self, **kwargs):
         self.kwargs = {**self.kwargs, **kwargs}
 
-    def run(self, aditional_args: Optional[tuple[Any]] = None, aditional_kwargs: Optional[dict[str, Any]] = None, post_traceback_html_body: Optional[str] = None) -> TaskResult:
+    def run(self, aditional_args: tuple[Any] = None, aditional_kwargs: dict[str, Any] | None = None, post_traceback_html_body: str | None = None) -> TaskResult:
         try:
             if aditional_args:
                 self.add_args(*aditional_args)
