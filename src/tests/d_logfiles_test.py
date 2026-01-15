@@ -4,6 +4,9 @@ from processes import Process, Task
 
 
 def test_single_task_worked_log_entry():
+    """
+    Test the log entry for a single task that worked.
+    """
     def task_1() -> int:
         return 1
     
@@ -29,6 +32,9 @@ def test_single_task_worked_log_entry():
 
 
 def test_two_task_worked_log_entry_same_logfile():
+    """
+    Test the log entry for two tasks that worked using the same log file.
+    """
     def task_1() -> int:
         return 1
     
@@ -59,6 +65,9 @@ def test_two_task_worked_log_entry_same_logfile():
 
 
 def test_two_task_worked_log_entry_different_logfile():
+    """
+    Test the log entry for two tasks that worked using two different log files.
+    """
     def task_1() -> int:
         return 1
     
@@ -98,6 +107,9 @@ def test_two_task_worked_log_entry_different_logfile():
 
 
 def test_exception_log_entry():
+    """
+    Test the log entry for a task that raised an exception.
+    """
     def task_1() -> int:
         return 1 / 0
     

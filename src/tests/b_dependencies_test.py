@@ -17,6 +17,9 @@ def clean_tasks_logs(tasks: list[Task]):
 
 
 def test_present_dependencies():
+    """
+    Test the presence of dependencies.
+    """
     def task_1() -> int:
         return 1
     def task_2() -> int:
@@ -51,6 +54,9 @@ def test_present_dependencies():
 
 
 def test_duplicate_dependency():
+    """
+    Test duplicate dependencies in a Task.
+    """
     def task_3(t2_res: int) -> int:
         return 3 + t2_res
     
@@ -65,6 +71,9 @@ def test_duplicate_dependency():
 
 
 def test_self_dependency():
+    """
+    Test a Task depending on itself.
+    """
     def task_3(t2_res: int) -> int:
         return 3 + t2_res
     
@@ -79,6 +88,9 @@ def test_self_dependency():
 
 
 def test_circular_dependency_one_level():
+    """
+    Test a circular dependency in a Task at the first level (a->b->a).
+    """
     def task_1() -> int:
         return 1
     def task_2() -> int:
@@ -102,6 +114,9 @@ def test_circular_dependency_one_level():
 
 
 def test_circular_dependency_two_levels():
+    """
+    Test a circular dependency in a Task at the second level (a->b->c->a).
+    """
     def task_1() -> int:
         return 1
     def task_2() -> int:
@@ -130,7 +145,10 @@ def test_circular_dependency_two_levels():
     clean_tasks_logs(tasks)
 
 
-def test_circular_dependency_two_levels2():
+def test_circular_dependency_three_levels2():
+    """
+    Test a circular dependency in a Task at the third level (a->b->c->a).
+    """
     def task_1() -> int:
         return 1
     def task_2() -> int:

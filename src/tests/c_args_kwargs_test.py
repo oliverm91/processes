@@ -4,6 +4,9 @@ from processes import Process, Task, TaskDependency
 
 
 def test_args():
+    """
+    Test the args parameter of a Task.
+    """
     def div10(a: int) -> int:
         return 10 / a
     
@@ -30,6 +33,9 @@ def test_args():
 
 
 def test_args_kwargs():
+    """
+    Test the args and kwargs parameters of a Task.
+    """
     def div(a: int, b: int=2) -> int:
         return a / b
     
@@ -63,6 +69,9 @@ def test_args_kwargs():
 
 
 def test_add_extra_args():
+    """
+    Test passing extra arguments to a Task that come as result from dependencies.
+    """
     def t1():
         return 2
     
@@ -91,6 +100,9 @@ def test_add_extra_args():
 
 
 def test_add_extra_args_kwargs():
+    """
+    Test passing extra arguments and keyword arguments to a Task that come as result from dependencies.
+    """
     def random_routine_to_do_first():
         pass
 
