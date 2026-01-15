@@ -35,14 +35,14 @@ def send_mail_test():
         smtp_config = f.read()
         smtp_config_dict = json.loads(smtp_config)
 
-    smtp_server = smtp_config_dict["smtp_server"]
-    smtp_port = smtp_config_dict["smtp_port"]
-    use_tls = smtp_config_dict["use_tls"]
-    credentials = smtp_config_dict["credentials"]
-    smtp_username = credentials["username"]
-    smtp_password = credentials["password"]
-    sender = smtp_config_dict["sender"]
-    recipients = smtp_config_dict["recipients"]
+    smtp_server: str = smtp_config_dict["smtp_server"]
+    smtp_port: str = smtp_config_dict["smtp_port"]
+    use_tls: bool = smtp_config_dict["use_tls"]
+    credentials: dict[str, str] = smtp_config_dict["credentials"]
+    smtp_username: str = credentials["username"]
+    smtp_password: str = credentials["password"]
+    sender: str = smtp_config_dict["sender"]
+    recipients: list[str] = smtp_config_dict["recipients"]
 
     if use_tls:
         smtp_handler = HTMLSMTPHandler((smtp_server, smtp_port), sender, recipients, credentials=(smtp_username, smtp_password), secure=())
