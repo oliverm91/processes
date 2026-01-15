@@ -137,17 +137,9 @@ class Process:
                     break
             if skip_task:
                 continue
-            dependant_tasks = self.get_dependant_tasks(task.name)
-            if dependant_tasks:
-                post_traceback_html_body = "<p>This failure led that the following dependant tasks will not run:</p><ul>"
-                for dependant_task in dependant_tasks:
-                    post_traceback_html_body += f"<li>{dependant_task.name}</li>"
-                post_traceback_html_body += "</ul>"
-            else:
-                post_traceback_html_body = None
             extra_args = tuple(passed_results[d.task_name].result for d in task.dependencies if d.use_result_as_additional_args)
             extra_kwargs = {d.additional_kwarg_name: passed_results[d.task_name].result for d in task.dependencies if d.use_result_as_additional_kwargs}
-            task_result: TaskResult = task.run(post_traceback_html_body=post_traceback_html_body, aditional_args=extra_args, aditional_kwargs=extra_kwargs)
+            task_result: TaskResult = task.run(executing_process=self, aditional_args=extra_args, aditional_kwargs=extra_kwargs)
             if not task_result.worked:
                 failed_tasks.add(task.name)
             else:

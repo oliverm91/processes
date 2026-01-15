@@ -1,5 +1,7 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 import logging
+from multiprocessing import Process
 from typing import Any, Callable
 
 from .html_logging import HTMLSMTPHandler, ExceptionHTMLFormatter
@@ -104,7 +106,10 @@ class Task:
     def get_dependencies_names(self) -> set[str]:
         return {dependency.task_name for dependency in self.dependencies}
     
-    def run(self, aditional_args: tuple[Any] = (), aditional_kwargs: dict[str, Any] | None = None, post_traceback_html_body: str | None = None) -> TaskResult:
+    def run(self,
+            executing_process: "Process" | None = None,
+            aditional_args: tuple[Any] = (),
+            aditional_kwargs: dict[str, Any] | None = None) -> TaskResult:
         self.args += aditional_args
         self.kwargs = {**self.kwargs, **(aditional_kwargs or {})}
         try:
@@ -113,8 +118,14 @@ class Task:
             self.logger.info(f"Finished {self.name}.")
             return TaskResult(True, result, None)
         except Exception as e:
-            if post_traceback_html_body is None:
-                post_traceback_html_body = ""
-            post_traceback_html_body += f"<br><p>Function was: {self.func.__name__}. Args were: {self.args}. Kwargs were: {self.kwargs}.</p>"
-            self.logger.exception(e, extra={"post_traceback_html_body": post_traceback_html_body})
+            impacted_tasks = []
+            if executing_process is not None:
+                impacted_tasks = executing_process.get_dependant_tasks(self.name)
+            report = ""
+            if impacted_tasks:
+                report = "<h3>Downstream Impact</h3><p>The following tasks will be skipped:</p><ul>"
+                report += "".join(f"<li>{t.name}</li>" for t in impacted_tasks)
+                report += "</ul>"
+            report += f"<p><b>Context:</b><br>Function: {self.func.__name__}<br>Args: {self.args}<br>Kwargs: {self.kwargs}</p>"
+            self.logger.exception(e, extra={"post_traceback_html_body": report})
             return TaskResult(False, None, e)
