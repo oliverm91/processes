@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="Processes Library Banner" width="800">
+</p>
+
 # 🚀 Processes: Smart Task Orchestration
 
 [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
@@ -13,10 +17,10 @@ File logging and **email notification** is supported.
 ## 📑 Table of Contents
 * [✨ Features](#-features)
 * [⚙️ Core Concepts](#️-core-concepts)
-* [📦 Installation](#-installation)
 * [🛠️ Use Cases](#️-use-cases)
 * [💻 Quick Start](#-quick-start)
 * [🛡️ Fault Tolerance & Logs](#️-fault-tolerance--logs)
+* [📦 Installation](#-installation)
 
 ---
 
@@ -36,17 +40,6 @@ The library operates on two main primitives:
 
 1.  **Task**: The atomic unit of work. It encapsulates a function, its parameters, its specific logfile, and its relationship with other tasks.
 2.  **Process**: The orchestrator. It builds the execution graph, validates dependencies, and manages the lifecycle of the entire workflow.
-
-
----
-
-## 📦 Installation
-
-Since it's a pure Python library, you can install it directly from the repository using `pip`:
-
-```bash
-pip install git+https://github.com/oliverm91/processes.git
-```
 
 
 ---
@@ -108,7 +101,6 @@ process_result = process.run() # To enable parallelization use .run(parallel=Tru
 
 ```
 
-
 ---
 
 ## 🛡️ Fault Tolerance & Logs
@@ -117,3 +109,14 @@ If a `Task` raises an exception, the `Process` **does not stop**. It intelligent
 
 ### Advanced Logging
 All tasks record their execution flow to their assigned logfiles. You can share a single logfile across the whole process or isolate specific tasks for easier debugging.
+
+
+---
+
+## 📦 Installation
+
+Since it's a pure Python library, you can install it directly from the repository using `pip`:
+
+```bash
+pip install git+https://github.com/oliverm91/processes.git
+```
