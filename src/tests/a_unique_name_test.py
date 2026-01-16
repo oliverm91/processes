@@ -28,11 +28,13 @@ def test_unique_name():
         pytest.fail(f"Unexpected exception: {e}")
 
     with pytest.raises(ValueError, match="Duplicate task name: task_2"):
-        Process(tasks)
-
+        with Process(tasks) as p:
+            pass
+        
     tasks[-1].name = "task_3"
     try:
-        Process(tasks)
+        with Process(tasks) as p:
+            pass
     except Exception as e:
         pytest.fail(f"Unexpected exception: {e}")
         clean_tasks_logs()

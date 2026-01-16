@@ -28,7 +28,7 @@ def test_args():
     assert isinstance(task_result.exception, ZeroDivisionError)
     
     for task in [t1, t2]:
-        for handler in task.logger.handlers[:]:
+        for handler in task.logger.handlers:
             handler.close()
             task.logger.removeHandler(handler)
     os.remove(os.path.join(curdir, "logfile_12.log"))
@@ -65,7 +65,7 @@ def test_args_kwargs():
     assert isinstance(task_result.exception, ZeroDivisionError)
     
     for task in [t1, t2, t3]:
-        for handler in task.logger.handlers[:]:
+        for handler in task.logger.handlers:
             handler.close()
             task.logger.removeHandler(handler)
     os.remove(os.path.join(curdir, "logfile_123.log"))
@@ -88,19 +88,15 @@ def test_add_extra_args():
     tasks.append(t1)
     t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), div, args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)])
     tasks.append(t2)
-    process = Process(tasks)
-    process_result = process.run()
+    with Process(tasks) as process:
+        process_result = process.run()
 
     assert len(process_result.failed_tasks) == 0
     assert len(process_result.passed_tasks_results) == 2
     assert process_result.passed_tasks_results["task_1"].result == 2
     assert process_result.passed_tasks_results["task_2"].result == 5
     
-    for task in [t1, t2]:
-        for handler in task.logger.handlers[:]:
-            handler.close()
-            task.logger.removeHandler(handler)
-    os.remove(os.path.join(curdir, "logfile_12.log"))
+    clean_tasks_logs()
 
 
 def test_add_extra_args_kwargs():
@@ -135,19 +131,13 @@ def test_add_extra_args_kwargs():
                 div, args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True),
                                                 TaskDependency("task_2", use_result_as_additional_kwargs=True, additional_kwarg_name="c")])
     tasks.append(t3)
-    process = Process(tasks)
-    process_result = process.run()
-
+    with Process(tasks) as process:
+        process_result = process.run()
+    
     assert len(process_result.failed_tasks) == 0
     assert len(process_result.passed_tasks_results) == 4
     assert process_result.passed_tasks_results["task_1"].result == 10
     assert process_result.passed_tasks_results["task_2"].result == 5
     assert process_result.passed_tasks_results["task_3"].result == 4
 
-    for task in [t0, t1, t2, t3]:
-        for handler in task.logger.handlers[:]:
-            handler.close()
-            task.logger.removeHandler(handler)
-    os.remove(os.path.join(curdir, "logfile_0.log"))
-    os.remove(os.path.join(curdir, "logfile_12.log"))
-    os.remove(os.path.join(curdir, "logfile_3.log"))
+    clean_tasks_logs()

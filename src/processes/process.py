@@ -23,11 +23,25 @@ class Process:
     def __init__(self, tasks: list[Task]):
         self.tasks = tasks
 
-        self._check_input_types()
-        self._check_duplicate_names()
-        self._check_dependencies_exist()
-        self._topological_sort()
+        try:
+            self._check_input_types()
+            self._check_duplicate_names()
+            self._check_dependencies_exist()
+            self._topological_sort()
+        except Exception as e:
+            self.close_loggers()
+            raise e
         self.runner = ProcessRunner(self)
+
+    def __enter__(self):
+            """Called when entering the 'with' block."""
+            return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Called when exiting the 'with' block, even if an error occurred."""
+        self.close_loggers()
+        # Return False to let exceptions propagate (don't suppress errors)
+        return False
 
     def _check_input_types(self):
         if not isinstance(self.tasks, list):
@@ -104,6 +118,10 @@ class Process:
         if parallel is None:
             parallel = len(self.tasks) >= 10
         
+        max_workers = max(1, max_workers)
+        if parallel:
+            if max_workers == 1:
+                parallel = False  # Fallback to sequential if only one worker
         process_result = self.runner.run(parallel, max_workers)
         return process_result
 
@@ -120,9 +138,9 @@ class Process:
 
     def close_loggers(self):
         for task in self.tasks:
-            for handler in task.logger.handlers[:]:
+            for handler in task.logger.handlers:
                 handler.close()
-            task.logger.removeHandler(handler)
+                task.logger.removeHandler(handler)
 
 
 import concurrent.futures

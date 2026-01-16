@@ -31,11 +31,13 @@ def test_present_dependencies():
         pytest.fail(f"Unexpected exception: {e}")
 
     with pytest.raises(DependencyNotFoundError, match=f"Task task_3 depends on missing task: task_4"):
-        Process(tasks)
+        with Process(tasks) as p:
+            pass
 
     tasks[-1].dependencies[-1].task_name = "task_2"
     try:
-        Process(tasks)
+        with Process(tasks) as p:
+            pass
     except Exception as e:
         clean_tasks_logs()
         pytest.fail(f"Unexpected exception: {e}")
@@ -80,18 +82,22 @@ def test_circular_dependency_one_level():
     curdir = os.path.dirname(__file__)
 
     try:
-        tasks = []
+        tasks: list[Task] = []
         t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"), task_1, dependencies=[TaskDependency("task_2")])
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2, dependencies=[TaskDependency("task_1")])
         tasks.append(t2)
     except Exception as e:
+        for t in tasks:
+            for handler in t.logger.handlers:
+                handler.close()
+                t.logger.removeHandler(handler)
         clean_tasks_logs()
         pytest.fail(f"Unexpected exception: {e}")
 
     with pytest.raises(CircularDependencyError, match="Circular dependency detected."):
-        Process(tasks)
-
+        with Process(tasks) as p:
+            pass
     clean_tasks_logs()
 
 
@@ -110,7 +116,7 @@ def test_circular_dependency_two_levels():
     curdir = os.path.dirname(__file__)
 
     try:
-        tasks = []
+        tasks: list[Task] = []
         t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"), task_1, dependencies=[TaskDependency("task_2")])
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2, dependencies=[TaskDependency("task_3")])
@@ -122,7 +128,8 @@ def test_circular_dependency_two_levels():
         pytest.fail(f"Unexpected exception: {e}")
 
     with pytest.raises(CircularDependencyError, match="Circular dependency detected."):
-        process = Process(tasks)
+        with Process(tasks) as p:
+            pass
 
     clean_tasks_logs()
 
@@ -145,7 +152,7 @@ def test_circular_dependency_three_levels2():
     curdir = os.path.dirname(__file__)
 
     try:
-        tasks = []
+        tasks: list[Task] = []
         t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"), task_1, dependencies=[TaskDependency("task_3")])
         tasks.append(t1)
         t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"), task_2, dependencies=[TaskDependency("task_1")])
@@ -159,6 +166,7 @@ def test_circular_dependency_three_levels2():
         pytest.fail(f"Unexpected exception: {e}")
 
     with pytest.raises(CircularDependencyError, match="Circular dependency detected."):
-        process = Process(tasks)
+        with Process(tasks) as p:
+            pass
 
     clean_tasks_logs()

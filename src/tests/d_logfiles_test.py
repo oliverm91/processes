@@ -18,9 +18,9 @@ def test_single_task_worked_log_entry():
     log_file_path = os.path.join(curdir, "logfile_1.log")
     t1 = Task("task_1", log_file_path, task_1)
     tasks.append(t1)
-    
-    process = Process(tasks)
-    process.run()
+
+    with Process(tasks) as process:
+        process.run()
 
     with open(log_file_path, "r") as f:
         lines = f.readlines()
@@ -28,9 +28,6 @@ def test_single_task_worked_log_entry():
         assert "Starting task_1." in lines[0]
         assert "Finished task_1." in lines[1]
 
-    for handler in t1.logger.handlers[:]:
-        handler.close()
-        t1.logger.removeHandler(handler)
     os.remove(log_file_path)
 
 
@@ -49,9 +46,9 @@ def test_two_task_worked_log_entry_same_logfile():
     tasks.append(t1)
     t2 = Task("task_2", log_file_path, task_1)
     tasks.append(t2)
-    
-    process = Process(tasks)
-    process.run()
+
+    with Process(tasks) as process:
+        process.run()
 
     with open(log_file_path, "r") as f:
         lines = f.readlines()
@@ -60,11 +57,6 @@ def test_two_task_worked_log_entry_same_logfile():
         assert "Finished task_1." in lines[1]
         assert "Starting task_2." in lines[2]
         assert "Finished task_2." in lines[3]
-
-    for task in tasks:
-        for handler in task.logger.handlers[:]:
-            handler.close()
-            t1.logger.removeHandler(handler)
     os.remove(log_file_path)
 
 
@@ -87,9 +79,9 @@ def test_two_task_worked_log_entry_different_logfile():
     tasks.append(t1)
     t2 = Task("task_2", log_file_path2, task_2)
     tasks.append(t2)
-    
-    process = Process(tasks)
-    process.run()
+
+    with Process(tasks) as process:
+        process.run()
 
     with open(log_file_path1, "r") as f:
         lines = f.readlines()
@@ -103,10 +95,6 @@ def test_two_task_worked_log_entry_different_logfile():
         assert "Starting task_2." in lines[0]
         assert "Finished task_2." in lines[1]
 
-    for task in tasks:
-        for handler in task.logger.handlers[:]:
-            handler.close()
-            t1.logger.removeHandler(handler)
     os.remove(log_file_path1)
     os.remove(log_file_path2)
 
@@ -125,8 +113,8 @@ def test_exception_log_entry():
     t1 = Task("task_1", log_file_path, task_1)
     tasks.append(t1)
     
-    process = Process(tasks)
-    process.run()
+    with Process(tasks) as process:
+        process.run()
 
     with open(log_file_path, "r") as f:
         lines = f.readlines()
@@ -135,7 +123,4 @@ def test_exception_log_entry():
         assert "division by zero" in lines[1]
         assert "division by zero" in lines[-1]
 
-    for handler in t1.logger.handlers[:]:
-        handler.close()
-        t1.logger.removeHandler(handler)
     os.remove(log_file_path)

@@ -65,7 +65,7 @@ from processes import Process, Task, TaskDependency, HTMLSMTPHandler
 
 # 1. Setup Email Alerts (Optional)
 smtp_handler = HTMLSMTPHandler(
-    ('smtp_server', 587), 'sender@example.com', ['admin@example.com'], 
+    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'], 
     use_tls=True, credentials=('user', 'pass')
 )
 

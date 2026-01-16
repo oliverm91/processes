@@ -35,17 +35,15 @@ log_file_path = os.path.join(curdir, "logfile_1.log")
 def test_run_single_task_sequential():
     clean_tasks_logs()
     t1 = Task("task_1", log_file_path, task_1)
-    process = Process([t1])
-    process.run(parallel=False)
-
+    with Process([t1]) as process:
+        process.run(parallel=False)
     assert True
 
 def test_run_single_task_parallel():
     clean_tasks_logs()
     t1 = Task("task_1", log_file_path, task_1)
-    process = Process([t1])
-    process.run(parallel=True)
-
+    with Process([t1]) as process:
+        process.run(parallel=True)
     assert True
 
 def test_run_independent_tasks_sequential():
@@ -53,9 +51,8 @@ def test_run_independent_tasks_sequential():
     t1 = Task("task_1", log_file_path, task_1)
     t2 = Task("task_2", log_file_path, task_2)
 
-    process = Process([t1, t2])
-    process.run(parallel=False)
-
+    with Process([t1, t2]) as process:
+        process.run(parallel=False)
     assert True
 
 def test_run_independent_tasks_parallel():
@@ -63,9 +60,8 @@ def test_run_independent_tasks_parallel():
     t1 = Task("task_1", log_file_path, task_1)
     t2 = Task("task_2", log_file_path, task_2)
 
-    process = Process([t1, t2])
-    process.run(parallel=True)
-
+    with Process([t1, t2]) as process:
+        process.run(parallel=True)
     assert True
 
 def test_run_dependent_tasks_sequential():
@@ -80,14 +76,15 @@ def test_run_dependent_tasks_sequential():
             TaskDependency("task_5", use_result_as_additional_args=True)
         ])
 
-    process = Process([t1, t2, t3, t4, t5, t6])
-    t0 = time.time()
-    process_result = process.run(parallel=False)
-    t1 = time.time()
-    
+    with Process([t1, t2, t3, t4, t5, t6]) as process:
+        t0 = time.time()
+        process_result = process.run(parallel=False)
+        t1 = time.time()
+
     assert len(process_result.passed_tasks_results) == 6, f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
     assert len(process_result.failed_tasks) == 0, f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
     assert int(round(t1 - t0, 0)) == 16, f"Sequential run took {t1 - t0} seconds. Expected 16 seconds."
+    clean_tasks_logs()
 
 def test_run_dependent_tasks_parallel():
     clean_tasks_logs()
@@ -103,15 +100,14 @@ def test_run_dependent_tasks_parallel():
             TaskDependency("task_5", use_result_as_additional_args=True)
         ])
 
-    process = Process([t1, t2, t3, t4, t5, t6])
-    t0 = time.time()
     n_workers = os.cpu_count()
-    process_result = process.run(parallel=True, max_workers=n_workers)
-    t1 = time.time()
-    
+    with Process([t1, t2, t3, t4, t5, t6]) as process:
+        t0 = time.time()
+        process_result = process.run(parallel=True, max_workers=n_workers)
+        t1 = time.time()
+
     assert len(process_result.passed_tasks_results) == 6, f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
     assert len(process_result.failed_tasks) == 0, f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
     if n_workers > 2:
         assert int(round(t1 - t0, 0)) == 8, f"Parallel run took {t1 - t0} seconds. Expected 8 seconds."
-
     clean_tasks_logs()

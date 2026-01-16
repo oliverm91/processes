@@ -1,6 +1,7 @@
 smtp_server = "smtp.gmail.com"
 smtp_port = 587
 use_tls = true
+sender = "noreply@example.com" # Google does not allow changing the sender. It will show your email. Some SMTP implementations do allow it.
 recipients = [
     "user1@example.com",
     "user2@example.com",
