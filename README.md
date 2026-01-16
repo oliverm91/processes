@@ -1,6 +1,6 @@
-<p align="center">
-  <img src="assets/banner.png" alt="Processes Library Banner" width="800">
-</p>
+<div align="center">
+  <img src="assets/banner.svg" width="100%" alt="Processes - Smart Task Orchestration">
+</div>
 
 # 🚀 Processes: Smart Task Orchestration
 
