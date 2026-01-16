@@ -45,7 +45,7 @@
     <circle cx="200" cy="200" r="8" fill="#4ecca3" filter="url(#glow)"/>
     
     <!-- Arrow to right -->
-    <line x1="200" y1="200" x2="310" y2="200" stroke="#4ecca3" stroke-width="3" stroke-linecap="round">
+    <line x1="200" y1="200" x2="314" y2="200" stroke="#4ecca3" stroke-width="3" stroke-linecap="round">
       <animate attributeName="stroke-dasharray" values="0 400; 400 0" dur="2s" repeatCount="indefinite"/>
       <animate attributeName="stroke-dashoffset" values="0; -400" dur="2s" repeatCount="indefinite"/>
     </line>
