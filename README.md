@@ -26,7 +26,7 @@ File logging and **email notification** is supported.
 
 ## ✨ Features
 
-* **🪶 Pure Python:** Zero external dependencies. Built entirely on the **Python Standard Library**.
+* **🐍 Pure Python:** Zero external dependencies. Built entirely on the **Python Standard Library**.
 * **⚡ Parallel Execution:** Built-in support for parallelization to maximize throughput.
 * **🔗 Dependency Resolution:** Automatically sorts and executes tasks based on their requirements, regardless of input order.
 * **📝 Shared Logging:** Multiple tasks can write to the same logfile or maintain separate ones seamlessly.
