@@ -1,27 +1,32 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-import logging
-from multiprocessing import Process
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
+if TYPE_CHECKING:
+    from .process import Process
 
+import logging
 from .html_logging import HTMLSMTPHandler, ExceptionHTMLFormatter
 
 
-@dataclass(slots=True)
 class TaskResult:
-    worked: bool
-    result: Any
-    exception: Exception | None = None
+    def __init__(self, worked: bool, result: Any, exception: Exception | None):
+        self.worked = worked
+        self.result = result
+        self.exception = exception
 
 
-@dataclass(slots=True)
 class TaskDependency:
-    task_name: str
-    use_result_as_additional_args: bool = field(default=False, repr=False)
-    use_result_as_additional_kwargs: bool = field(default=False, repr=False)
-    additional_kwarg_name: str | None = field(default=None, repr=False)
+    def __init__(
+            self,
+            task_name: str,
+            use_result_as_additional_args: bool = False,
+            use_result_as_additional_kwargs: bool = False,
+            additional_kwarg_name: str | None = None
+        ):
+        self.task_name = task_name
+        self.use_result_as_additional_args = use_result_as_additional_args
+        self.use_result_as_additional_kwargs = use_result_as_additional_kwargs
+        self.additional_kwarg_name = additional_kwarg_name
 
-    def __post_init__(self):
         if not isinstance(self.task_name, str):
             raise TypeError(f"task_name must be of type str. Got {type(self.task_name)}")
         if not isinstance(self.use_result_as_additional_args, bool):
@@ -37,20 +42,25 @@ class TaskDependency:
         return hash(self.task_name)
 
 
-@dataclass(slots=True)
 class Task:
-    name: str
-    log_path: str
-    func: Callable
-    args: tuple = field(default_factory=tuple)
-    kwargs: dict = field(default_factory=dict)
+    def __init__(
+            self,
+            name: str,
+            log_path: str,
+            func: Callable,
+            args: tuple = (),
+            kwargs: dict = {},
+            dependencies: list[TaskDependency] = [],
+            html_mail_handler: HTMLSMTPHandler = None
+    ):
+        self.name = name
+        self.log_path = log_path
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self.dependencies = dependencies
+        self.html_mail_handler = html_mail_handler
 
-    dependencies: list[TaskDependency] = field(default_factory=list)
-    
-    html_mail_handler: HTMLSMTPHandler = field(default=None, repr=False)
-    logger: logging.Logger = field(init=False, repr=False)
-
-    def __post_init__(self):
         self._check_input_types()
         if ' ' in self.name:
             raise ValueError(f"Task name cannot contain spaces. Got {self.name}")
@@ -94,7 +104,7 @@ class Task:
             raise TypeError(f"kwargs must be dict. Got {type(self.kwargs)}")
         
         if self.html_mail_handler is not None and not isinstance(self.html_mail_handler, HTMLSMTPHandler):
-            raise TypeError(f"mail_cfg must be of type SMTPHandler (easy_smtp library). Got {type(self.html_mail_handler)}")
+            raise TypeError(f"mail_cfg must be of type HTMLSMTPHandler. Got {type(self.html_mail_handler)}")
         
         if not isinstance(self.dependencies, list):
             raise TypeError(f"dependencies must be list. Got {type(self.dependencies)}")
@@ -106,10 +116,16 @@ class Task:
     def get_dependencies_names(self) -> set[str]:
         return {dependency.task_name for dependency in self.dependencies}
     
-    def run(self,
-            executing_process: "Process" | None = None,
-            aditional_args: tuple[Any] = (),
-            aditional_kwargs: dict[str, Any] | None = None) -> TaskResult:
+    def run(self, executing_process: Process | None = None) -> TaskResult:        
+        aditional_args = () # Additional args coming from dependencies
+        aditional_kwargs = {} # Additional kwargs coming from dependencies
+        if executing_process is not None:
+            for dep in self.dependencies:
+                if dep.use_result_as_additional_args:
+                    aditional_args += executing_process.runner.passed_results[dep.task_name].result,
+                if dep.use_result_as_additional_kwargs:
+                    aditional_kwargs[dep.additional_kwarg_name] = executing_process.runner.passed_results[dep.task_name].result
+
         self.args += aditional_args
         self.kwargs = {**self.kwargs, **(aditional_kwargs or {})}
         try:
@@ -118,14 +134,13 @@ class Task:
             self.logger.info(f"Finished {self.name}.")
             return TaskResult(True, result, None)
         except Exception as e:
-            impacted_tasks = []
-            if executing_process is not None:
-                impacted_tasks = executing_process.get_dependant_tasks(self.name)
             report = ""
-            if impacted_tasks:
-                report = "<h3>Downstream Impact</h3><p>The following tasks will be skipped:</p><ul>"
-                report += "".join(f"<li>{t.name}</li>" for t in impacted_tasks)
-                report += "</ul>"
+            if executing_process is not None:
+                dependencies_names = [d.name for d in executing_process.get_dependant_tasks(self.name)]
+                if dependencies_names:
+                    report = "<h3>Downstream Impact</h3><p>The following tasks will be skipped:</p><ul>"
+                    report += "".join(f"<li>{dependency_name}</li>" for dependency_name in dependencies_names)
+                    report += "</ul>"
             report += f"<p><b>Context:</b><br>Function: {self.func.__name__}<br>Args: {self.args}<br>Kwargs: {self.kwargs}</p>"
             self.logger.exception(e, extra={"post_traceback_html_body": report})
             return TaskResult(False, None, e)
