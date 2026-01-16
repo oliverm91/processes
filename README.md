@@ -96,8 +96,8 @@ tasks = [
 ]
 
 # 4. Run the Process
-process = Process(tasks)
-process_result = process.run() # To enable parallelization use .run(parallel=True)
+with Process(tasks) as process: # Context Manager ensures correct disposal of loggers
+    process_result = process.run() # To enable parallelization use .run(parallel=True)
 
 ```
 
