@@ -165,3 +165,5 @@ smtp_config.json
 /.vscode
 
 mail_config.toml
+
+.python-version
