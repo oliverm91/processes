@@ -1,0 +1,28 @@
+name: Python Tests
+
+on:
+  pull_request:
+    branches: [ main, master ] # Se ejecuta en PRs hacia estas ramas
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true # Acelera las ejecuciones futuras
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync # Esto lee tu pyproject.toml e instala todo (incluyendo attrs)
+
+      - name: Run tests
+        run: uv run pytest
