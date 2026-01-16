@@ -58,7 +58,6 @@ The library operates on two main primitives:
 Define your tasks and their dependencies. **Processes** will handle the execution order and data injection between tasks.
 
 ```python
-import os
 from datetime import date
 
 from processes import Process, Task, TaskDependency, HTMLSMTPHandler
@@ -82,17 +81,21 @@ def sum_data_from_csv_and_x(x, a=1, b=2):
 # 3. Create the Task Graph (order is irrelevant, that is handled by Process)
 tasks = [
     Task("t-1", "etl.log", get_previous_working_day),
-    Task("intependent", "indep.log", indep_task),
+    Task("intependent", "indep.log", indep_task, html_mail_handler=smtp_handler),  # This task will send email on failure
     Task("sum_csv", "etl.log", search_and_sum_csv,
-            TaskDependency("t-1",
-            use_result_as_additional_args=True) # Adds result of t-1 task to search_and_sum_csv function as aditional args
+            dependencies= [
+                TaskDependency("t-1",
+                use_result_as_additional_args=True)  # Adds result of t-1 task to search_and_sum_csv function as aditional args
+            ]
         ),
     Task("sum_x_and_csv", "etl.log", sum_data_from_csv_and_x,
-            args = (10,), kwargs = {"b": 100}
-            TaskDependency("sum_csv",
+            args = (10,), kwargs = {"b": 100},
+            dependencies=[
+                TaskDependency("sum_csv",
             use_result_as_additional_kwargs=True,
-            additional_kwarg_name="a"),
-        )
+            additional_kwarg_name="a")
+        ]
+    )
 ]
 
 # 4. Run the Process
