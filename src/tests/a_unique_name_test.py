@@ -1,21 +1,10 @@
 import os
+import pytest
 
 from processes import Process, Task
 
-import pytest
+from .log_cleaner import clean_tasks_logs
 
-def clean_tasks_logs(tasks: list[Task]):
-    curdir = os.path.dirname(__file__)
-    print(curdir)
-    for task in tasks:
-            task_logger = task.logger
-            for handler in task_logger.handlers[:]:
-                handler.close()
-                task_logger.removeHandler(handler)
-    for file in os.listdir(curdir):
-        print(os.path.join(curdir, file))
-        if file.endswith(".log"):
-            os.remove(os.path.join(curdir, file))
 
 def test_unique_name():
     def task_1() -> int:
@@ -35,17 +24,17 @@ def test_unique_name():
         t3 = Task("task_2", os.path.join(curdir, "logfile_3.log"), task_3, args=(1,))
         tasks.append(t3)
     except Exception as e:
-        clean_tasks_logs(tasks)
+        clean_tasks_logs()
         pytest.fail(f"Unexpected exception: {e}")
 
     with pytest.raises(ValueError, match="Duplicate task name: task_2"):
-        process = Process(tasks)
+        Process(tasks)
 
     tasks[-1].name = "task_3"
     try:
-        process = Process(tasks)
+        Process(tasks)
     except Exception as e:
         pytest.fail(f"Unexpected exception: {e}")
-        clean_tasks_logs(tasks)
+        clean_tasks_logs()
 
-    clean_tasks_logs(tasks)
+    clean_tasks_logs()

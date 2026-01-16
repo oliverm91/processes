@@ -2,11 +2,14 @@ import os
 
 from processes import Process, Task
 
+from .log_cleaner import clean_tasks_logs
+
 
 def test_single_task_worked_log_entry():
     """
     Test the log entry for a single task that worked.
     """
+    clean_tasks_logs()
     def task_1() -> int:
         return 1
     
@@ -35,6 +38,7 @@ def test_two_task_worked_log_entry_same_logfile():
     """
     Test the log entry for two tasks that worked using the same log file.
     """
+    clean_tasks_logs()
     def task_1() -> int:
         return 1
     
@@ -68,6 +72,7 @@ def test_two_task_worked_log_entry_different_logfile():
     """
     Test the log entry for two tasks that worked using two different log files.
     """
+    clean_tasks_logs()
     def task_1() -> int:
         return 1
     
@@ -110,6 +115,7 @@ def test_exception_log_entry():
     """
     Test the log entry for a task that raised an exception.
     """
+    clean_tasks_logs()
     def task_1() -> int:
         return 1 / 0
     

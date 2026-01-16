@@ -1,7 +1,3 @@
-from dataclasses import dataclass
-
-from attrs import field
-
 from .task import Task, TaskResult
 
 
@@ -17,19 +13,18 @@ class CircularDependencyError(Exception):
     pass
 
 
-@dataclass(slots=True)
 class ProcessResult:
-    passed_tasks_results: dict[str, TaskResult]
-    failed_tasks: set[str]
+    def __init__(self, passed_tasks_results: dict[str, TaskResult], failed_tasks: set[str]):
+        self.passed_tasks_results = passed_tasks_results
+        self.failed_tasks = failed_tasks
 
 
-@dataclass(slots=True)
 class Process:
-    tasks: list[Task]
-    runner: "ProcessRunner" = field(init=False, repr=False)
+    def __init__(self, tasks: list[Task]):
+        self.tasks = tasks
 
-    def __post_init__(self):
         self._check_input_types()
+        self._check_duplicate_names()
         self._check_dependencies_exist()
         self._topological_sort()
         self.runner = ProcessRunner(self)
@@ -40,13 +35,20 @@ class Process:
         for task in self.tasks:
             if not isinstance(task, Task):
                 raise TypeError(f"task must be Task. Got {type(task)}")
+    
+    def _check_duplicate_names(self):
+        names = set()
+        for task in self.tasks:
+            if task.name in names:
+                raise ValueError(f"Duplicate task name: {task.name}")
+            names.add(task.name)
 
     def _check_dependencies_exist(self):
         names = {t.name for t in self.tasks}
         for task in self.tasks:
             for dep in task.get_dependencies_names():
                 if dep not in names:
-                    raise ValueError(f"Task {task.name} depends on missing task: {dep}")
+                    raise DependencyNotFoundError(f"Task {task.name} depends on missing task: {dep}")
 
     def _topological_sort(self):
         """Kahn's Algorithm: Sorts tasks based on dependencies in O(V+E) time."""
@@ -71,7 +73,7 @@ class Process:
                     queue.append(v)
 
         if len(sorted_tasks) != len(self.tasks):
-            raise ValueError("Circular dependency detected.")
+            raise CircularDependencyError("Circular dependency detected.")
         self.tasks = sorted_tasks
 
     def get_task(self, task_name: str) -> Task:
@@ -81,11 +83,29 @@ class Process:
         raise TaskNotFoundError(f"Task not found: {task_name}")
 
     def run(self, parallel: bool = None, max_workers: int = 4) -> ProcessResult:
+        """
+        Runs the tasks in the process.
+        
+        ------
+        Parameters
+        ------
+        - parallel: Whether to run tasks in parallel (dependancies are taken into consideration). If None, automatically set to True 
+                   for processes with 10 or more tasks, False otherwise.
+        - max_workers: Maximum number of worker threads for parallel execution. Default is 4.
+                      Only used when parallel=True.
+
+        ------
+        Returns
+        ------
+        - ProcessResult: Contains passed_tasks_results (dict mapping task names to TaskResult)
+                        and failed_tasks (set of task names that failed).
+        
+        """
         if parallel is None:
             parallel = len(self.tasks) >= 10
         
-        passed, failed = self.runner.run(parallel, max_workers)
-        return ProcessResult(passed, failed)
+        process_result = self.runner.run(parallel, max_workers)
+        return process_result
 
     def get_dependant_tasks(self, task_name: str) -> list[Task]:
         """Returns all tasks that depend on this task recursively."""
@@ -113,12 +133,12 @@ class ProcessRunner:
         self.failed_tasks: set[str] = set()
         self.submitted_tasks: set[str] = set()
 
-    def run(self, parallel: bool, max_workers: int):
+    def run(self, parallel: bool, max_workers: int) -> ProcessResult:
         if parallel:
             self._run_parallel(max_workers)
         else:
             self._run_sequential()
-        return self.passed_results, self.failed_tasks
+        return ProcessResult(self.passed_results, self.failed_tasks)
 
     def _is_unrunnable(self, task: Task) -> bool:
         if any(d.task_name in self.failed_tasks for d in task.dependencies):
@@ -140,26 +160,33 @@ class ProcessRunner:
     def _run_parallel(self, max_workers: int):
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             fut_to_name = {}
-            while True:
+            while len(self.passed_results) + len(self.failed_tasks) < len(self.process.tasks):
+                # Look for candidates to execute now
                 candidates = [t for t in self.process.tasks 
-                             if t.name not in self.submitted_tasks 
-                             and t.name not in self.failed_tasks
-                             and not self._is_unrunnable(t)
-                             and self._all_deps_met(t)]
+                            if t.name not in self.submitted_tasks 
+                            and t.name not in self.failed_tasks
+                            and not self._is_unrunnable(t)
+                            and self._all_deps_met(t)]
 
-                if not candidates and not fut_to_name: break
-
+                # Send tasks for execution and register as Task as submitted
                 for task in candidates:
                     fut = executor.submit(task.run, self.process)
                     fut_to_name[fut] = task.name
                     self.submitted_tasks.add(task.name)
 
+                # If there are tasks pending, wait. As soon one is completed, save as passed or failed and remove from futures.
                 if fut_to_name:
                     done, _ = concurrent.futures.wait(fut_to_name.keys(), return_when='FIRST_COMPLETED')
                     for fut in done:
                         name = fut_to_name.pop(fut)
                         try:
                             res = fut.result()
-                            if res.worked: self.passed_results[name] = res
-                            else: self.failed_tasks.add(name)
-                        except Exception: self.failed_tasks.add(name)
+                            if res.worked: 
+                                self.passed_results[name] = res
+                            else: 
+                                self.failed_tasks.add(name)
+                        except Exception: 
+                            self.failed_tasks.add(name)
+                else:
+                    # No candidates and no running tasks - likely a deadlock or logic error
+                    raise RuntimeError("Parallel execution stalled: no candidates found and no tasks running")

@@ -8,7 +8,7 @@ import ssl
 
 
 class HTMLSMTPHandler(logging.handlers.SMTPHandler):
-    def __init__(self, mailhost: tuple[str, str], fromaddr: str, toaddrs: list[str],
+    def __init__(self, mailhost: tuple[str, str], toaddrs: list[str],
                  credentials: tuple[str, str] | None = None,
                  secure: tuple | tuple[str, str] | tuple[str, str, ssl.SSLContext] | None = None,
                  timeout: int = 5):
@@ -16,10 +16,10 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         self._sec = secure
         self._to = timeout
 
-        super().__init__(mailhost, fromaddr, toaddrs, '', credentials=credentials, secure=secure, timeout=timeout)
+        super().__init__(mailhost, '', toaddrs, '', credentials=credentials, secure=secure, timeout=timeout)
 
     def copy(self):
-        return HTMLSMTPHandler(self.mailhost, self.fromaddr, self.toaddrs, credentials=self._crd, secure=self._sec, timeout=self._to)
+        return HTMLSMTPHandler(self.mailhost, self.toaddrs, credentials=self._crd, secure=self._sec, timeout=self._to)
     
     def __copy__(self):
         return self.copy()

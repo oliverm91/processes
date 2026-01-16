@@ -2,11 +2,13 @@ import os
 
 from processes import Process, Task, TaskDependency
 
+from .log_cleaner import clean_tasks_logs
 
 def test_args():
     """
     Test the args parameter of a Task.
     """
+    clean_tasks_logs()
     def div10(a: int) -> int:
         return 10 / a
     
@@ -36,6 +38,7 @@ def test_args_kwargs():
     """
     Test the args and kwargs parameters of a Task.
     """
+    clean_tasks_logs()
     def div(a: int, b: int=2) -> int:
         return a / b
     
@@ -72,6 +75,7 @@ def test_add_extra_args():
     """
     Test passing extra arguments to a Task that come as result from dependencies.
     """
+    clean_tasks_logs()
     def t1():
         return 2
     
@@ -103,6 +107,7 @@ def test_add_extra_args_kwargs():
     """
     Test passing extra arguments and keyword arguments to a Task that come as result from dependencies.
     """
+    clean_tasks_logs()
     def random_routine_to_do_first():
         pass
 

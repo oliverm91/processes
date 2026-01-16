@@ -1,0 +1,27 @@
+[project]
+name = "processes"
+version = "1.0.0"
+description = "A Python library for managing and executing dependent tasks in parallel or sequential order with automatic dependency resolution and topological sorting"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Oliver Mohr Bonometti", email = "oliver.mohr.b@gmail.com" }
+]
+keywords = ["tasks", "workflow", "dependencies", "parallel", "dag", "process", "etl", "topological-sort"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

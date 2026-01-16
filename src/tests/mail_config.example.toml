@@ -1,0 +1,12 @@
+smtp_server = "smtp.gmail.com"
+smtp_port = 587
+use_tls = true
+recipients = [
+    "user1@example.com",
+    "user2@example.com",
+    "admin@example.com"
+]
+
+[credentials]
+username = "your-email@gmail.com"
+password = "your-app-password" # Obtained from https://myaccount.google.com/apppasswords. Create an app, name it (irrelevant). You'll be given a 16 char pass. That's it, no spaces.
