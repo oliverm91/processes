@@ -1,53 +1,119 @@
-# Library for process automation
+# 🚀 Processes: Smart Task Orchestration
 
-In processes, a `Process` can execute a series of `Task`s sequentially. The `process` takes into account dependencies of `Task`s.
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)](#)
 
-All `Task`s write logs to a logfile. Logfiles can be shared across Tasks. Optionally, it can inform of raised exceptions via email with SMTP.
+**Processes** is a lightweight, high-performance Python library designed to execute complex task graphs. It manages **dependencies**, handles **parallel execution**, and ensures system resilience without any external dependencies.
 
-If a `Task` raises an exception, the `Process` does not stop and it will execute all other `Task`s that do not have a dependency on failed `Task`.
+File logging and **email notification** is supported.
 
-Order of `Task`s is not relevant. `Process` will sort according to `Task`s dependencies.
+---
 
-##### Example:
+## 📑 Table of Contents
+* [✨ Features](#-features)
+* [⚙️ Core Concepts](#️-core-concepts)
+* [📦 Installation](#-installation)
+* [🛠️ Use Cases](#️-use-cases)
+* [💻 Quick Start](#-quick-start)
+* [🛡️ Fault Tolerance & Logs](#️-fault-tolerance--logs)
 
-``` python
-from processes import Process, Task, HTMLSMTPHandler
+---
+
+## ✨ Features
+
+* **🪶 Pure Python:** Zero external dependencies. Built entirely on the **Python Standard Library**.
+* **⚡ Parallel Execution:** Built-in support for parallelization to maximize throughput.
+* **🔗 Dependency Resolution:** Automatically sorts and executes tasks based on their requirements, regardless of input order.
+* **📝 Shared Logging:** Multiple tasks can write to the same logfile or maintain separate ones seamlessly.
+* **📧 Email Notifications:** Integrated SMTP support (including HTML) to alert you the moment an exception occurs.
+
+---
+
+## ⚙️ Core Concepts
+
+The library operates on two main primitives:
+
+1.  **Task**: The atomic unit of work. It encapsulates a function, its parameters, its specific logfile, and its relationship with other tasks.
+2.  **Process**: The orchestrator. It builds the execution graph, validates dependencies, and manages the lifecycle of the entire workflow.
 
 
-def random_routine_to_do_first():
-    pass
+---
 
-def get_b() -> int:
-    return 10
+## 📦 Installation
 
-def get_c() -> int:
-    return 5
+Since it's a pure Python library, you can install it directly from the repository using `pip`:
 
-def div(a: int, b: int, c: int=5) -> float:
-    return (a + b) / c
-
-# Optional, defined in easy_smtp lib
-smtp_handler = HTMLSMTPHandler(('smtp_server', 587), 'sender@example.com', ['receiver@example.com'], use_tls=True, credentials=('username', 'password'))
-
-curdir = os.path.dirname(__file__)
-tasks = []
-# Task(name (unique in a process), logfile, function, Optional args, Optional kwargs, Optional mail_handler)
-t1 = Task("task_1", os.path.join(curdir, "logfile_12.log"),
-            get_b, html_mail_handler=smtp_handler)
-tasks.append(t1)
-t2 = Task("task_2", os.path.join(curdir, "logfile_12.log"),
-            get_c, dependencies=[TaskDependency("task_1")]) # Need task_1 to complete first
-tasks.append(t2)
-t3 = Task("task_3", os.path.join(curdir, "logfile_3.log"),
-            div, args=(10, ), dependencies=[TaskDependency("task_1", use_result_as_additional_args=True),
-                                            TaskDependency("task_2", use_result_as_additional_kwargs=True, additional_kwarg_name="c")])
-# Task 3 needs task_1 and task_2 to execute first.
-# Additionally, task_3 will add result of task_1 as an extra args for its function (10, ) -> (10, result_task1)
-# Also, task_3 will add result of task_2 as a kwarg it keyword "c".
-# Finally, task_3 calls div(10, result_1, c=result_2) or div(10, 10, c=5).
-tasks.append(t3)
-
-# Order of tasks is not relevant. Process sort according to dependencies.
-process = Process(tasks)
-process_result = process.run()
+```bash
+pip install git+https://github.com/oliverm91/processes.git
 ```
+
+
+---
+
+## 🛠️ Use Cases
+- **ETL Pipelines:** Fetch data from an API, transform it, and load it into a database as separate, dependent tasks.
+
+- **System Maintenance:** Run parallel cleanup scripts, check server health, and receive email alerts if a specific check fails.
+
+- **Automated Reporting:** Generate multiple data parts in parallel, aggregate them into a final report, and distribute via SMTP.
+
+
+---
+
+## 💻 Quick Start
+Define your tasks and their dependencies. **Processes** will handle the execution order and data injection between tasks.
+
+```python
+import os
+from datetime import date
+
+from processes import Process, Task, TaskDependency, HTMLSMTPHandler
+
+# 1. Setup Email Alerts (Optional)
+smtp_handler = HTMLSMTPHandler(
+    ('smtp_server', 587), 'sender@example.com', ['admin@example.com'], 
+    use_tls=True, credentials=('user', 'pass')
+)
+
+# 2. If necessary, create wrappers for your Tasks.
+def get_previous_working_day():
+    return date(2025, 12, 30)
+def indep_task():
+    return "foo"
+def search_and_sum_csv(t: date):
+    return 10
+def sum_data_from_csv_and_x(x, a=1, b=2):
+    return x + a + b
+
+# 3. Create the Task Graph (order is irrelevant, that is handled by Process)
+tasks = [
+    Task("t-1", "etl.log", get_previous_working_day),
+    Task("intependent", "indep.log", indep_task),
+    Task("sum_csv", "etl.log", search_and_sum_csv,
+            TaskDependency("t-1",
+            use_result_as_additional_args=True) # Adds result of t-1 task to search_and_sum_csv function as aditional args
+        ),
+    Task("sum_x_and_csv", "etl.log", sum_data_from_csv_and_x,
+            args = (10,), kwargs = {"b": 100}
+            TaskDependency("sum_csv",
+            use_result_as_additional_kwargs=True,
+            additional_kwarg_name="a"),
+        )
+]
+
+# 4. Run the Process
+process = Process(tasks)
+process_result = process.run() # To enable parallelization use .run(parallel=True)
+
+```
+
+
+---
+
+## 🛡️ Fault Tolerance & Logs
+### Resilience by Design
+If a `Task` raises an exception, the `Process` **does not stop**. It intelligently skips any tasks that depend on the failed one but continues to execute all other independent branches of your workflow.
+
+### Advanced Logging
+All tasks record their execution flow to their assigned logfiles. You can share a single logfile across the whole process or isolate specific tasks for easier debugging.
