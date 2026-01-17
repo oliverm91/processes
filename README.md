@@ -9,7 +9,7 @@
 [![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)](#)
 ![Python Tests Status](https://github.com/oliverm91/processes/actions/workflows/tests.yml/badge.svg?branch=main)
 
-**Processes** is a lightweight, high-performance Python library designed to execute complex task graphs. It manages **dependencies**, handles **parallel execution**, and ensures system resilience without any external dependencies.
+**Processes** is a lightweight, high-performance Python library designed to execute complex task graphs. It manages **dependencies**, handles **parallel execution**, and ensures system resilience without any external libraries.
 
 File logging and **email notification** is supported.
 
