@@ -162,7 +162,13 @@ cython_debug/
 #.idea/
 
 smtp_config.json
+
 /.vscode
+.vscode/*
+
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
 
 mail_config.toml
 

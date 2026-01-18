@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
 [project]
 name = "processes"
-version = "1.0.0"
+dynamic = ["version"]
 description = "A Python library for managing and executing dependent tasks in parallel or sequential order with automatic dependency resolution and topological sorting"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +16,7 @@ keywords = ["tasks", "workflow", "dependencies", "parallel", "dag", "process", "
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -23,5 +28,27 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "commitizen>=4.11.6",
     "pytest>=9.0.2",
+    "ruff>=0.14.13",
 ]
+
+[tool.hatch.version]
+source = "vcs"  # <--- Tells Hatch to look at Git/VCS tags
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/processes"] # Ensure this points to your actual code
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "git_tag" 
+tag_format = "v$version"
+update_map_description = true
+version_files = ["pyproject.toml:version"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "B", "UP"] 
+ignore = []

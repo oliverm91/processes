@@ -1,0 +1,29 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true # Speeds up future runs
+
+      - name: Set up Python
+        run: uv python install # Uses the version from your pyproject.toml
+
+      - name: Run Ruff Check
+        # 'uv run' ensures we use the version in your lockfile
+        run: uv run ruff check .
+
+      - name: Run Ruff Format Check
+        # Fails if code isn't formatted according to your 100-char rule
+        run: uv run ruff format --check .
