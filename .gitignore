@@ -173,3 +173,5 @@ smtp_config.json
 mail_config.toml
 
 .python-version
+
+.ruff_cache
