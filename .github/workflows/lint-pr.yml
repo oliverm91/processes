@@ -20,8 +20,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           types: |
-            feat      # A new feature for the user, not a new feature for builds
             fix       # A bug fix for the user, not a fix to a build script
+            feat      # A new feature for the user, not a new feature for builds
             docs      # Changes to the documentation
             style     # Formatting, missing semi colons, etc; no production code change
             refactor  # Refactoring production code, eg. renaming a variable
@@ -29,5 +29,3 @@ jobs:
             test      # Adding missing tests, refactoring tests; no production code change
             build     # Changes that affect the build system or external dependencies
             ci        # Changes to our CI configuration files and scripts
-            chore     # Other changes that don't modify src or test files
-            revert    # Reverts a previous commit
