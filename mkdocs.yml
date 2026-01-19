@@ -3,6 +3,8 @@ site_url: https://oliverm91.github.io/processes/
 
 theme:
   name: material
+  favicon: assets/favicon.svg
+  logo: assets/favicon.svg
   palette:
     - media: "(prefers-color-scheme: dark)"
       primary: teal

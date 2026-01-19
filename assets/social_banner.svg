@@ -1,4 +1,4 @@
-<svg viewBox="0 0 1200 400" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
@@ -11,7 +11,7 @@
     </linearGradient>
     
     <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -20,16 +20,16 @@
   </defs>
   
   <!-- Background -->
-  <rect width="1200" height="400" fill="url(#bgGradient)"/>
+  <rect width="1280" height="640" fill="url(#bgGradient)"/>
   
   <!-- Grid pattern -->
   <g opacity="0.1">
-    <path d="M0,0 L0,400 M100,0 L100,400 M200,0 L200,400 M300,0 L300,400 M400,0 L400,400 M500,0 L500,400 M600,0 L600,400 M700,0 L700,400 M800,0 L800,400 M900,0 L900,400 M1000,0 L1000,400 M1100,0 L1100,400 M1200,0 L1200,400" stroke="#4ecca3" stroke-width="1"/>
-    <path d="M0,0 L1200,0 M0,100 L1200,100 M0,200 L1200,200 M0,300 L1200,300 M0,400 L1200,400" stroke="#4ecca3" stroke-width="1"/>
+    <path d="M0,0 L0,640 M100,0 L100,640 M200,0 L200,640 M300,0 L300,640 M400,0 L400,640 M500,0 L500,640 M600,0 L600,640 M700,0 L700,640 M800,0 L800,640 M900,0 L900,640 M1000,0 L1000,640 M1100,0 L1100,640 M1200,0 L1200,640 M1280,0 L1280,640" stroke="#4ecca3" stroke-width="1"/>
+    <path d="M0,0 L1280,0 M0,100 L1280,100 M0,200 L1280,200 M0,300 L1280,300 M0,400 L1280,400 M0,500 L1280,500 M0,640 L1280,640" stroke="#4ecca3" stroke-width="1"/>
   </g>
   
-  <!-- Task flow visualization (left side) - New logo design -->
-  <g opacity="0.9" transform="translate(30, 80)">
+  <!-- Task flow visualization (center) - Scaled up -->
+  <g opacity="0.9" transform="translate(40, 105) scale(1.8)">
     <!-- Connections (edges) -->
     <g stroke-width="3" stroke-linecap="round">
       <!-- Blue branches -->
@@ -82,40 +82,19 @@
       <circle cx="190" cy="120" r="7"/>
       <circle cx="190" cy="190" r="10"/>
     </g>
-    
   </g>
   
   <!-- Main Title -->
-  <text x="600" y="160" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="72" font-weight="bold" fill="url(#accentGradient)" text-anchor="middle" filter="url(#glow)">
+  <text x="760" y="270" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="102" font-weight="bold" fill="url(#accentGradient)" text-anchor="middle" filter="url(#glow)">
     PROCESSES
   </text>
   
   <!-- Subtitle -->
-  <text x="600" y="210" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="28" fill="#ffffff" text-anchor="middle" opacity="0.9">
+  <text x="770" y="370" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="42" fill="#ffffff" text-anchor="middle" opacity="0.9">
     Robust Routines Management
   </text>
   
-  <!-- Feature badges -->
-  <g transform="translate(215, 315)">
-    <rect x="-10" y="0" width="172" height="36" rx="18" fill="#4ecca3" opacity="0.2"/>
-    <text x="72" y="24" font-family="'SF Mono', 'Monaco', 'Courier New', monospace"
-    font-size="20" fill="#4ecca3" text-anchor="middle" font-weight="600">⚡ Parallel</text>
-  </g>
-  
-  <g transform="translate(425, 315)">
-    <rect x="-35" y="0" width="294" height="36" rx="18" fill="#4ecca3" opacity="0.2"/>
-    <text x="110" y="24" font-family="'SF Mono', 'Monaco', 'Courier New', monospace"
-    font-size="20" fill="#4ecca3" text-anchor="middle" font-weight="600">📧 Email Notification</text>
-  </g>
-  
-  <g transform="translate(710, 315)">
-    <rect x="-10" y="0" width="323" height="36" rx="18" fill="#4ecca3" opacity="0.2"/>
-    <text x="150" y="24" font-family="'SF Mono', 'Monaco', 'Courier New', monospace"
-    font-size="20" fill="#4ecca3" text-anchor="middle" font-weight="600">🔗 Dependency Resolution</text>
-  </g>
-
-  
   <!-- Decorative code brackets -->
-  <text x="950" y="140" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="120" fill="#4ecca3" opacity="0.15" font-weight="300">{</text>
-  <text x="1050" y="280" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="120" fill="#4ecca3" opacity="0.15" font-weight="300">}</text>
+  <text x="1060" y="240" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="150" fill="#4ecca3" opacity="0.15" font-weight="300">{</text>
+  <text x="1160" y="460" font-family="'SF Mono', 'Monaco', 'Courier New', monospace" font-size="150" fill="#4ecca3" opacity="0.15" font-weight="300">}</text>
 </svg>
