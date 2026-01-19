@@ -1,0 +1,71 @@
+<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Transparent background -->
+  
+  <!-- Task graph structure -->
+  <g stroke-width="3" stroke-linecap="round">
+    <!-- Blue branches -->
+    <g stroke="#4ecca3" fill="none">
+      <!-- Top to second level -->
+      <path d="M 250 120 L 160 200"/>
+      <path d="M 250 120 L 340 200"/>
+      
+      <!-- Second to third level -->
+      <path d="M 160 200 L 250 280"/>
+      <path d="M 340 200 L 250 280"/>
+      <path d="M 160 200 L 120 300"/>
+      
+      <!-- Vertical parallel branches -->
+      <path d="M 250 280 L 250 415"/>
+      <path d="M 120 300 L 120 415"/>
+    </g>
+    
+    <!-- Connection to failing task (blue) -->
+    <g stroke="#4ecca3" fill="none">
+      <path d="M 340 200 L 380 300"/>
+    </g>
+    
+    <!-- Failed branch (red) -->
+    <g stroke="#ef4444" fill="none">
+      <path d="M 380 300 L 380 415"/>
+    </g>
+    
+    <!-- Nodes (tasks) -->
+    <g fill="#4ecca3" filter="url(#glow)">
+      <!-- Top node -->
+      <circle cx="250" cy="120" r="12"/>
+      
+      <!-- Second level -->
+      <circle cx="160" cy="200" r="12"/>
+      <circle cx="340" cy="200" r="12"/>
+      
+      <!-- Third level -->
+      <circle cx="250" cy="280" r="12"/>
+      <circle cx="120" cy="300" r="10"/>
+      
+      <!-- Final nodes -->
+      <circle cx="120" cy="420" r="14"/>
+      <circle cx="250" cy="420" r="14"/>
+    </g>
+    
+    <!-- Failed branch nodes (red) -->
+    <g fill="#ef4444" filter="url(#glow)">
+      <circle cx="380" cy="300" r="10"/>
+      <circle cx="380" cy="420" r="14"/>
+    </g>
+  </g>
+</svg>

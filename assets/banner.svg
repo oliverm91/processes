@@ -28,30 +28,61 @@
     <path d="M0,0 L1200,0 M0,100 L1200,100 M0,200 L1200,200 M0,300 L1200,300 M0,400 L1200,400" stroke="#4ecca3" stroke-width="1"/>
   </g>
   
-  <!-- Task flow visualization (left side) -->
-  <g opacity="0.8">
-    <!-- Top branch flowing down -->
-    <line x1="80" y1="120" x2="140" y2="120" stroke="#4ecca3" stroke-width="3" stroke-linecap="round"/>
-    <line x1="140" y1="120" x2="200" y2="180" stroke="#4ecca3" stroke-width="3" stroke-linecap="round"/>
+  <!-- Task flow visualization (left side) - New logo design -->
+  <g opacity="0.9" transform="translate(30, 80)">
+    <!-- Connections (edges) -->
+    <g stroke-width="3" stroke-linecap="round">
+      <!-- Blue branches -->
+      <g stroke="#4ecca3" fill="none">
+        <!-- Top to second level -->
+        <path d="M 125 20 L 80 60"/>
+        <path d="M 125 20 L 170 60"/>
+        
+        <!-- Second to third level -->
+        <path d="M 80 60 L 125 100"/>
+        <path d="M 170 60 L 125 100"/>
+        <path d="M 80 60 L 60 120"/>
+        
+        <!-- Vertical parallel branches -->
+        <path d="M 125 100 L 125 185"/>
+        <path d="M 60 120 L 60 185"/>
+      </g>
+      
+      <!-- Connection to failing task (blue) -->
+      <g stroke="#4ecca3" fill="none">
+        <path d="M 170 60 L 190 120"/>
+      </g>
+      
+      <!-- Failed branch (red) -->
+      <g stroke="#ef4444" fill="none">
+        <path d="M 190 120 L 190 185"/>
+      </g>
+    </g>
     
-    <!-- Middle branch straight -->
-    <line x1="80" y1="200" x2="200" y2="200" stroke="#4ecca3" stroke-width="3" stroke-linecap="round"/>
+    <!-- Nodes (tasks) -->
+    <g fill="#4ecca3" filter="url(#glow)">
+      <!-- Top node -->
+      <circle cx="125" cy="20" r="8"/>
+      
+      <!-- Second level -->
+      <circle cx="80" cy="60" r="8"/>
+      <circle cx="170" cy="60" r="8"/>
+      
+      <!-- Third level -->
+      <circle cx="125" cy="100" r="8"/>
+      <circle cx="60" cy="120" r="7"/>
+      
+      <!-- Final nodes -->
+      <circle cx="60" cy="190" r="10"/>
+      <circle cx="125" cy="190" r="10"/>
+    </g>
     
-    <!-- Bottom branch flowing up -->
-    <line x1="80" y1="280" x2="140" y2="280" stroke="#4ecca3" stroke-width="3" stroke-linecap="round"/>
-    <line x1="140" y1="280" x2="200" y2="220" stroke="#4ecca3" stroke-width="3" stroke-linecap="round"/>
+    <!-- Failed branch nodes (red) -->
+    <g fill="#ef4444" filter="url(#glow)">
+      <circle cx="190" cy="120" r="7"/>
+      <circle cx="190" cy="190" r="10"/>
+    </g>
     
-    <!-- Merge point -->
-    <circle cx="200" cy="200" r="8" fill="#4ecca3" filter="url(#glow)"/>
-    
-    <!-- Arrow to right -->
-    <line x1="200" y1="200" x2="314" y2="200" stroke="#4ecca3" stroke-width="3" stroke-linecap="round">
-      <animate attributeName="stroke-dasharray" values="0 400; 400 0" dur="2s" repeatCount="indefinite"/>
-      <animate attributeName="stroke-dashoffset" values="0; -400" dur="2s" repeatCount="indefinite"/>
-    </line>
-    <polygon points="320,200 305,193 305,207" fill="#4ecca3" filter="url(#glow)">
-      <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
-    </polygon>
   </g>
   
   <!-- Main Title -->
