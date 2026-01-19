@@ -1,3 +1,9 @@
+## v1.0.2 (2026-01-19)
+
+### Fix
+
+- **ci**: added a workflow for publishing to pypi
+
 ## v1.0.1 (2026-01-19)
 
 ### Fix
