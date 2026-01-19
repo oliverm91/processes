@@ -41,7 +41,7 @@ packages = ["src/processes"] # Ensure this points to your actual code
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version_provider = "git_tag" 
+version_provider = "scm" 
 tag_format = "v$version"
 update_map_description = true
 version_files = ["pyproject.toml:version"]
