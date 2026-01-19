@@ -1,3 +1,9 @@
+## v1.0.1 (2026-01-19)
+
+### Fix
+
+- **lint**: fix ruff formatting
+
 ## v1.0.0 (2026-01-19)
 
 ### BREAKING CHANGE
