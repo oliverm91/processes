@@ -1,3 +1,9 @@
+## v1.0.3 (2026-01-19)
+
+### Fix
+
+- **docs**: changes in readme and index of docs to show banner
+
 ## v1.0.2 (2026-01-19)
 
 ### Fix
