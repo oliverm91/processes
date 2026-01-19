@@ -13,7 +13,7 @@
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://oliverm91.github.io/processes/)
 
 [![Ruff Lint Status](https://github.com/oliverm91/processes/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/oliverm91/processes/actions/workflows/lint.yml)
-[![mypy-check](https://github.com/oliverm91/processes/actions/workflows/mypy-check.yml/badge.svg)](https://github.com/YOUR_USER/YOUR_REPO/actions/workflows/mypy.yml)
+[![mypy-check](https://github.com/oliverm91/processes/actions/workflows/mypy.yml/badge.svg)](https://github.com/oliverm91/processes/actions/workflows/mypy.yml)
 
 
 

@@ -63,6 +63,7 @@ class TaskDependency:
         If any parameter type is invalid or if use_result_as_additional_kwargs
         is True but additional_kwarg_name is not a string.
     """
+
     def __init__(
         self,
         task_name: str,
@@ -242,9 +243,7 @@ class Task:
         """
         return {dependency.task_name for dependency in self.dependencies}
 
-    def run(
-        self, executing_process: Process | None = None
-    ) -> TaskResult:
+    def run(self, executing_process: Process | None = None) -> TaskResult:
         """
         Execute the task's function with its arguments and dependencies.
 

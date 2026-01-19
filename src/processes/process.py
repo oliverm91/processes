@@ -90,11 +90,11 @@ class Process:
         return self
 
     def __exit__(
-            self,
-            exc_type: type[BaseException] | None,
-            exc_value: BaseException | None,
-            traceback: TracebackType | None,
-        ) -> Literal[False]:
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Literal[False]:
         """Called when exiting the 'with' block, even if an error occurred."""
         self.close_loggers()
         return False
@@ -155,7 +155,7 @@ class Process:
             If circular dependencies are detected among tasks.
         """
         in_degree = {t.name: 0 for t in self.tasks}
-        graph: dict[str, list[str]]= {t.name: [] for t in self.tasks}
+        graph: dict[str, list[str]] = {t.name: [] for t in self.tasks}
         task_map = {t.name: t for t in self.tasks}
 
         for task in self.tasks:

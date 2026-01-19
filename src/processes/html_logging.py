@@ -38,13 +38,11 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         fromaddr: str,
         toaddrs: list[str],
         credentials: tuple[str, str] | None = None,
-        secure: (
-                tuple[()]
-                | tuple[str]
-                | tuple[str, str]
-                | tuple[str, str, ssl.SSLContext]
-                | None
-            ) = None,
+        secure: tuple[()]
+        | tuple[str]
+        | tuple[str, str]
+        | tuple[str, str, ssl.SSLContext]
+        | None = None,
         timeout: int = 5,
     ):
         self._crd = credentials
@@ -57,8 +55,8 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             toaddrs,
             "",
             credentials=credentials,
-            secure=secure, # type: ignore[arg-type]
-            timeout=timeout
+            secure=secure,  # type: ignore[arg-type]
+            timeout=timeout,
         )
 
     def copy(self) -> "HTMLSMTPHandler":
@@ -70,7 +68,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             A new HTMLSMTPHandler instance with the same configuration.
         """
         return HTMLSMTPHandler(
-            self.mailhost, # type: ignore[arg-type]
+            self.mailhost,  # type: ignore[arg-type]
             self.fromaddr,
             self.toaddrs,
             credentials=self._crd,
