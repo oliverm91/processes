@@ -5,16 +5,18 @@
 # 🚀 Processes: Smart Task Orchestration
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Python Tests Status](https://github.com/oliverm91/processes/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/oliverm91/processes/actions/workflows/tests.yml)
 ![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)
 
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://oliverm91.github.io/processes/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+
+[![Python Tests Status](https://github.com/oliverm91/processes/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/oliverm91/processes/actions/workflows/tests.yml)
 [![Ruff Lint Status](https://github.com/oliverm91/processes/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/oliverm91/processes/actions/workflows/lint.yml)
 [![mypy-check](https://github.com/oliverm91/processes/actions/workflows/mypy.yml/badge.svg)](https://github.com/oliverm91/processes/actions/workflows/mypy.yml)
 
+[![PyPI version](https://img.shields.io/pypi/v/processes.svg)](https://pypi.org/project/processes/)
 
 
 
@@ -129,7 +131,12 @@ All tasks record their execution flow to their assigned logfiles. You can share 
 
 ## 📦 Installation
 
-Since it's a pure Python library, you can install it directly from the repository using `pip`:
+Registered in PyPI: https://pypi.org/project/processes/
+```bash
+pip install processes
+```
+
+Also, since it's a pure Python library, you can install it directly from the repository:
 
 ```bash
 pip install git+https://github.com/oliverm91/processes.git
