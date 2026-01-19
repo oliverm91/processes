@@ -1,4 +1,6 @@
 import concurrent.futures
+from types import TracebackType
+from typing import Literal, Self
 
 from .task import Task, TaskResult
 
@@ -83,17 +85,21 @@ class Process:
             raise e
         self.runner = ProcessRunner(self)
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Called when entering the 'with' block."""
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> Literal[False]:
         """Called when exiting the 'with' block, even if an error occurred."""
         self.close_loggers()
-        # Return False to let exceptions propagate (don't suppress errors)
         return False
 
-    def _check_input_types(self):
+    def _check_input_types(self) -> None:
         """Validate that tasks is a list containing only Task objects.
 
         Raises
@@ -107,7 +113,7 @@ class Process:
             if not isinstance(task, Task):
                 raise TypeError(f"task must be Task. Got {type(task)}")
 
-    def _check_duplicate_names(self):
+    def _check_duplicate_names(self) -> None:
         """Verify that all task names are unique.
 
         Raises
@@ -121,7 +127,7 @@ class Process:
                 raise ValueError(f"Duplicate task name: {task.name}")
             names.add(task.name)
 
-    def _check_dependencies_exist(self):
+    def _check_dependencies_exist(self) -> None:
         """Verify that all task dependencies refer to existing tasks.
 
         Raises
@@ -137,7 +143,7 @@ class Process:
                         f"Task {task.name} depends on missing task: {dep}"
                     )
 
-    def _topological_sort(self):
+    def _topological_sort(self) -> None:
         """Sort tasks based on dependencies using Kahn's Algorithm in O(V+E) time.
 
         Reorders the task list so that dependencies are always executed before
@@ -149,7 +155,7 @@ class Process:
             If circular dependencies are detected among tasks.
         """
         in_degree = {t.name: 0 for t in self.tasks}
-        graph = {t.name: [] for t in self.tasks}
+        graph: dict[str, list[str]]= {t.name: [] for t in self.tasks}
         task_map = {t.name: t for t in self.tasks}
 
         for task in self.tasks:
@@ -195,7 +201,7 @@ class Process:
                 return task
         raise TaskNotFoundError(f"Task not found: {task_name}")
 
-    def run(self, parallel: bool = None, max_workers: int = 4) -> ProcessResult:
+    def run(self, parallel: bool | None = None, max_workers: int = 4) -> ProcessResult:
         """Execute all tasks in the process.
 
         Runs tasks sequentially or in parallel while respecting dependencies.
@@ -244,7 +250,7 @@ class Process:
         """
         found = []
 
-        def find(name):
+        def find(name: str) -> None:
             for t in self.tasks:
                 if name in t.get_dependencies_names() and t not in found:
                     found.append(t)
@@ -253,7 +259,7 @@ class Process:
         find(task_name)
         return found
 
-    def close_loggers(self):
+    def close_loggers(self) -> None:
         """Close and clean up all logger handlers for all tasks.
 
         Should be called when the process is done to ensure proper resource cleanup.
@@ -344,7 +350,7 @@ class ProcessRunner:
         """
         return all(d.task_name in self.passed_results for d in task.dependencies)
 
-    def _run_sequential(self):
+    def _run_sequential(self) -> None:
         """Execute all tasks sequentially in dependency order."""
         for task in self.process.tasks:
             if self._is_unrunnable(task):
@@ -356,7 +362,7 @@ class ProcessRunner:
                 else:
                     self.failed_tasks.add(task.name)
 
-    def _run_parallel(self, max_workers: int):
+    def _run_parallel(self, max_workers: int) -> None:
         """Execute tasks in parallel using a thread pool while respecting dependencies.
 
         Parameters

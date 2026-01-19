@@ -20,19 +20,19 @@ This example demonstrates how to create task dependencies and automatically pass
 Imagine you're building a data pipeline with 6 tasks:
 
 ```
-                        ┌─→ [2] validate ─────┐
-                        │                      │
-[1] fetch_data ─────────┤                      ├─→ [4] prepare ─→ [5] save ─→ [6] report
-                        │                      │                              ↑
-                        └─→ [3] calculate ─────┴──────────────────────────────┘
+                        ┌─→ [2] validate ────────┐
+                        │                        │
+[1] fetch_data ─────────┤                        ├─→ [4] prepare ─→ [5] save ─→ [6] report
+                        │                        │                              ↑
+                        └─→ [3] calculate_stats ─┴──────────────────────────────┘
 
 Task Dependencies:
-  1. fetch_data        - No dependencies
-  2. validate          - Depends on: fetch_data (runs in parallel with 3.)
-  3. calculate_stats   - Depends on: fetch_data (runs in parallel with 2.)
-  4. prepare_storage   - Depends on: validate, calculate_stats
-  5. save_data         - Depends on: prepare_storage
-  6. generate_report   - Depends on: save_data, calculate_stats
+  1. fetch_data           - No dependencies
+  2. validate             - Depends on: fetch_data (passes result as arg)
+  3. calculate_stats      - Depends on: fetch_data (passes result as arg), validate (no result pass)
+  4. prepare_storage      - Depends on: validate (passes result as arg), calculate_stats (passes result as arg)
+  5. save_data            - Depends on: prepare_storage (passes result as arg)
+  6. generate_report      - Depends on: save_data (passes result as arg), calculate_stats (passes result as kwarg)
 ```
 
 Key observations:
@@ -40,13 +40,13 @@ Key observations:
 - **validate** and **calculate_stats** can run in parallel (both depend only on fetch_data)
 - **prepare_storage** waits for both validate and calculate_stats to complete
 - **save_data** depends on prepare_storage
-- **generate_report** depends on both save_data AND calculate_stats results
+- **generate_report** depends on both save_data AND calculate_stats results, passing them in different ways
 
 ## Code Walkthrough
 
 ### Understanding TaskDependency
-See how the second `Task` object receives a list with its dependencies. In this case it is only one `TaskDependency` object pointing to `fetch_data`.
-It also uses the result obtained from it and add it as additional args to `validate` function.
+See how Task objects receive a list with their dependencies. Each `TaskDependency` object points to another task and specifies how to pass its result.
+
 ```python
 # Task 1: Fetch data (no dependencies)
 t_fetch = Task("fetch_data", f"{log_dir}/fetch.log", fetch_user_data)
@@ -59,8 +59,38 @@ t_validate = Task(
     dependencies=[
         TaskDependency(
             "fetch_data",
-            use_result_as_additional_args=True,  # Pass fetch result as arg
+            use_result_as_additional_args=True,  # Pass fetch result as positional arg
         )
+    ],
+)
+
+# Task 3: Calculate stats (depends on fetch, but also checks validate completion)
+t_stats = Task(
+    "calculate_stats",
+    f"{log_dir}/stats.log",
+    calculate_statistics,
+    dependencies=[
+        TaskDependency(
+            "fetch_data",
+            use_result_as_additional_args=True,  # Pass fetch result as positional arg
+        )
+    ],
+)
+
+# Task 4: Prepare (depends on both validate and stats, passing both results)
+t_prepare = Task(
+    "prepare_storage",
+    f"{log_dir}/prepare.log",
+    prepare_for_storage,
+    dependencies=[
+        TaskDependency(
+            "validate",
+            use_result_as_additional_args=True,  # validate result → 1st arg
+        ),
+        TaskDependency(
+            "calculate_stats",
+            use_result_as_additional_args=True,  # stats result → 2nd arg
+        ),
     ],
 )
 ```
@@ -68,25 +98,30 @@ t_validate = Task(
 
 ### Using Keyword Arguments
 
-```python
-def generate_report(result: str, include_details: bool = False) -> str:
-    """Generate final report with optional details."""
-    if include_details:
-        return f"Full Report: {result}"
-    return f"Summary: {result}"
+Task results can also be passed as keyword arguments:
 
-t5 = Task(
-    "report",
+```python
+def generate_report(save_result: str, stats: dict | None = None) -> str:
+    """Generate final report with optional statistics."""
+    if stats is None:
+        stats = {"avg_age": 0, "avg_salary": 0, "total_records": 0, "age_range": (0, 0), "salary_range": (0, 0)}
+    # Use both save_result and stats to generate report
+    ...
+
+t_report = Task(
+    "generate_report",
     "logs/report.log",
     generate_report,
-    args=(),
-    kwargs={"include_details": True},
     dependencies=[
         TaskDependency(
-            "save",
+            "save_data",
+            use_result_as_additional_args=True,  # save_data result → positional arg
+        ),
+        TaskDependency(
+            "calculate_stats",
             use_result_as_additional_kwargs=True,
-            additional_kwarg_name="result"  # save result → 'result' kwarg
-        )
+            additional_kwarg_name="stats"  # calculate_stats result → 'stats' kwarg
+        ),
     ]
 )
 ```

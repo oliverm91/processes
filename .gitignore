@@ -175,3 +175,7 @@ mail_config.toml
 .python-version
 
 .ruff_cache
+
+/logs/
+logs/*
+logs

@@ -63,13 +63,12 @@ class TaskDependency:
         If any parameter type is invalid or if use_result_as_additional_kwargs
         is True but additional_kwarg_name is not a string.
     """
-
     def __init__(
         self,
         task_name: str,
         use_result_as_additional_args: bool = False,
         use_result_as_additional_kwargs: bool = False,
-        additional_kwarg_name: str | None = None,
+        additional_kwarg_name: str = "",
     ):
         self.task_name = task_name
         self.use_result_as_additional_args = use_result_as_additional_args
@@ -89,10 +88,10 @@ class TaskDependency:
                 f"Got {type(self.use_result_as_additional_kwargs)}"
             )
 
-        if self.use_result_as_additional_kwargs and not isinstance(self.additional_kwarg_name, str):
+        if self.use_result_as_additional_kwargs and self.additional_kwarg_name == "":
             raise TypeError(
-                f"If use_result_as_additional_kwargs is True, additional_kwarg_name"
-                f" must be set of type str. Got {type(self.additional_kwarg_name)}"
+                "If use_result_as_additional_kwargs is True, additional_kwarg_name"
+                " must be a non-empty string."
             )
 
     def __hash__(self) -> int:
@@ -135,28 +134,33 @@ class Task:
         Logger instance for this task, automatically configured.
     """
 
+    kwargs: dict[str, Any]
+    dependencies: list[TaskDependency]
+
     def __init__(
         self,
         name: str,
         log_path: str,
-        func: Callable,
-        args: tuple = (),
-        kwargs: dict = None,
-        dependencies: list[TaskDependency] = None,
-        html_mail_handler: HTMLSMTPHandler = None,
+        func: Callable[..., Any],
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
+        dependencies: list[TaskDependency] | None = None,
+        html_mail_handler: HTMLSMTPHandler | None = None,
     ):
         self.name = name
         self.log_path = log_path
         self.func = func
         self.args = args
-        self.kwargs = kwargs
-        self.dependencies = dependencies
         self.html_mail_handler = html_mail_handler
 
-        if self.kwargs is None:
+        if kwargs is None:
             self.kwargs = {}
-        if self.dependencies is None:
+        else:
+            self.kwargs = kwargs
+        if dependencies is None:
             self.dependencies = []
+        else:
+            self.dependencies = dependencies
 
         self._check_input_types()
         if " " in self.name:
@@ -193,7 +197,7 @@ class Task:
 
         self.logger = logger
 
-    def _check_input_types(self):
+    def _check_input_types(self) -> None:
         """
         Validates all input parameter types.
 
@@ -239,7 +243,7 @@ class Task:
         return {dependency.task_name for dependency in self.dependencies}
 
     def run(
-        self, executing_process: Process | None = None, pass_logger_as_kwarg: bool = False
+        self, executing_process: Process | None = None
     ) -> TaskResult:
         """
         Execute the task's function with its arguments and dependencies.
@@ -253,9 +257,6 @@ class Task:
         executing_process : Process, optional
             The parent Process executing this task. Used to retrieve results from
             dependent tasks. Defaults to None.
-        pass_logger_as_kwarg : bool, optional
-            If True, injects the task's logger as a 'logger' keyword argument to
-            the function. Defaults to False.
 
         Returns
         -------
@@ -266,27 +267,20 @@ class Task:
             - exception (Exception | None): The exception raised if execution failed,
             None if successful.
         """
-        aditional_args = ()  # Additional args coming from dependencies
-        aditional_kwargs = {}  # Additional kwargs coming from dependencies
+        final_args = list(self.args)  # Start with original positional args
+        final_kwargs = self.kwargs.copy()  # Start with original keyword args
+
         if executing_process is not None:
             for dep in self.dependencies:
+                dep_result = executing_process.runner.passed_results[dep.task_name].result
                 if dep.use_result_as_additional_args:
-                    aditional_args += (
-                        executing_process.runner.passed_results[dep.task_name].result,
-                    )
+                    final_args.append(dep_result)
                 if dep.use_result_as_additional_kwargs:
-                    aditional_kwargs[dep.additional_kwarg_name] = (
-                        executing_process.runner.passed_results[dep.task_name].result
-                    )
-
-        self.args += aditional_args
-        self.kwargs = {**self.kwargs, **(aditional_kwargs or {})}
-        if pass_logger_as_kwarg:
-            self.kwargs["logger"] = self.logger
+                    final_kwargs[dep.additional_kwarg_name] = dep_result
 
         try:
             self.logger.info(f"Starting {self.name}.")
-            result = self.func(*self.args, **self.kwargs)
+            result = self.func(*final_args, **final_kwargs)
             self.logger.info(f"Finished {self.name}.")
             return TaskResult(True, result, None)
         except Exception as e:

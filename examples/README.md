@@ -14,15 +14,16 @@ Welcome to the **Processes** library examples! This directory shows you how to b
 
 ---
 
-## 🗂️ The 3 Examples
+## 🗂️ The 2 Examples
 
-### 1. [Simple Independent Tasks](./01_simple_independent_tasks/)
-**When to use:** Run multiple operations at the same time
+### 1. [Basic Tasks & Dependencies](./01_basic_tasks_and_dependencies/)
+**When to use:** Run multiple operations at the same time, including tasks with simple dependencies
 
 Covers:
+- Creating basic tasks
 - Running tasks in parallel
 - Comparing speed: sequential vs parallel
-- Getting results back
+- Simple task dependencies
 
 ---
 
@@ -49,14 +50,11 @@ Covers:
 ## 🚀 Quick Start
 
 ```bash
-cd examples/01_simple_independent_tasks
-python example.py
+cd examples/01_basic_tasks_and_dependencies
+python example1.py
 
 cd ../02_task_dependencies_result_passing
-python example.py
-
-cd ../03_advanced_workflow_error_handling
-python example.py
+python example2.py
 ```
 
 ---

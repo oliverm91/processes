@@ -1,6 +1,6 @@
 import sys
 
-sys.path.insert(0, "examples/01_simple_independent_tasks")
+sys.path.insert(0, "examples/01_basic_tasks_and_dependencies")
 sys.path.insert(0, "examples/02_task_dependencies_result_passing")
 
 from example1 import main as example_1

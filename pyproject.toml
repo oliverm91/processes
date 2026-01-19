@@ -32,6 +32,7 @@ dev = [
     "mkdocs>=1.6.1",
     "mkdocs-material[imaging]>=9.7.1",
     "mkdocstrings[python]>=1.0.0",
+    "mypy>=1.19.1",
     "pytest>=9.0.2",
     "ruff>=0.14.13",
 ]
@@ -49,6 +50,12 @@ tag_format = "v$version"
 update_map_description = true
 version_files = ["pyproject.toml:version"]
 update_changelog_on_bump = true
+
+[tool.mypy]
+packages = ["processes"]
+mypy_path = "src"
+strict = true
+disallow_untyped_defs = true
 
 [tool.ruff]
 line-length = 100

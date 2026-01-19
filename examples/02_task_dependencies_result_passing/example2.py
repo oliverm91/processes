@@ -76,8 +76,16 @@ def save_to_database(prepared_data: dict, output_file: str = "output.json") -> s
     return f"Data saved to {output_file}"
 
 
-def generate_report(save_result: str, stats: dict) -> str:
+def generate_report(save_result: str, stats: dict | None = None) -> str:
     """Generate final report."""
+    if stats is None:
+        stats = {
+            "avg_age": 0,
+            "avg_salary": 0,
+            "total_records": 0,
+            "age_range": (0, 0),
+            "salary_range": (0, 0),
+        }
     report = f"""
     ========== DATA PROCESSING REPORT ==========
     {save_result}
@@ -165,8 +173,7 @@ def main():
         dependencies=[
             TaskDependency(
                 "save_data",
-                use_result_as_additional_kwargs=True,
-                additional_kwarg_name="save_result",  # save result → kwarg
+                use_result_as_additional_args=True,
             ),
             TaskDependency(
                 "calculate_stats",

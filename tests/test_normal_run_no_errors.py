@@ -7,32 +7,32 @@ from .log_cleaner import clean_tasks_logs
 
 
 def task_1() -> int:
-    time.sleep(4)
+    time.sleep(2)
     return 1
 
 
 def task_2() -> int:
-    time.sleep(2)
+    time.sleep(1)
     return 2
 
 
 def task_3(input: int) -> int:
-    time.sleep(1)
+    time.sleep(0.5)
     return input
 
 
 def task_4(t2_res: int) -> int:
-    time.sleep(5)
+    time.sleep(2.5)
     return 3 + t2_res
 
 
 def task_5(t1_res: int) -> int:
-    time.sleep(3)
+    time.sleep(1.5)
     return 4 + t1_res
 
 
 def task_6(t2_res: int, t5_res: int) -> int:
-    time.sleep(1)
+    time.sleep(0.5)
     return t2_res + t5_res
 
 
@@ -114,8 +114,8 @@ def test_run_dependent_tasks_sequential():
     assert len(process_result.failed_tasks) == 0, (
         f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
     )
-    assert int(round(t1 - t0, 0)) == 16, (
-        f"Sequential run took {t1 - t0} seconds. Expected 16 seconds."
+    assert int(round(t1 - t0, 0)) == 8, (
+        f"Sequential run took {t1 - t0} seconds. Expected 8 seconds."
     )
     clean_tasks_logs()
 
@@ -160,7 +160,7 @@ def test_run_dependent_tasks_parallel():
         f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
     )
     if n_workers > 2:
-        assert int(round(t1 - t0, 0)) == 8, (
-            f"Parallel run took {t1 - t0} seconds. Expected 8 seconds."
+        assert int(round(t1 - t0, 0)) == 4, (
+            f"Parallel run took {t1 - t0} seconds. Expected 4 seconds."
         )
     clean_tasks_logs()

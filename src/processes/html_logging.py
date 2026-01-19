@@ -16,7 +16,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
 
     Attributes
     ----------
-    mailhost : tuple[str, str]
+    mailhost : tuple[str, int]
         A tuple of (host, port) for the SMTP server.
     fromaddr : str
         The email address to send messages from.
@@ -34,11 +34,17 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
 
     def __init__(
         self,
-        mailhost: tuple[str, str],
+        mailhost: tuple[str, int],
         fromaddr: str,
         toaddrs: list[str],
         credentials: tuple[str, str] | None = None,
-        secure: tuple | tuple[str, str] | tuple[str, str, ssl.SSLContext] | None = None,
+        secure: (
+                tuple[()]
+                | tuple[str]
+                | tuple[str, str]
+                | tuple[str, str, ssl.SSLContext]
+                | None
+            ) = None,
         timeout: int = 5,
     ):
         self._crd = credentials
@@ -46,7 +52,13 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         self._to = timeout
 
         super().__init__(
-            mailhost, fromaddr, toaddrs, "", credentials=credentials, secure=secure, timeout=timeout
+            mailhost,
+            fromaddr,
+            toaddrs,
+            "",
+            credentials=credentials,
+            secure=secure, # type: ignore[arg-type]
+            timeout=timeout
         )
 
     def copy(self) -> "HTMLSMTPHandler":
@@ -58,7 +70,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             A new HTMLSMTPHandler instance with the same configuration.
         """
         return HTMLSMTPHandler(
-            self.mailhost,
+            self.mailhost, # type: ignore[arg-type]
             self.fromaddr,
             self.toaddrs,
             credentials=self._crd,
@@ -140,7 +152,8 @@ class ExceptionHTMLFormatter(logging.Formatter):
         """
         # Format the exception details and traceback
         if record.exc_info:
-            exception = record.exc_info[1]
+            exception_object = record.exc_info[1]
+            exception = str(exception_object)
             tb_str = traceback.format_exc()
         else:
             exception = record.getMessage()
