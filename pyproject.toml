@@ -63,3 +63,10 @@ line-length = 100
 [tool.ruff.lint]
 select = ["F", "E", "W", "I", "B", "UP"] 
 ignore = []
+
+[project.urls]
+Homepage = "https://github.com/oliverm91/processes"
+Documentation = "https://oliverm91.github.io/processes/"
+Repository = "https://github.com/oliverm91/processes"
+Issues = "https://github.com/oliverm91/processes/issues"
+Changelog = "https://github.com/oliverm91/processes/blob/main/CHANGELOG.md"
