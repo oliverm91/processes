@@ -1,0 +1,31 @@
+site_name: Processes
+site_url: https://oliverm91.github.io/processes/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      primary: teal
+      accent: cyan
+      scheme: slate
+    - media: "(prefers-color-scheme: light)"
+      primary: teal
+      accent: cyan
+      scheme: default
+  features:
+    - navigation.sections
+    - content.code.copy
+    - navigation.top
+    - navigation.tracking
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+  - social:
+      cards_layout: default/variant
+      cards_layout_options:
+        background_color: "#061a25"
+        color: "#ffffff"

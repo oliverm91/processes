@@ -29,6 +29,9 @@ dependencies = []
 [dependency-groups]
 dev = [
     "commitizen>=4.11.6",
+    "mkdocs>=1.6.1",
+    "mkdocs-material[imaging]>=9.7.1",
+    "mkdocstrings[python]>=1.0.0",
     "pytest>=9.0.2",
     "ruff>=0.14.13",
 ]
@@ -37,7 +40,7 @@ dev = [
 source = "vcs"  # <--- Tells Hatch to look at Git/VCS tags
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/processes"] # Ensure this points to your actual code
+packages = ["src/processes"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
