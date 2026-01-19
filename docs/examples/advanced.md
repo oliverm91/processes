@@ -118,7 +118,7 @@ t_report = Task(
 )
 ```
 
-## Dependency Ordering (Topological Sort)
+### Dependency Ordering (Topological Sort)
 
 The Process automatically reorders tasks using Kahn's algorithm:
 
