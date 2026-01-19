@@ -1,3 +1,9 @@
+## v1.0.5 (2026-01-19)
+
+### Fix
+
+- **docs**: added urls to pyproject file
+
 ## v1.0.4 (2026-01-19)
 
 ### Fix
