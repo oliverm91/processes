@@ -38,3 +38,16 @@ nav:
       - Introduction: examples/intro.md
       - Basic Example: examples/basic.md
       - Advanced Case: examples/advanced.md
+
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+  - social:
+      cards_layout: default/variant
+      cards_layout_options:
+        background_color: "#061a25"
+        color: "#ffffff"
