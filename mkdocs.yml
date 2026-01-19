@@ -1,33 +1,31 @@
 site_name: Processes
 site_url: https://oliverm91.github.io/processes/
+repo_url: https://github.com/oliverm91/processes/
+repo_name: oliverm91/processes
 
 theme:
   name: material
   favicon: assets/favicon.svg
   logo: assets/favicon.svg
   palette:
+    # Dark Mode
     - media: "(prefers-color-scheme: dark)"
-      primary: teal
+      primary: blue grey
       accent: cyan
       scheme: slate
+      toggle:
+        icon: material/brightness-4 
+        name: Switch to light mode
+    # Light Mode
     - media: "(prefers-color-scheme: light)"
-      primary: teal
+      primary: blue grey
       accent: cyan
       scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   features:
     - navigation.sections
     - content.code.copy
     - navigation.top
     - navigation.tracking
-
-plugins:
-  - search
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [src]
-  - social:
-      cards_layout: default/variant
-      cards_layout_options:
-        background_color: "#061a25"
-        color: "#ffffff"
