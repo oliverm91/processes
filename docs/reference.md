@@ -6,4 +6,4 @@ This page is automatically generated from the source code docstrings.
 ::: processes.process.ProcessResult
 ::: processes.task.Task
 ::: processes.task.TaskDependency
-::: processes.html_logging.htmlsmtphandler
+::: processes.html_logging.HTMLSMTPHandler
