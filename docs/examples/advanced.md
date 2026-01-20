@@ -1,21 +1,13 @@
 # Example 2: Task Dependencies & Result Passing
 
-**Difficulty:** ⭐⭐ Intermediate  
-**Time to understand:** 10 minutes
 
-## Overview
+## 👁️‍🗨️ Overview
 
 This example demonstrates how to create task dependencies and automatically pass results from one task to another. This is where the real power of the library shines!
 
-## What You'll Learn
+Also, at the end we'll see how to add email notification.
 
-✅ Creating tasks with dependencies  
-✅ Passing task results as positional arguments  
-✅ Passing task results as keyword arguments  
-✅ Understanding topological sort (dependency ordering)  
-✅ Complex task graphs with multiple dependency paths  
-
-## Scenario
+## 🔁 Scenario
 
 Imagine you're building a data pipeline with 6 tasks:
 
@@ -42,7 +34,7 @@ Key observations:
 - **save_data** depends on prepare_storage
 - **generate_report** depends on both save_data AND calculate_stats results, passing them in different ways
 
-## Code Walkthrough
+## 💻 Code Walkthrough
 
 ### Understanding TaskDependency
 See how Task objects receive a list with their dependencies. Each `TaskDependency` object points to another task and specifies how to pass its result.
@@ -140,7 +132,7 @@ with Process(tasks) as process:
     process.run(parallel=True)
 ```
 
-## Key Concepts
+## 🔑 Key Concepts
 
 ### Positional Arguments (`use_result_as_additional_args=True`)
 
@@ -195,4 +187,29 @@ dependencies=[
 ]
 
 # Effective call: func(res_a, res_b, res_c, ...)
+```
+
+## 📧 Email Notifications
+
+If a task fails it can notify via email:
+- The name of the failing task
+- The python function being executed with its args and kwargs
+- The traceback of the error
+- The tasks that could not be executed in the process due to this failure.
+
+To set this up, you need to pass a `HTMLSMTPHandler` object to the Task constructor as 
+```python
+t = Task("task_name", "logfile", func_to_run, html_mail_handler=smtp_handler) 
+```
+
+To create an html_smtp_handler objects, you need to setup:
+- Who sends the email
+- A list with the recipients
+- SMTP credentials
+- Security tuple
+```python
+smtp_handler = HTMLSMTPHandler(
+    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'], 
+    use_tls=True, credentials=('user', 'pass')
+)
 ```

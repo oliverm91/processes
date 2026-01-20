@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/oliverm91/processes/refs/heads/main/assets/banner.svg" width="100%" alt="Processes - Smart Task Orchestration">
 </div>
 
-# 🚀 Processes: Smart Task Orchestration
+# 🚀 Processes: Robust Routines Management
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 ![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)
