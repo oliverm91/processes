@@ -4,5 +4,4 @@ This page is automatically generated from the source code docstrings.
 
 ::: processes.process
 ::: processes.task
-::: processes.taskdependency
-::: processes.htmlsmtphandler
+::: processes.html_logging.htmlsmtphandler
