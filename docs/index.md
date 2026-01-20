@@ -18,9 +18,6 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/processes.svg)](https://pypi.org/project/processes/)
 
-
-
-
 **Processes** is a lightweight, high-performance Python library designed to execute complex task graphs. It manages **dependencies**, handles **parallel execution**, and ensures system resilience without any external libraries.
 
 File logging and **email notification** is supported.
