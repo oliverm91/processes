@@ -1,10 +1,30 @@
+import html
 import logging
 import logging.handlers
+import os
 import smtplib
 import ssl
 import traceback
 from email.mime.text import MIMEText
 from email.utils import formatdate
+
+_DEFAULT_TEMPLATE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "error_template.html"
+)
+
+_FALLBACK_TEMPLATE = """<!DOCTYPE html>
+<html><body>
+<h1>Pipeline Failure: {{task_name}}</h1>
+<p><b>Function:</b> {{function}}</p>
+<p><b>Args:</b> {{args}}</p>
+<p><b>Kwargs:</b> {{kwargs}}</p>
+<p><b>Exception:</b> {{exception}}</p>
+<h2>Downstream Impact</h2>
+<ul>{{downstream_items}}</ul>
+<pre>{{traceback}}</pre>
+</body></html>"""
+
+_ENV_VAR_NAME = "PROCESSES_ERROR_TEMPLATE"
 
 
 class HTMLSMTPHandler(logging.handlers.SMTPHandler):
@@ -67,8 +87,12 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         HTMLSMTPHandler
             A new HTMLSMTPHandler instance with the same configuration.
         """
+        if self.mailport:
+            mailhost = (self.mailhost, self.mailport)
+        else:
+            mailhost = self.mailhost
         return HTMLSMTPHandler(
-            self.mailhost,  # type: ignore[arg-type]
+            mailhost,
             self.fromaddr,
             self.toaddrs,
             credentials=self._crd,
@@ -101,7 +125,16 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             port = self.mailport
             if not port:
                 port = smtplib.SMTP_PORT
-            smtp = smtplib.SMTP(self.mailhost, port)
+            # ``SMTPHandler`` stores ``self.mailhost`` as a ``(host, port)``
+            # tuple; ``smtplib.SMTP`` requires a host string.  Unpack it
+            # explicitly — passing the tuple raises
+            # ``TypeError: getaddrinfo() argument 1 must be string or None``.
+            host = (
+                self.mailhost[0]
+                if isinstance(self.mailhost, tuple)
+                else self.mailhost
+            )
+            smtp = smtplib.SMTP(host, port)
             msg = self.format(record)
 
             # Create MIMEText object with HTML content
@@ -125,77 +158,77 @@ class ExceptionHTMLFormatter(logging.Formatter):
     """
     A logging formatter that converts exception records to HTML format.
 
-    Formats exception tracebacks with syntax-highlighted HTML styling and
-    supports custom post-traceback content. Provides visually appealing
-    exception reports suitable for email delivery.
+    Renders a Jinja-like ``error_template.html`` (resolved from the explicit
+    ``template_path`` argument, the ``PROCESSES_ERROR_TEMPLATE`` environment
+    variable, the bundled default, or an inline fallback) using the pure
+    metadata dict supplied via ``extra={"task_context": ...}`` on the
+    originating log call. This keeps the log payload framework-agnostic
+    (no raw HTML fragments in ``extra``) while still producing a richly
+    formatted HTML email body.
     """
 
-    def format(self, record: logging.LogRecord) -> str:
-        """Format a log record as HTML, with special handling for exceptions.
+    def __init__(self, template_path: str | None = None) -> None:
+        super().__init__()
+        self._explicit_template_path = template_path
+        self._cached_template: str | None = None
 
-        Extracts exception information and traceback, formats them with HTML
-        styling, and includes any additional post-traceback content from the
-        log record's `post_traceback_html_body` attribute.
+    def _resolve_template(self) -> str:
+        """Locate the template source: explicit, env var, default, fallback."""
+        candidates: list[str] = []
+        if self._explicit_template_path:
+            candidates.append(self._explicit_template_path)
+        env_path = os.environ.get(_ENV_VAR_NAME)
+        if env_path:
+            candidates.append(env_path)
+        candidates.append(_DEFAULT_TEMPLATE_PATH)
 
-        Parameters
-        ----------
-        record : logging.LogRecord
-            The log record to format.
+        for path in candidates:
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    return fh.read()
+            except (OSError, TypeError):
+                continue
+        return _FALLBACK_TEMPLATE
 
-        Returns
-        -------
-        str
-            HTML-formatted string containing exception details, traceback,
-            and styling.
-        """
-        # Format the exception details and traceback
+    def _get_template(self) -> str:
+        if self._cached_template is None:
+            self._cached_template = self._resolve_template()
+        return self._cached_template
+
+    def _format_exception_block(self, record: logging.LogRecord) -> tuple[str, str]:
         if record.exc_info:
-            exception_object = record.exc_info[1]
-            exception = str(exception_object)
-            tb_str = traceback.format_exc()
+            exc_type, exc_value, exc_tb = record.exc_info
+            exception = "" if exc_value is None else str(exc_value)
+            tb_str = "".join(
+                traceback.format_exception(exc_type, exc_value, exc_tb)
+            )
         else:
             exception = record.getMessage()
-            tb_str = "No traceback available"
+            tb_str = ""
+        return exception, tb_str
 
-        post_traceback_html_body = getattr(record, "post_traceback_html_body", "")
+    def _render(self, template: str, substitutions: dict[str, str]) -> str:
+        rendered = template
+        for key, value in substitutions.items():
+            rendered = rendered.replace("{{" + key + "}}", value)
+        return rendered
 
-        # HTML content
-        tb_str = tb_str.replace("\n", "<br>")
-        body = f"""
-        <html>
-        <head>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    margin: 20px;
-                    color: #333;
-                }}
-                h2 {{
-                    color: #d9534f;
-                }}
-                .exception {{
-                    font-weight: bold;
-                    color: #d9534f;
-                }}
-                .traceback {{
-                    background-color: #f9f2f4;
-                    border: 1px solid #d9534f;
-                    padding: 10px;
-                    font-family: 'Courier New', Courier, monospace;
-                    white-space: pre-wrap;
-                    color: #333;
-                    border-radius: 4px;
-                }}
-            </style>
-        </head>
-        <body>
-            <h2>Exception Details</h2>
-            <p class="exception">Exception: {exception}</p>
-            <p><strong>Traceback:</strong></p>
-            <div class="traceback">{tb_str}</div>
-            <br>
-            {post_traceback_html_body}
-        </body>
-        </html>
-        """
-        return body
+    def format(self, record: logging.LogRecord) -> str:
+        exception, tb_str = self._format_exception_block(record)
+        task_context = getattr(record, "task_context", None) or {}
+
+        downstream = task_context.get("downstream_impact", []) or []
+        downstream_items = "".join(
+            f"<li>{html.escape(str(name), quote=True)}</li>" for name in downstream
+        )
+
+        substitutions = {
+            "task_name": html.escape(str(task_context.get("task_name", "?")), quote=True),
+            "function": html.escape(str(task_context.get("function", "?")), quote=True),
+            "args": html.escape(repr(task_context.get("args", ())), quote=True),
+            "kwargs": html.escape(repr(task_context.get("kwargs", {})), quote=True),
+            "exception": html.escape(exception, quote=True),
+            "traceback": html.escape(tb_str, quote=True),
+            "downstream_items": downstream_items,
+        }
+        return self._render(self._get_template(), substitutions)

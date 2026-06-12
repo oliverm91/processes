@@ -283,20 +283,17 @@ class Task:
             self.logger.info(f"Finished {self.name}.")
             return TaskResult(True, result, None)
         except Exception as e:
-            report = ""
+            downstream_names: list[str] = []
             if executing_process is not None:
-                dependencies_names = [
+                downstream_names = [
                     d.name for d in executing_process.get_dependant_tasks(self.name)
                 ]
-                if dependencies_names:
-                    report = (
-                        "<h3>Downstream Impact</h3><p>The following tasks will be skipped:</p><ul>"
-                    )
-                    report += "".join(
-                        f"<li>{dependency_name}</li>" for dependency_name in dependencies_names
-                    )
-                    report += "</ul>"
-            report += f"<p><b>Context:</b><br>Function: {self.func.__name__}"
-            report += f"<br>Args: {self.args}<br>Kwargs: {self.kwargs}</p>"
-            self.logger.exception(e, extra={"post_traceback_html_body": report})
+            task_context = {
+                "task_name": self.name,
+                "function": self.func.__name__,
+                "args": self.args,
+                "kwargs": self.kwargs,
+                "downstream_impact": downstream_names,
+            }
+            self.logger.exception(e, extra={"task_context": task_context})
             return TaskResult(False, None, e)

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Pipeline Error: {{task_name}}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        h1 { color: #b00; }
+        h2 { color: #b00; margin-top: 24px; }
+        code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+        .err { color: #b00; font-weight: bold; }
+        .impact { background: #fff8dc; padding: 10px 14px; border-left: 3px solid #d9534f; }
+        .impact ul { margin: 6px 0 0 18px; }
+        .traceback {
+            background: #f9f2f4;
+            border: 1px solid #d9534f;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            color: #333;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pipeline Failure: {{task_name}}</h1>
+
+    <section>
+        <p><strong>Function:</strong> <code>{{function}}</code></p>
+        <p><strong>Args:</strong> <code>{{args}}</code></p>
+        <p><strong>Kwargs:</strong> <code>{{kwargs}}</code></p>
+        <p><strong>Exception:</strong> <span class="err">{{exception}}</span></p>
+    </section>
+
+    <div class="impact">
+        <h2>Downstream Impact</h2>
+        <p>The following downstream tasks will be skipped:</p>
+        <ul>{{downstream_items}}</ul>
+    </div>
+
+    <h3>Traceback</h3>
+    <pre class="traceback">{{traceback}}</pre>
+</body>
+</html>
