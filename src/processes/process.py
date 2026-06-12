@@ -411,7 +411,15 @@ class ProcessRunner:
                         except Exception:
                             self.failed_tasks.add(name)
                 else:
-                    # No candidates and no running tasks - likely a deadlock or logic error
-                    raise RuntimeError(
-                        "Parallel execution stalled: no candidates found and no tasks running"
-                    )
+                    # No running tasks and no new candidates. The
+                    # ``_is_unrunnable`` side effect above may have
+                    # marked the remaining tasks as failed, completing
+                    # the DAG. Re-check the loop condition before
+                    # declaring a stall.
+                    if len(self.passed_results) + len(self.failed_tasks) < len(
+                        self.process.tasks
+                    ):
+                        raise RuntimeError(
+                            "Parallel execution stalled: "
+                            "no candidates found and no tasks running"
+                        )
