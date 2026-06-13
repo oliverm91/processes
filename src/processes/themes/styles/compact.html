@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{lang_title_prefix}}{{task_name}}</title>
+    <style>
+{{__palette_css__}}
+        body {
+            font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .frame { max-width: 760px; margin: 0 auto; }
+        h1 { color: var(--accent); font-size: 15px; margin: 0 0 12px 0; }
+        .field { margin: 4px 0; }
+        .label { color: var(--text-muted); }
+        .impact {
+            background: var(--alert-bg);
+            color: var(--alert-text);
+            padding: 8px 12px;
+            border-left: 3px solid var(--accent);
+            margin: 12px 0;
+        }
+        .impact h2 { font-size: 13px; margin: 0 0 4px 0; }
+        .impact ul { margin: 4px 0 0 18px; padding: 0; }
+        .traceback {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            padding: 10px;
+            white-space: pre-wrap;
+            color: var(--text-primary);
+            margin-top: 12px;
+        }
+        .section { margin-top: 14px; }
+    </style>
+</head>
+<body>
+    <div class="frame">
+        <h1>[{{lang_failure_header_short}}] {{task_name}}</h1>
+
+        <div class="field"><span class="label">[{{lang_function_label}}]</span> {{function}}</div>
+        <div class="field"><span class="label">[{{lang_args_label}}]</span> {{args}}</div>
+        <div class="field"><span class="label">[{{lang_kwargs_label}}]</span> {{kwargs}}</div>
+        <div class="field"><span class="label">[{{lang_exception_label}}]</span> {{exception}}</div>
+
+        <div class="impact">
+            <h2>[{{lang_downstream_title}}]</h2>
+            <ul>{{downstream_items}}</ul>
+        </div>
+
+        <div class="section">
+            <div class="label">[{{lang_traceback_title}}]</div>
+            <pre class="traceback">{{traceback}}</pre>
+        </div>
+    </div>
+</body>
+</html>

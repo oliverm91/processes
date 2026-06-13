@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{lang_title_prefix}}{{task_name}}</title>
+    <style>
+{{__palette_css__}}
+        body { font-family: Arial, sans-serif; margin: 20px; background: var(--bg-page); color: var(--text-primary); }
+        h1 { color: var(--accent); }
+        h2 { color: var(--accent); margin-top: 24px; }
+        code { background: var(--code-bg); padding: 2px 4px; border-radius: 3px; }
+        .err { color: var(--alert-text); font-weight: bold; }
+        .impact { background: var(--alert-bg); padding: 10px 14px; border-left: 3px solid var(--accent); }
+        .impact ul { margin: 6px 0 0 18px; }
+        .traceback {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            color: var(--text-primary);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{lang_failure_header}}{{task_name}}</h1>
+
+    <section>
+        <p><strong>{{lang_function_label}}:</strong> <code>{{function}}</code></p>
+        <p><strong>{{lang_args_label}}:</strong> <code>{{args}}</code></p>
+        <p><strong>{{lang_kwargs_label}}:</strong> <code>{{kwargs}}</code></p>
+        <p><strong>{{lang_exception_label}}:</strong> <span class="err">{{exception}}</span></p>
+    </section>
+
+    <div class="impact">
+        <h2>{{lang_downstream_title}}</h2>
+        <p>{{lang_downstream_blurb}}</p>
+        <ul>{{downstream_items}}</ul>
+    </div>
+
+    <h3>{{lang_traceback_title}}</h3>
+    <pre class="traceback">{{traceback}}</pre>
+</body>
+</html>

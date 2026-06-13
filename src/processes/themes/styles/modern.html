@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{lang_title_prefix}}{{task_name}}</title>
+    <style>
+{{__palette_css__}}
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-page);
+            margin: 0;
+            padding: 32px 16px;
+            color: var(--text-primary);
+        }
+        .card {
+            max-width: 720px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        .header {
+            background: var(--accent);
+            color: #ffffff;
+            padding: 20px 28px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .body { padding: 24px 28px; }
+        .row {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .row:last-child { border-bottom: none; }
+        .label {
+            flex: 0 0 120px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .value { flex: 1; word-break: break-word; }
+        code { font-family: 'SF Mono', Menlo, Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+        .alert {
+            background: var(--alert-bg);
+            color: var(--alert-text);
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .alert h2 { margin: 0 0 8px 0; font-size: 16px; }
+        .alert ul { margin: 6px 0 0 18px; padding: 0; }
+        .traceback {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            padding: 16px;
+            font-family: 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            color: var(--text-primary);
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .section-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin: 24px 0 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">{{lang_failure_header}}{{task_name}}</div>
+        <div class="body">
+            <div class="row">
+                <div class="label">{{lang_function_label}}</div>
+                <div class="value"><code>{{function}}</code></div>
+            </div>
+            <div class="row">
+                <div class="label">{{lang_args_label}}</div>
+                <div class="value"><code>{{args}}</code></div>
+            </div>
+            <div class="row">
+                <div class="label">{{lang_kwargs_label}}</div>
+                <div class="value"><code>{{kwargs}}</code></div>
+            </div>
+            <div class="row">
+                <div class="label">{{lang_exception_label}}</div>
+                <div class="value"><code>{{exception}}</code></div>
+            </div>
+
+            <div class="alert">
+                <h2>{{lang_downstream_title}}</h2>
+                <p>{{lang_downstream_blurb}}</p>
+                <ul>{{downstream_items}}</ul>
+            </div>
+
+            <div class="section-title">{{lang_traceback_title}}</div>
+            <pre class="traceback">{{traceback}}</pre>
+        </div>
+    </div>
+</body>
+</html>
