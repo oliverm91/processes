@@ -1,6 +1,9 @@
 import os
 import shutil
 import sys
+import time
+
+import pytest
 
 sys.path.insert(0, "examples/01_basic_tasks_and_dependencies")
 sys.path.insert(0, "examples/02_task_dependencies_result_passing")
@@ -23,7 +26,11 @@ def _clean_example_artifacts() -> None:
         os.remove(_EXAMPLE_OUTPUT)
 
 
-def test_example_1():
+def test_example_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    # example1 has time.sleep() calls inside its task functions purely to
+    # simulate I/O latency for the human-facing demo.  We don't care about
+    # wall time in the test — stub sleep so the example finishes instantly.
+    monkeypatch.setattr(time, "sleep", lambda *_args, **_kwargs: None)
     _clean_example_artifacts()
     try:
         example_1()

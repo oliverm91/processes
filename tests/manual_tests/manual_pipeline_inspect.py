@@ -42,8 +42,13 @@ Expected outcomes
 *   Tasks ``A0_ingest_orders``, ``B_validate_orders``, ``C_enrich_with_users``,
     ``E_compute_kpis`` and ``H_archive_run_metadata`` succeed (their
     ``func`` is called exactly once).
-*   Tasks ``D_join_inventory`` and ``F_publish_dashboard`` raise (their
-    ``func`` is called once and then re-raises).
+*   ``D_join_inventory`` raises a ``json.JSONDecodeError`` from inside
+    the stdlib ``json`` package after passing through 4 local frames
+    (``join_inventory`` + 3 helpers).  The rendered email traceback
+    should therefore show our local frames interleaved with frames
+    from ``json.decoder`` / ``json.scanner`` / ``json.__init__``.
+*   ``F_publish_dashboard`` raises (its ``func`` is called once and
+    then re-raises).
 *   Task ``G_notify_ops`` never runs (cascading skip from
     ``F_publish_dashboard``).
 *   Two emails arrive in maildev, one per failure, each with the matching
@@ -62,7 +67,7 @@ the integration test for the parallel path.
 
 from __future__ import annotations
 
-import argparse
+import json
 import os
 import sys
 import traceback
@@ -154,17 +159,47 @@ def enrich_with_users(
     }
 
 
+def _inventory_chunk_header(warehouse: str, strategy: str) -> str:
+    """Local frame 1/4 — assemble the cached chunk's opening text and
+    forward the call down the chain so this frame stays on the stack
+    when the decoder later raises."""
+    return _inventory_chunk_seal(
+        f'{{"warehouse": "{warehouse}", "strategy": "{strategy}",'
+    )
+
+
+def _inventory_chunk_seal(header: str) -> str:
+    """Local frame 2/4 — append the body.  Intentionally truncated mid-row
+    to simulate a cache-layer corruption (a partial write that the
+    downstream decoder then rejects with ``json.JSONDecodeError``)."""
+    return _inventory_chunk_parse(
+        header + ' "rows": [{"sku": "SKU-A", "qty": 12}, {"sku": "SKU-B", "q'
+    )
+
+
+def _inventory_chunk_parse(chunk: str) -> Any:
+    """Local frame 3/4 — hand the chunk to the stdlib JSON decoder.  The
+    raise lives a few frames deep in ``json.decoder`` / ``json.scanner``,
+    which is the point: the rendered email traceback should show our
+    4 local frames interleaved with stdlib frames so it's obvious the
+    formatter isn't trimming either side."""
+    return json.loads(chunk)
+
+
 def join_inventory(
     warehouse: str,
     payload: dict[str, Any] | None = None,
     strategy: str = "inner",
 ) -> dict[str, Any]:
-    """Join with inventory levels.  **Fails** — simulates a missing SKU map."""
+    """Join with inventory levels.  **Fails** — a corrupt cached chunk
+    surfaces a ``json.JSONDecodeError`` from inside the stdlib ``json``
+    package.  Call chain on failure: ``join_inventory`` →
+    ``_inventory_chunk_header`` → ``_inventory_chunk_seal`` →
+    ``_inventory_chunk_parse`` → ``json.loads`` → ``json.scanner`` /
+    ``json.decoder``."""
     rows = (payload or {}).get("enriched_rows", [])
     print(f"  [join_inventory] warehouse={warehouse} rows={len(rows)} strategy={strategy}")
-    raise RuntimeError(
-        f"missing SKU mapping for warehouse={warehouse!r} (strategy={strategy})"
-    )
+    return _inventory_chunk_header(warehouse, strategy)
 
 
 def compute_kpis(
@@ -342,38 +377,19 @@ def build_tasks(logs_dir: str, mail_handler: HTMLSMTPHandler) -> list[Task]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--keep-logs",
-        action="store_true",
-        help="preserve any previous .log files in the logs dir "
-        "(default: wipe them at startup so each run is a fresh inspection).",
-    )
-    parser.add_argument(
-        "--no-start-maildev",
-        action="store_true",
-        help="do not try to launch maildev; only verify that the SMTP "
-        "listener is already up.  Use this if you want to manage "
-        "maildev yourself.",
-    )
-    args = parser.parse_args()
-
     here = os.path.dirname(os.path.abspath(__file__))
     logs_dir = os.path.join(here, "logs")
     os.makedirs(logs_dir, exist_ok=True)
 
-    if not args.keep_logs:
-        cleared = 0
-        for name in os.listdir(logs_dir):
-            if name.endswith(".log"):
-                os.remove(os.path.join(logs_dir, name))
-                cleared += 1
-        if cleared:
-            print(f"logs dir:   {logs_dir} (cleared {cleared} stale .log file(s))")
-        else:
-            print(f"logs dir:   {logs_dir} (empty)")
+    cleared = 0
+    for name in os.listdir(logs_dir):
+        if name.endswith(".log"):
+            os.remove(os.path.join(logs_dir, name))
+            cleared += 1
+    if cleared:
+        print(f"logs dir:   {logs_dir} (cleared {cleared} stale .log file(s))")
     else:
-        print(f"logs dir:   {logs_dir} (keeping existing files — --keep-logs)")
+        print(f"logs dir:   {logs_dir} (empty)")
 
     print(f"recipients: {TO_ADDRS}")
 

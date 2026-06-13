@@ -80,7 +80,7 @@ FROM_ADDR = "traceback-canary@enterprise.test"
 
 _STYLES = ("classic", "modern", "compact")
 _PALETTES = ("neutral", "catppuccin", "neobones", "slate")
-_LANGUAGES = ("en", "es", "pt", "fr", "de", "it")
+_LANGUAGES = ("en", "es")#, "pt", "fr", "de", "it")
 
 RECURSION_DEPTH = 60
 

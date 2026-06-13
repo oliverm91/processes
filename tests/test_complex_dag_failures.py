@@ -72,44 +72,14 @@ def _ancestors_of(task_name: str, tasks: Iterable[Task]) -> set[str]:
 # --------------------------------------------------------------------------- #
 
 
-def test_complex_dag_dual_independent_failures(monkeypatch) -> None:
+def test_complex_dag_dual_independent_failures() -> None:
     """Enterprise-pipeline integration test (14-task DAG, dual failures)."""
 
     clean_tasks_logs()
-    template_path = os.path.join(_CURDIR, "error_template.html")
 
     try:
         # ----------------------------------------------------------------- #
-        # 1.  Custom ``error_template.html`` resolved via env var.         #
-        #     A unique marker (``ENTERPRISE_TEMPLATE_v1``) is embedded so   #
-        #     we can prove the formatter actually read this file rather     #
-        #     than the inline fallback.                                     #
-        # ----------------------------------------------------------------- #
-        custom_template = """<!DOCTYPE html>
-<!-- ENTERPRISE_TEMPLATE_v1 -->
-<html>
-<head><title>Pipeline Error: {{task_name}}</title></head>
-<body>
-<h1>Pipeline Failure: {{task_name}}</h1>
-<section>
-<p><b>Function:</b> <code>{{function}}</code></p>
-<p><b>Args:</b> <code>{{args}}</code></p>
-<p><b>Kwargs:</b> <code>{{kwargs}}</code></p>
-<p><b>Exception:</b> <span class="err">{{exception}}</span></p>
-</section>
-<h2>Downstream Impact</h2>
-<p>The following downstream tasks will be skipped:</p>
-<ul class="impact">{{downstream_items}}</ul>
-<h3>Traceback</h3>
-<pre class="traceback">{{traceback}}</pre>
-</body></html>
-"""
-        with open(template_path, "w", encoding="utf-8") as fh:
-            fh.write(custom_template)
-        monkeypatch.setenv("PROCESSES_ERROR_TEMPLATE", template_path)
-
-        # ----------------------------------------------------------------- #
-        # 2.  Build the DAG.                                                #
+        # 1.  Build the DAG.                                                #
         #                                                                   #
         #   Branch A — independent diamond (9 tasks total in independent    #
         #              set when B & C fail):                                #
@@ -347,14 +317,23 @@ def test_complex_dag_dual_independent_failures(monkeypatch) -> None:
                 f"Subject should be 'Error in task {failing}'"
             )
 
-            # The custom template was actually read.
-            assert "ENTERPRISE_TEMPLATE_v1" in msg, (
-                "Custom template marker missing — formatter did not read the "
-                "PROCESSES_ERROR_TEMPLATE file (fell back to inline default?)"
+            # The bundled default theme (classic + neutral) was rendered.
+            assert "--accent: #2563eb" in msg, (
+                "Default 'neutral' palette marker missing from email body — "
+                "formatter did not load the bundled theme"
+            )
+            assert 'class="card"' in msg, (
+                "Default 'modern' style marker missing from email body — "
+                "formatter did not load the bundled theme"
             )
 
             # Rich, well-formed HTML body.
-            assert "<h1>Pipeline Failure:" in msg
+            assert 'class="header"' in msg, (
+                "Email body missing the modern 'header' wrapper around the failure heading"
+            )
+            assert "Pipeline Failure:" in msg, (
+                "Email body missing the per-task failure heading"
+            )
             assert "<h2>Downstream Impact</h2>" in msg, (
                 "Email body missing 'Downstream Impact' heading"
             )
@@ -390,5 +369,3 @@ def test_complex_dag_dual_independent_failures(monkeypatch) -> None:
         assert smtp_instance.quit.call_count == len(failing_task_names)
     finally:
         clean_tasks_logs()
-        if os.path.isfile(template_path):
-            os.remove(template_path)
