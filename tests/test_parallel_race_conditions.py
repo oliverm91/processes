@@ -25,22 +25,27 @@ non-deterministic — a single passing iteration proves nothing.
 
 from __future__ import annotations
 
+import os
 import threading
 from collections import defaultdict
 
 from processes import Process, Task, TaskDependency
 
+from .log_cleaner import clean_tasks_logs
 
-def _make_task(tmp_path, name: str, func, deps=None) -> Task:
+_CURDIR = os.path.dirname(__file__)
+
+
+def _make_task(name: str, func, deps=None) -> Task:
     return Task(
         name=name,
-        log_path=str(tmp_path / f"{name}.log"),
+        log_path=os.path.join(_CURDIR, f"{name}.log"),
         func=func,
         dependencies=deps or [],
     )
 
 
-def _run_diamond_iteration(tmp_path, sibling_count: int, run_idx: int) -> None:
+def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
     """One diamond fan-in iteration, isolated so closures bind to params."""
     call_counts: dict[str, int] = defaultdict(int)
     counts_lock = threading.Lock()
@@ -70,11 +75,10 @@ def _run_diamond_iteration(tmp_path, sibling_count: int, run_idx: int) -> None:
         return sorted(sibling_results)
 
     dep = TaskDependency
-    tasks = [_make_task(tmp_path, "root", root_func)]
+    tasks = [_make_task("root", root_func)]
     for i in range(sibling_count):
         tasks.append(
             _make_task(
-                tmp_path,
                 f"S{i}",
                 make_sibling(i),
                 deps=[dep("root", use_result_as_additional_args=True)],
@@ -83,7 +87,7 @@ def _run_diamond_iteration(tmp_path, sibling_count: int, run_idx: int) -> None:
     collector_deps = [
         dep(f"S{i}", use_result_as_additional_args=True) for i in range(sibling_count)
     ]
-    tasks.append(_make_task(tmp_path, "collector", collector, deps=collector_deps))
+    tasks.append(_make_task("collector", collector, deps=collector_deps))
 
     with Process(tasks) as process:
         result = process.run(parallel=True, max_workers=sibling_count + 2)
@@ -117,14 +121,17 @@ def _run_diamond_iteration(tmp_path, sibling_count: int, run_idx: int) -> None:
     )
 
 
-def test_diamond_fan_in_race(tmp_path) -> None:
+def test_diamond_fan_in_race() -> None:
     """Wide diamond fan-in: N siblings → 1 dependent, all gated by barrier."""
-    for run_idx in range(5):
-        _run_diamond_iteration(tmp_path, sibling_count=16, run_idx=run_idx)
+    clean_tasks_logs()
+    try:
+        for run_idx in range(5):
+            _run_diamond_iteration(sibling_count=16, run_idx=run_idx)
+    finally:
+        clean_tasks_logs()
 
 
 def _run_cascading_iteration(
-    tmp_path,
     failing_branches: int,
     passing_branches: int,
     chain_depth: int,
@@ -163,11 +170,10 @@ def _run_cascading_iteration(
     for b in range(failing_branches):
         chain_names = [f"F{b}_{d}" for d in range(chain_depth + 1)]
         failing_chains.append(chain_names)
-        tasks.append(_make_task(tmp_path, chain_names[0], make_root(chain_names[0], fail=True)))
+        tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=True)))
         for d in range(1, chain_depth + 1):
             tasks.append(
                 _make_task(
-                    tmp_path,
                     chain_names[d],
                     make_child(chain_names[d]),
                     deps=[dep(chain_names[d - 1])],
@@ -178,11 +184,10 @@ def _run_cascading_iteration(
     for b in range(passing_branches):
         chain_names = [f"P{b}_{d}" for d in range(chain_depth + 1)]
         passing_chains.append(chain_names)
-        tasks.append(_make_task(tmp_path, chain_names[0], make_root(chain_names[0], fail=False)))
+        tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=False)))
         for d in range(1, chain_depth + 1):
             tasks.append(
                 _make_task(
-                    tmp_path,
                     chain_names[d],
                     make_child(chain_names[d]),
                     deps=[dep(chain_names[d - 1])],
@@ -239,13 +244,16 @@ def _run_cascading_iteration(
     )
 
 
-def test_high_fanout_cascading_failures_race(tmp_path) -> None:
+def test_high_fanout_cascading_failures_race() -> None:
     """Many failing + passing branches released simultaneously from a barrier."""
-    for run_idx in range(5):
-        _run_cascading_iteration(
-            tmp_path,
-            failing_branches=8,
-            passing_branches=8,
-            chain_depth=3,
-            run_idx=run_idx,
-        )
+    clean_tasks_logs()
+    try:
+        for run_idx in range(5):
+            _run_cascading_iteration(
+                failing_branches=8,
+                passing_branches=8,
+                chain_depth=3,
+                run_idx=run_idx,
+            )
+    finally:
+        clean_tasks_logs()
