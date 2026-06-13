@@ -53,10 +53,10 @@ class TaskDependency:
     use_result_as_additional_kwargs : bool
         If True, the result of the dependency task will be passed as a
         keyword argument. Defaults to False.
-    additional_kwarg_name : str | None
-        The name of the keyword argument to use if use_result_as_additional_kwargs
-        is True. Required when use_result_as_additional_kwargs is True.
-        Defaults to None.
+    additional_kwarg_name : str
+        The name of the keyword argument to use if ``use_result_as_additional_kwargs``
+        is True. Must be a non-empty string when
+        ``use_result_as_additional_kwargs`` is True. Defaults to ``""``.
 
     Raises
     ------
@@ -113,7 +113,7 @@ class Task:
     A Task represents a unit of work to be executed within a Process.
 
     A Task encapsulates a callable function with its arguments, dependencies on other tasks,
-    and logging configuration. Tasks can be executed, by the Process class, sequentially
+    and logging configuration. Tasks can be executed by the Process class, sequentially
     or in parallel, with automatic dependency resolution and result passing between dependent tasks.
 
     Attributes
@@ -134,6 +134,39 @@ class Task:
         Handler for sending error logs via email in HTML format. Defaults to None.
     logger : logging.Logger
         Logger instance for this task, automatically configured.
+
+    Parameters
+    ----------
+    name : str
+        Unique task name; must not contain spaces.
+    log_path : str
+        File path the task's log records are written to (one ``FileHandler``
+        at ``INFO`` level, format
+        ``"%(asctime)s - %(name)s - %(levelname)s - %(message)s"``).
+    func : Callable[..., Any]
+        The callable executed when the task runs.
+    args : tuple[Any, ...]
+        Positional arguments forwarded to ``func``. Defaults to ``()``.
+    kwargs : dict[str, Any] | None
+        Keyword arguments forwarded to ``func``. ``None`` is treated as
+        an empty dict.
+    dependencies : list[TaskDependency] | None
+        Tasks this task depends on. ``None`` is treated as an empty list.
+    html_mail_handler : HTMLSMTPHandler | None
+        Optional handler that sends a styled HTML email on error
+        (``logging.ERROR`` and above). Defaults to ``None``.
+
+    Raises
+    ------
+    TypeError
+        If ``func``, ``args``, ``kwargs``, ``dependencies`` or
+        ``html_mail_handler`` are not of the expected type, or if a
+        dependency has ``use_result_as_additional_kwargs=True`` with an
+        empty ``additional_kwarg_name``.
+    ValueError
+        If ``name`` contains a space, if the same dependency name is
+        listed more than once, or if the task lists itself as a
+        dependency.
     """
 
     kwargs: dict[str, Any]

@@ -311,6 +311,33 @@ class ExceptionHTMLFormatter(logging.Formatter):
         return rendered
 
     def format(self, record: logging.LogRecord) -> str:
+        """Render a log record as a complete HTML email body.
+
+        Composes the email in three steps:
+
+        1. Extract the exception text, full traceback, traced-vars block,
+           and traced-vars location from the record (delegated to
+           ``_format_exception_block``).
+        2. Split the traceback string into ``(before, highlight, after)``
+           segments around the frame line that matches the traced-vars
+           location, so the templates can style the user-frame.
+        3. Substitute every ``{{name}}`` placeholder in the resolved
+           template (style + palette, composed by ``_get_template``)
+           with the corresponding value, HTML-escaped as needed.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            The record being formatted. If the record carries
+            ``task_context`` (set by the task runner via
+            ``logger.exception(..., extra={"task_context": ...})``) it is
+            used to populate the task fields in the email body.
+
+        Returns
+        -------
+        str
+            The fully-rendered HTML body, ready to send.
+        """
         exception, tb_str, traced_vars, traced_vars_location = self._format_exception_block(record)
         # Split the traceback into (before, highlight, after) segments
         # around the frame line that matches the traced-vars location.

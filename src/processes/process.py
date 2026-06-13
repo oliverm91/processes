@@ -60,6 +60,13 @@ class Process:
     runner : ProcessRunner
         The runner responsible for executing the tasks.
 
+    Parameters
+    ----------
+    tasks : list[Task]
+        The tasks to orchestrate. Order does not matter — the constructor
+        topologically sorts the list in place. The list is mutated during
+        construction; pass a copy if the original ordering matters.
+
     Raises
     ------
     TypeError
@@ -215,7 +222,8 @@ class Process:
             False otherwise. Defaults to None.
         max_workers : int, optional
             Maximum number of worker threads for parallel execution. Defaults to 4.
-            Only used when parallel=True. If set to 1, falls back to sequential execution.
+            Only used when parallel=True. If set to 1, falls back to sequential
+            execution. Values below 1 are clamped to 1.
 
         Returns
         -------
