@@ -1,3 +1,9 @@
+## v2.0.1 (2026-06-12)
+
+### Fix
+
+- **publish.yml**: remove unneeded step ruff format check in quality-gate
+
 ## v2.0.0 (2026-06-12)
 
 ### BREAKING CHANGE
