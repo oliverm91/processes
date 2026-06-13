@@ -1,0 +1,13 @@
+{
+  "lang_title_prefix": "Pipeline Error: ",
+  "lang_failure_header": "Pipeline Failure: ",
+  "lang_failure_header_short": "failure",
+  "lang_function_label": "Function",
+  "lang_args_label": "Args",
+  "lang_kwargs_label": "Kwargs",
+  "lang_exception_label": "Exception",
+  "lang_downstream_title": "Downstream Impact",
+  "lang_downstream_blurb": "The following downstream tasks will be skipped:",
+  "lang_traceback_title": "Traceback",
+  "lang_email_subject": "Error in task "
+}

@@ -8,7 +8,11 @@ if TYPE_CHECKING:
 
 import logging
 
-from .html_logging import ExceptionHTMLFormatter, HTMLSMTPHandler
+from .html_logging import (
+    ExceptionHTMLFormatter,
+    HTMLSMTPHandler,
+    _load_language_strings,
+)
 
 
 class TaskResult:
@@ -191,9 +195,20 @@ class Task:
 
         if self.html_mail_handler is not None:
             _html_mail_handler = self.html_mail_handler.copy()
-            _html_mail_handler.setFormatter(ExceptionHTMLFormatter())
+            _html_mail_handler.setFormatter(
+                ExceptionHTMLFormatter(
+                    email_style=self.html_mail_handler.email_style,
+                    color_palette=self.html_mail_handler.color_palette,
+                    email_language=self.html_mail_handler.email_language,
+                )
+            )
             _html_mail_handler.setLevel(logging.ERROR)
-            _html_mail_handler.subject = f"Error in task {self.name}"
+            lang_strings = _load_language_strings(
+                self.html_mail_handler.email_language
+            )
+            _html_mail_handler.subject = (
+                f"{lang_strings['lang_email_subject']}{self.name}"
+            )
             logger.addHandler(_html_mail_handler)
 
         self.logger = logger

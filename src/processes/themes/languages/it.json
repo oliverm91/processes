@@ -1,0 +1,13 @@
+{
+  "lang_title_prefix": "Errore del pipeline: ",
+  "lang_failure_header": "Fallimento del pipeline: ",
+  "lang_failure_header_short": "fallimento",
+  "lang_function_label": "Funzione",
+  "lang_args_label": "Argomenti",
+  "lang_kwargs_label": "Argomenti con nome",
+  "lang_exception_label": "Eccezione",
+  "lang_downstream_title": "Impatto sulle attività dipendenti",
+  "lang_downstream_blurb": "Le seguenti attività dipendenti verranno saltate:",
+  "lang_traceback_title": "Traccia dell'errore",
+  "lang_email_subject": "Errore nell'attività "
+}

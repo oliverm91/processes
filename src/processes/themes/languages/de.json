@@ -1,0 +1,13 @@
+{
+  "lang_title_prefix": "Pipeline-Fehler: ",
+  "lang_failure_header": "Pipeline-Fehlschlag: ",
+  "lang_failure_header_short": "fehler",
+  "lang_function_label": "Funktion",
+  "lang_args_label": "Argumente",
+  "lang_kwargs_label": "Schlüsselwortargumente",
+  "lang_exception_label": "Ausnahme",
+  "lang_downstream_title": "Auswirkung auf nachgelagerte Aufgaben",
+  "lang_downstream_blurb": "Die folgenden nachgelagerten Aufgaben werden übersprungen:",
+  "lang_traceback_title": "Fehlerverlauf",
+  "lang_email_subject": "Fehler in Aufgabe "
+}

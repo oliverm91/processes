@@ -1,0 +1,13 @@
+{
+  "lang_title_prefix": "Erreur du pipeline : ",
+  "lang_failure_header": "Échec du pipeline : ",
+  "lang_failure_header_short": "échec",
+  "lang_function_label": "Fonction",
+  "lang_args_label": "Arguments",
+  "lang_kwargs_label": "Arguments nommés",
+  "lang_exception_label": "Exception",
+  "lang_downstream_title": "Impact sur les tâches dépendantes",
+  "lang_downstream_blurb": "Les tâches dépendantes suivantes seront ignorées :",
+  "lang_traceback_title": "Trace d'erreur",
+  "lang_email_subject": "Erreur dans la tâche "
+}

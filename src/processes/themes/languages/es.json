@@ -1,0 +1,13 @@
+{
+  "lang_title_prefix": "Error en el pipeline: ",
+  "lang_failure_header": "Fallo en el pipeline: ",
+  "lang_failure_header_short": "fallo",
+  "lang_function_label": "Función",
+  "lang_args_label": "Argumentos",
+  "lang_kwargs_label": "Argumentos con nombre",
+  "lang_exception_label": "Excepción",
+  "lang_downstream_title": "Impacto en tareas dependientes",
+  "lang_downstream_blurb": "Las siguientes tareas dependientes se omitirán:",
+  "lang_traceback_title": "Traza de error",
+  "lang_email_subject": "Error en la tarea "
+}
