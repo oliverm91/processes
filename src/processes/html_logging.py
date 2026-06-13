@@ -100,7 +100,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         if self.mailport:
             mailhost = (self.mailhost, self.mailport)
         else:
-            mailhost = self.mailhost
+            mailhost = self.mailhost  # type: ignore[assignment]
         return HTMLSMTPHandler(
             mailhost,
             self.fromaddr,

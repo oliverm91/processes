@@ -15,7 +15,8 @@ By default, the script loops over every combination of
 Use ``--style``, ``--palette`` and/or ``--language`` to limit to a subset:
 
     # just the modern + neobones combo in Spanish
-    python tests/manual_tests/manual_themed_tracebacks.py --style modern --palette neobones --language es
+    python tests/manual_tests/manual_themed_tracebacks.py --style modern \
+        --palette neobones --language es
 
 What this exercises
 -------------------
