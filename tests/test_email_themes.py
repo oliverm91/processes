@@ -2,35 +2,33 @@
 
 Covers:
 
-*   The 9 ``(email_style, color_palette)`` combinations render a fully
-    substituted HTML body that pulls the palette's CSS variables into the
-    style at the ``{{__palette_css__}}`` marker and carries the style's
-    distinctive markup.
-*   Every (style, palette, language) combination renders a body in the
-    target language — a language-specific marker from each translation
-    file must appear in the output.
-*   Constructor validation on both ``HTMLSMTPHandler`` and
-    ``ExceptionHTMLFormatter`` — unknown style/palette/language names
-    must raise ``ValueError`` at construction time, not at first emit.
-*   The handler → formatter wiring inside ``Task._setup_logger``: setting
-    ``email_style``, ``color_palette`` and ``email_language`` on a handler
-    attached to a ``Task`` must propagate through the runtime formatter
-    so the rendered email body and subject carry the chosen options.
+*   The 9 ``(style, palette)`` combinations render a fully substituted HTML
+    body that pulls the palette's CSS variables into the style at the
+    ``{{__palette_css__}}`` marker and carries the style's distinctive markup.
+*   Every (style, palette, language) combination renders a body in the target
+    language — a language-specific marker from each translation file must appear
+    in the output.
+*   Constructor validation on ``HTMLEmailStyle`` — unknown style/palette/language
+    names must raise ``ValueError`` at construction time.
+*   The wiring inside ``Task.__init__``: setting ``email_style`` on a Task must
+    propagate through the runtime formatter so the rendered email body and subject
+    carry the chosen options.
 """
 
 from __future__ import annotations
 
 import logging
-import os
+import logging.handlers
 from email import message_from_string
 from unittest.mock import patch
 
-from processes import HTMLSMTPHandler, Process, Task
-from processes.exception_html_formatter import ExceptionHTMLFormatter
+import pytest
 
-from .log_cleaner import clean_tasks_logs
+from processes import HTMLEmailStyle, Process, SMTPConfig, Task
+from processes._email_internals import _HTMLEmailFormatter
+from processes._tb_utils import _build_traced_vars_html, _build_traced_vars_location, _format_traceback
 
-_CURDIR = os.path.dirname(__file__)
+from .base_test import BaseTest
 
 
 def _decode_mime_body(msg: str) -> str:
@@ -40,15 +38,12 @@ def _decode_mime_body(msg: str) -> str:
     return payload.decode("utf-8", errors="replace")
 
 
-# Style-specific markers that must appear in the rendered body to prove
-# the chosen style layout is actually in use (not just the default).
 _STYLE_MARKERS = {
     "classic": ["<h1>Pipeline Failure:", 'class="impact"', 'class="traceback"'],
     "modern": ['class="card"', 'class="header"', 'class="alert"'],
     "compact": ["[failure]", "[Function]", "[Downstream Impact]", "[Traceback]"],
 }
 
-# A distinguishing substring from each palette's :root variable block.
 _PALETTE_MARKERS = {
     "neutral": "--accent: #2563eb",
     "catppuccin": "--accent: #8839ef",
@@ -60,8 +55,6 @@ _STYLES = ("classic", "modern", "compact")
 _PALETTES = ("neutral", "catppuccin", "neobones", "slate")
 _LANGUAGES = ("en", "es", "pt", "fr", "de", "it")
 
-# A translation-unique substring for each language that must appear in
-# the rendered body when that language is selected.
 _LANGUAGE_MARKERS = {
     "en": ["Pipeline Failure:", "Function", "Downstream Impact"],
     "es": ["Fallo en el pipeline:", "Función", "Impacto en tareas dependientes"],
@@ -71,7 +64,6 @@ _LANGUAGE_MARKERS = {
     "it": ["Fallimento del pipeline:", "Funzione", "Impatto sulle attività dipendenti"],
 }
 
-# The default subject prefix for each language (must end with a separator).
 _SUBJECT_MARKERS = {
     "en": "Error in task ",
     "es": "Error en la tarea ",
@@ -81,8 +73,6 @@ _SUBJECT_MARKERS = {
     "it": "Errore nell'attività ",
 }
 
-# All 9 content placeholders that every template must declare and that
-# ``format()`` must substitute — no ``{{xxx}}`` may remain in the output.
 _CONTENT_KEYS = (
     "task_name",
     "function",
@@ -96,7 +86,6 @@ _CONTENT_KEYS = (
     "downstream_items",
 )
 
-# All language placeholders that every template uses.
 _LANG_CONTENT_KEYS = (
     "lang_title_prefix",
     "lang_failure_header",
@@ -134,278 +123,250 @@ def _make_record(task_name: str = "demo_task") -> logging.LogRecord:
 
 
 # --------------------------------------------------------------------------- #
-# 1. The 12 (style, palette, language) render combinations                       #
+# 1. Formatter rendering tests (no Tasks or log files)                         #
 # --------------------------------------------------------------------------- #
 
 
-def test_every_style_palette_renders_complete_substitution() -> None:
-    """Every (style, palette) pair must render with all 7 placeholders filled."""
-    for style in _STYLES:
-        for palette in _PALETTES:
-            formatter = ExceptionHTMLFormatter(email_style=style, color_palette=palette)
-            output = formatter.format(_make_record(f"task_{style}_{palette}"))
-
-            # (a) All 7 content placeholders are substituted — no {{xxx}} remains.
-            for key in _CONTENT_KEYS:
-                placeholder = "{{" + key + "}}"
-                assert placeholder not in output, (
-                    f"[{style}/{palette}] placeholder {placeholder!r} was not substituted"
-                )
-
-            # (b) The palette marker has been replaced with the palette's CSS
-            # (so the palette's distinguishing --accent/--bg-page value appears).
-            assert "{{__palette_css__}}" not in output, (
-                f"[{style}/{palette}] palette marker was not injected"
-            )
-            assert _PALETTE_MARKERS[palette] in output, (
-                f"[{style}/{palette}] palette marker "
-                f"{_PALETTE_MARKERS[palette]!r} not found in rendered body"
-            )
-
-            # (c) At least one style-specific marker is present.
-            for marker in _STYLE_MARKERS[style]:
-                assert marker in output, f"[{style}/{palette}] style marker {marker!r} not found"
-
-
-def test_every_language_renders_translated_body() -> None:
-    """For each supported language, the body must carry that language's text
-    across all (style, palette) combinations."""
-    for language in _LANGUAGES:
+class TestEmailRendering(BaseTest):
+    def test_every_style_palette_renders_complete_substitution(self) -> None:
+        """Every (style, palette) pair must render with all placeholders filled."""
         for style in _STYLES:
             for palette in _PALETTES:
-                formatter = ExceptionHTMLFormatter(
-                    email_style=style,
-                    color_palette=palette,
-                    email_language=language,
-                )
-                output = formatter.format(_make_record(f"task_{language}_{style}_{palette}"))
+                formatter = _HTMLEmailFormatter(HTMLEmailStyle(style=style, palette=palette))
+                output = formatter.format(_make_record(f"task_{style}_{palette}"))
 
-                # No language placeholder may remain unsubstituted.
-                for key in _LANG_CONTENT_KEYS:
+                for key in _CONTENT_KEYS:
                     placeholder = "{{" + key + "}}"
                     assert placeholder not in output, (
-                        f"[{language}/{style}/{palette}] placeholder "
-                        f"{placeholder!r} was not substituted"
+                        f"[{style}/{palette}] placeholder {placeholder!r} was not substituted"
                     )
 
-                # At least one language-distinctive marker must be in the body.
-                markers = _LANGUAGE_MARKERS[language]
-                assert any(marker in output for marker in markers), (
-                    f"[{language}/{style}/{palette}] no language marker "
-                    f"from {markers!r} found in rendered body"
+                assert "{{__palette_css__}}" not in output, (
+                    f"[{style}/{palette}] palette marker was not injected"
                 )
+                assert _PALETTE_MARKERS[palette] in output, (
+                    f"[{style}/{palette}] palette marker "
+                    f"{_PALETTE_MARKERS[palette]!r} not found in rendered body"
+                )
+                for marker in _STYLE_MARKERS[style]:
+                    assert marker in output, (
+                        f"[{style}/{palette}] style marker {marker!r} not found"
+                    )
 
+    def test_every_language_renders_translated_body(self) -> None:
+        """For each supported language, the body must carry that language's text
+        across all (style, palette) combinations."""
+        for language in _LANGUAGES:
+            for style in _STYLES:
+                for palette in _PALETTES:
+                    formatter = _HTMLEmailFormatter(
+                        HTMLEmailStyle(style=style, palette=palette, language=language)
+                    )
+                    output = formatter.format(
+                        _make_record(f"task_{language}_{style}_{palette}")
+                    )
 
-# --------------------------------------------------------------------------- #
-# 2. Constructor validation                                                    #
-# --------------------------------------------------------------------------- #
+                    for key in _LANG_CONTENT_KEYS:
+                        placeholder = "{{" + key + "}}"
+                        assert placeholder not in output, (
+                            f"[{language}/{style}/{palette}] placeholder "
+                            f"{placeholder!r} was not substituted"
+                        )
 
+                    markers = _LANGUAGE_MARKERS[language]
+                    assert any(marker in output for marker in markers), (
+                        f"[{language}/{style}/{palette}] no language marker "
+                        f"from {markers!r} found in rendered body"
+                    )
 
-def test_formatter_rejects_unknown_email_style() -> None:
-    import pytest
+    def test_style_rejects_unknown_style(self) -> None:
+        with pytest.raises(ValueError, match="style must be one of"):
+            HTMLEmailStyle(style="neon")
 
-    with pytest.raises(ValueError, match="email_style must be one of"):
-        ExceptionHTMLFormatter(email_style="neon")
+    def test_style_rejects_unknown_palette(self) -> None:
+        with pytest.raises(ValueError, match="palette must be one of"):
+            HTMLEmailStyle(palette="rainbow")
 
+    def test_style_rejects_unknown_language(self) -> None:
+        with pytest.raises(ValueError, match="language must be one of"):
+            HTMLEmailStyle(language="klingon")
 
-def test_formatter_rejects_unknown_color_palette() -> None:
-    import pytest
+    def test_style_defaults_to_english(self) -> None:
+        formatter = _HTMLEmailFormatter(HTMLEmailStyle())
+        output = formatter.format(_make_record())
+        assert "Pipeline Failure:" in output
+        assert "Function" in output
 
-    with pytest.raises(ValueError, match="color_palette must be one of"):
-        ExceptionHTMLFormatter(color_palette="rainbow")
+    def test_traced_vars_frame_filter_selects_user_frame(self) -> None:
+        """traced_vars_frame_filter set to a substring of this test's path must
+        pick this test module's frame over deeper frames in the call stack."""
 
+        def _deep() -> None:
+            user_local = "user_frame_value"  # noqa: F841
+            raise RuntimeError("deep failure")
 
-def test_formatter_rejects_unknown_email_language() -> None:
-    import pytest
+        try:
+            _deep()
+        except Exception as exc:
+            record = _make_record("filter_user")
+            frame_filter = "test_email_themes"
+            record.task_context.update({
+                "exception": str(exc),
+                "traceback_str": _format_traceback(exc),
+                "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
+                "traced_vars_location": _build_traced_vars_location(exc.__traceback__, frame_filter),
+            })
 
-    with pytest.raises(ValueError, match="email_language must be one of"):
-        ExceptionHTMLFormatter(email_language="klingon")
+        formatter = _HTMLEmailFormatter(HTMLEmailStyle())
+        body = formatter.format(record)
 
+        assert "user_local" in body, (
+            "frame_filter='test_email_themes' should pick the _deep frame "
+            "whose locals include 'user_local'"
+        )
+        assert "user_frame_value" in body
 
-def test_formatter_default_language_is_english() -> None:
-    formatter = ExceptionHTMLFormatter()
-    output = formatter.format(_make_record())
-    assert "Pipeline Failure:" in output
-    assert "Function" in output
+    def test_traced_vars_frame_filter_selects_stdlib_frame(self) -> None:
+        """traced_vars_frame_filter='json' must pick a frame inside the json stdlib
+        module rather than the user hook frame that actually raised.
 
+        The exception propagates through json.loads → json.decoder.raw_decode →
+        (C scanner) → object_hook.  Filtering for 'json' selects the innermost
+        json Python frame (raw_decode), whose ``s`` local holds the full input
+        string — a reliable sentinel we can assert on.
+        """
+        import json
+        import sys
 
-# --------------------------------------------------------------------------- #
-# 2b. Traced variables section                                                 #
-# --------------------------------------------------------------------------- #
+        sentinel_input = '{"unique_sentinel_9a3f": 1}'
 
+        def _bad_hook(d: dict) -> None:
+            hook_local = "this_is_from_our_hook"  # noqa: F841
+            raise RuntimeError("hook raised")
 
-def test_traced_vars_section_renders_under_traceback() -> None:
-    """When the LogRecord carries ``exc_info``, the rendered body must
-    include the *Traced Variables* section (under the traceback) with
-    the local variables from the resolved target frame."""
-    import sys
+        try:
+            json.loads(sentinel_input, object_hook=_bad_hook)
+        except Exception as exc:
+            record = _make_record("filter_json")
+            frame_filter = "json"
+            record.task_context.update({
+                "exception": str(exc),
+                "traceback_str": _format_traceback(exc),
+                "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
+                "traced_vars_location": _build_traced_vars_location(exc.__traceback__, frame_filter),
+            })
 
-    # Build a 2-frame chain inside the test so the auto-resolve lands on
-    # this test's frame and we can assert on a known local variable.
-    def _inner() -> None:
-        marker = "traced_vars_marker_42"
-        raise RuntimeError(f"planned traced-vars failure; marker={marker}")
+        formatter = _HTMLEmailFormatter(HTMLEmailStyle())
+        body = formatter.format(record)
 
-    try:
-        _inner()
-    except Exception:
-        record = _make_record("traced_task")
-        record.exc_info = sys.exc_info()
+        assert "unique_sentinel_9a3f" in body, (
+            "traced_vars_frame_filter='json' should select the innermost json frame "
+            "(raw_decode) whose 's' local holds the original input string"
+        )
+        assert "this_is_from_our_hook" not in body, (
+            "The hook frame (in test_email_themes.py) must not be selected when "
+            "filtering for 'json'"
+        )
 
-    formatter = ExceptionHTMLFormatter(
-        email_style="modern", color_palette="neutral", email_language="en"
-    )
-    body = formatter.format(record)
+    def test_traced_vars_section_renders_under_traceback(self) -> None:
+        """Rendered body must include the *Traced Variables* section with local
+        variables from the resolved target frame."""
 
-    # Section title appears.
-    assert "Traced Variables" in body, (
-        "Rendered body is missing the 'Traced Variables' section title"
-    )
+        def _inner() -> None:
+            marker = "traced_vars_marker_42"
+            raise RuntimeError(f"planned traced-vars failure; marker={marker}")
 
-    # The marker (both name and value) appears in the locals listing
-    # (auto-resolve picked this test's frame, so the local var is visible).
-    assert "marker" in body, "Rendered body is missing the local var name from the resolved frame"
-    assert "traced_vars_marker_42" in body, (
-        "Rendered body is missing the local var value from the resolved frame"
-    )
+        try:
+            _inner()
+        except Exception as exc:
+            record = _make_record("traced_task")
+            record.task_context.update({
+                "exception": str(exc),
+                "traceback_str": _format_traceback(exc),
+                "traced_vars": _build_traced_vars_html(exc.__traceback__, None),
+                "traced_vars_location": _build_traced_vars_location(exc.__traceback__, None),
+            })
 
-    # The 'where in the code the values came from' is rendered as a blurb
-    # line BEFORE the traced-vars <pre> block, using the language-specific
-    # lang_traced_vars_blurb string with {location} substituted.  Auto-resolve
-    # picked this test's frame, so the file:line reference points inside
-    # this test module.
-    assert "The following local variables had these values at" in body, (
-        "Rendered body is missing the 'lang_traced_vars_blurb' blurb that "
-        "points to where the traced variables came from"
-    )
-    assert "test_email_themes.py:" in body, (
-        "Rendered body is missing the test file:line reference that was "
-        "substituted into the traced-vars blurb"
-    )
-    # The console-style '# at …' header that used to live inside the <pre>
-    # block must NOT be there anymore — the location now lives in the blurb.
-    assert "# at " not in body, (
-        "Rendered body still carries the in-pre '# at …' console-style "
-        "header; the location should be in the blurb above the block"
-    )
+        formatter = _HTMLEmailFormatter(
+            HTMLEmailStyle(style="modern", palette="neutral", language="en")
+        )
+        body = formatter.format(record)
 
-    # Section ordering: the traceback block must come before the
-    # traced-vars block.  We check by finding both anchors in the body.
-    tb_pos = body.find("RuntimeError: planned traced-vars failure")
-    tv_pos = body.find("Traced Variables")
-    assert 0 <= tb_pos < tv_pos, (
-        "The 'Traced Variables' section must appear AFTER the traceback "
-        f"(tb_pos={tb_pos}, tv_pos={tv_pos})"
-    )
+        assert "Traced Variables" in body, (
+            "Rendered body is missing the 'Traced Variables' section title"
+        )
+        assert "marker" in body, (
+            "Rendered body is missing the local var name from the resolved frame"
+        )
+        assert "traced_vars_marker_42" in body, (
+            "Rendered body is missing the local var value from the resolved frame"
+        )
+        assert "The following local variables had these values at" in body, (
+            "Rendered body is missing the 'lang_traced_vars_blurb' blurb"
+        )
+        assert "test_email_themes.py:" in body, (
+            "Rendered body is missing the test file:line reference in the traced-vars blurb"
+        )
+        assert "# at " not in body, (
+            "Rendered body still carries the in-pre '# at …' console-style header"
+        )
 
-    # The frame line in the traceback that matches the resolved frame is
-    # wrapped in <strong>...</strong> so the reader can spot the frame
-    # whose locals are listed below.  The line was sentinelled as plain
-    # ASCII before html.escape() and swapped for <strong> tags after.
-    strong_open = body.find("<strong>")
-    strong_close = body.find("</strong>")
-    assert strong_open != -1 and strong_close != -1, (
-        "Rendered body is missing the <strong>…</strong> wrapper around "
-        "the matching traceback frame line"
-    )
-    assert strong_open < strong_close, "<strong> must come before </strong>"
-    strong_block = body[strong_open : strong_close + len("</strong>")]
-    assert "test_email_themes.py" in strong_block, (
-        "Bolded traceback line should reference the matching frame's "
-        f"filename, got: {strong_block!r}"
-    )
-    assert " in _inner" in strong_block, (
-        "Bolded traceback line should reference the matching frame's "
-        f"function name '_inner', got: {strong_block!r}"
-    )
-    # Only one frame line is bolded — count the open tags.  The blurb
-    # line and any in-pre output must NOT pick up the wrapper.
-    assert body.count("<strong>") == 1, (
-        "Exactly one traceback frame line should be bolded, got "
-        f"{body.count('<strong>')} <strong> tags"
-    )
+        tb_pos = body.find("RuntimeError: planned traced-vars failure")
+        tv_pos = body.find("Traced Variables")
+        assert 0 <= tb_pos < tv_pos, (
+            "The 'Traced Variables' section must appear AFTER the traceback "
+            f"(tb_pos={tb_pos}, tv_pos={tv_pos})"
+        )
 
-
-def test_handler_rejects_unknown_email_style() -> None:
-    import pytest
-
-    with pytest.raises(ValueError, match="email_style must be one of"):
-        HTMLSMTPHandler(
-            mailhost=("smtp.test", 25),
-            fromaddr="a@b.test",
-            toaddrs=["c@d.test"],
-            email_style="neon",
+        strong_open = body.find("<strong>")
+        strong_close = body.find("</strong>")
+        assert strong_open != -1 and strong_close != -1, (
+            "Rendered body is missing the <strong>…</strong> wrapper around the matching frame"
+        )
+        assert strong_open < strong_close, "<strong> must come before </strong>"
+        strong_block = body[strong_open : strong_close + len("</strong>")]
+        assert "test_email_themes.py" in strong_block, (
+            "Bolded traceback line should reference the matching frame's filename, "
+            f"got: {strong_block!r}"
+        )
+        assert " in _inner" in strong_block, (
+            f"Bolded traceback line should reference function name '_inner', got: {strong_block!r}"
+        )
+        n_strong = body.count("<strong>")
+        assert n_strong == 1, (
+            f"Exactly one traceback frame line should be bolded, got {n_strong} <strong> tags"
         )
 
 
-def test_handler_rejects_unknown_color_palette() -> None:
-    import pytest
-
-    with pytest.raises(ValueError, match="color_palette must be one of"):
-        HTMLSMTPHandler(
-            mailhost=("smtp.test", 25),
-            fromaddr="a@b.test",
-            toaddrs=["c@d.test"],
-            color_palette="rainbow",
-        )
-
-
-def test_handler_rejects_unknown_email_language() -> None:
-    import pytest
-
-    with pytest.raises(ValueError, match="email_language must be one of"):
-        HTMLSMTPHandler(
-            mailhost=("smtp.test", 25),
-            fromaddr="a@b.test",
-            toaddrs=["c@d.test"],
-            email_language="klingon",
-        )
-
-
-def test_handler_copy_propagates_theme_kwargs() -> None:
-    """``copy()`` must preserve email_style, color_palette and email_language."""
-    original = HTMLSMTPHandler(
-        mailhost=("smtp.test", 25),
-        fromaddr="a@b.test",
-        toaddrs=["c@d.test"],
-        email_style="modern",
-        color_palette="slate",
-        email_language="fr",
-    )
-    clone = original.copy()
-    assert clone.email_style == "modern"
-    assert clone.color_palette == "slate"
-    assert clone.email_language == "fr"
-
-
 # --------------------------------------------------------------------------- #
-# 3. Handler → formatter wiring (end-to-end through Task._setup_logger)        #
+# 2. Task wiring tests (create Tasks + log files)                              #
 # --------------------------------------------------------------------------- #
 
 
-def test_handler_to_formatter_wiring_under_task() -> None:
-    """A handler with non-default themes attached to a Task must produce an
-    email body that carries the chosen style, palette and language, and
-    a subject carrying the language prefix."""
-    clean_tasks_logs()
-    log_path = os.path.join(_CURDIR, "wired_task.log")
+class TestTaskEmailWiring(BaseTest):
+    def test_task_wiring_propagates_style_palette_language(self) -> None:
+        """smtp_config + non-default email_style attached to a Task must produce an
+        email body that carries the chosen style, palette and language, and a subject
+        carrying the language prefix."""
+        smtp_cfg = SMTPConfig(
+            mailhost=("smtp.enterprise.test", 25),
+            fromaddr="alerts@enterprise.test",
+            toaddrs=["oncall@enterprise.test"],
+        )
+        style_cfg = HTMLEmailStyle(style="modern", palette="catppuccin", language="es")
 
-    handler = HTMLSMTPHandler(
-        mailhost=("smtp.enterprise.test", 25),
-        fromaddr="alerts@enterprise.test",
-        toaddrs=["oncall@enterprise.test"],
-        email_style="modern",
-        color_palette="catppuccin",
-        email_language="es",
-    )
+        def boom() -> None:
+            raise RuntimeError("planned end-to-end failure")
 
-    def boom() -> None:
-        raise RuntimeError("planned end-to-end failure")
+        task = Task(
+            name="wired",
+            log_path=self._log("wired_task.log"),
+            func=boom,
+            smtp_config=smtp_cfg,
+            email_style=style_cfg,
+        )
 
-    try:
-        task = Task(name="wired", log_path=log_path, func=boom, html_mail_handler=handler)
-
-        with patch("processes.html_logging.smtplib.SMTP") as mock_smtp_class:
+        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
             with Process([task]) as process:
                 process.run(parallel=False)
 
@@ -416,58 +377,42 @@ def test_handler_to_formatter_wiring_under_task() -> None:
         _fromaddr, _toaddrs, msg = smtp_instance.sendmail.call_args.args
         body = _decode_mime_body(msg)
 
-        # Style marker: modern template uses class="card" for the main wrapper.
         assert 'class="card"' in body, (
-            "Rendered email body is missing the 'modern' style marker "
-            'class="card" — handler kwargs were not propagated to the '
-            "formatter inside Task._setup_logger"
+            "Rendered email body is missing the 'modern' style marker class=\"card\""
         )
-
-        # Palette marker: catppuccin palette sets --accent: #8839ef.
         assert "--accent: #8839ef" in body, (
-            "Rendered email body is missing the 'catppuccin' palette marker "
-            "--accent: #8839ef — handler kwargs were not propagated to the "
-            "formatter inside Task._setup_logger"
+            "Rendered email body is missing the 'catppuccin' palette marker --accent: #8839ef"
         )
-
-        # Language marker: Spanish subject prefix and a Spanish body label.
         assert "Fallo en el pipeline: wired" in body, (
-            "Rendered email body is missing the Spanish 'lang_failure_header' "
-            "— handler email_language was not propagated to the formatter"
+            "Rendered email body is missing the Spanish 'lang_failure_header'"
         )
         assert "Función" in body, (
-            "Rendered email body is missing the Spanish 'lang_function_label' "
-            "— handler email_language was not propagated to the formatter"
+            "Rendered email body is missing the Spanish 'lang_function_label'"
+        )
+        assert "planned end-to-end failure" in body
+
+    def test_task_subject_carries_language_prefix(self) -> None:
+        """The subject set on the handler in Task.__init__ must be the
+        language-specific prefix followed by the task name."""
+        smtp_cfg = SMTPConfig(
+            mailhost=("smtp.enterprise.test", 25),
+            fromaddr="alerts@enterprise.test",
+            toaddrs=["oncall@enterprise.test"],
+        )
+        style_cfg = HTMLEmailStyle(language="de")
+
+        def boom() -> None:
+            raise RuntimeError("kaboom")
+
+        task = Task(
+            name="subject_de",
+            log_path=self._log("subject_task.log"),
+            func=boom,
+            smtp_config=smtp_cfg,
+            email_style=style_cfg,
         )
 
-        # Sanity: the failure metadata still surfaces.
-        assert "planned end-to-end failure" in body
-    finally:
-        clean_tasks_logs()
-        if os.path.isfile(log_path):
-            os.remove(log_path)
-
-
-def test_handler_subject_carries_language_prefix() -> None:
-    """The subject set on the handler in Task._setup_logger must be the
-    language-specific prefix followed by the task name."""
-    clean_tasks_logs()
-    log_path = os.path.join(_CURDIR, "subject_task.log")
-
-    handler = HTMLSMTPHandler(
-        mailhost=("smtp.enterprise.test", 25),
-        fromaddr="alerts@enterprise.test",
-        toaddrs=["oncall@enterprise.test"],
-        email_language="de",
-    )
-
-    def boom() -> None:
-        raise RuntimeError("kaboom")
-
-    try:
-        task = Task(name="subject_de", log_path=log_path, func=boom, html_mail_handler=handler)
-
-        with patch("processes.html_logging.smtplib.SMTP") as mock_smtp_class:
+        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
             with Process([task]) as process:
                 process.run(parallel=False)
 
@@ -475,15 +420,104 @@ def test_handler_subject_carries_language_prefix() -> None:
         assert smtp_instance.sendmail.call_count == 1
         _fromaddr, _toaddrs, msg = smtp_instance.sendmail.call_args.args
 
-        # The MIME-encoded subject must contain the German prefix + task name.
         assert "Subject:" in msg
-        # Decode the subject header line; the value is RFC 2047 if non-ASCII
-        # but our German prefix is plain ASCII, so a substring match is enough.
         assert _SUBJECT_MARKERS["de"] + "subject_de" in msg, (
             f"Expected subject containing {_SUBJECT_MARKERS['de']!r} + task name, "
             f"got message:\n{msg}"
         )
-    finally:
-        clean_tasks_logs()
-        if os.path.isfile(log_path):
-            os.remove(log_path)
+
+    def test_task_without_email_style_uses_defaults(self) -> None:
+        """When smtp_config is provided but email_style is None, the handler uses
+        the HTMLEmailStyle defaults (modern/neutral/en)."""
+        smtp_cfg = SMTPConfig(
+            mailhost=("smtp.test", 25),
+            fromaddr="a@b.test",
+            toaddrs=["c@d.test"],
+        )
+
+        def boom() -> None:
+            raise RuntimeError("boom")
+
+        task = Task(
+            name="default_style",
+            log_path=self._log("default_style_task.log"),
+            func=boom,
+            smtp_config=smtp_cfg,
+        )
+
+        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
+            with Process([task]) as process:
+                process.run(parallel=False)
+
+        smtp_instance = mock_smtp_class.return_value
+        assert smtp_instance.sendmail.call_count == 1
+        _fromaddr, _toaddrs, msg = smtp_instance.sendmail.call_args.args
+        body = _decode_mime_body(msg)
+
+        assert 'class="card"' in body, "Default 'modern' style marker missing"
+        assert "--accent: #2563eb" in body, "Default 'neutral' palette marker missing"
+        assert "Pipeline Failure:" in body, "Default English language marker missing"
+
+    def test_two_tasks_sharing_smtp_config_get_independent_subjects(self) -> None:
+        """Two tasks sharing one SMTPConfig must each get a handler with their own
+        subject line — per-task isolation must be preserved."""
+        smtp_cfg = SMTPConfig(
+            mailhost=("smtp.test", 25),
+            fromaddr="a@b.test",
+            toaddrs=["c@d.test"],
+        )
+
+        def boom() -> None:
+            raise RuntimeError("boom")
+
+        task_a = Task(name="iso_task_a", log_path=self._log("iso_task_a.log"), func=boom,
+                      smtp_config=smtp_cfg)
+        task_b = Task(name="iso_task_b", log_path=self._log("iso_task_b.log"), func=boom,
+                      smtp_config=smtp_cfg)
+        try:
+            email_handlers_a = [
+                h for h in task_a.logger.handlers
+                if isinstance(h, logging.handlers.SMTPHandler)
+            ]
+            email_handlers_b = [
+                h for h in task_b.logger.handlers
+                if isinstance(h, logging.handlers.SMTPHandler)
+            ]
+
+            assert len(email_handlers_a) == 1, "Task A should have exactly one email handler"
+            assert len(email_handlers_b) == 1, "Task B should have exactly one email handler"
+            assert email_handlers_a[0] is not email_handlers_b[0], (
+                "The two tasks must have distinct handler instances"
+            )
+            assert email_handlers_a[0].subject.endswith("iso_task_a"), (
+                f"Task A handler subject should end with task name, "
+                f"got {email_handlers_a[0].subject!r}"
+            )
+            assert email_handlers_b[0].subject.endswith("iso_task_b"), (
+                f"Task B handler subject should end with task name, "
+                f"got {email_handlers_b[0].subject!r}"
+            )
+        finally:
+            self._close_handlers(task_a, task_b)
+
+    def test_no_smtp_config_attaches_no_email_handler(self) -> None:
+        """When smtp_config is None, no email handler must be attached even if
+        email_style is provided."""
+        task = Task(
+            name="no_smtp",
+            log_path=self._log("no_smtp_task.log"),
+            func=lambda: None,
+            smtp_config=None,
+            email_style=HTMLEmailStyle(style="classic"),
+        )
+        try:
+            email_handlers = [
+                h for h in task.logger.handlers
+                if isinstance(h, logging.handlers.SMTPHandler)
+            ]
+            assert len(email_handlers) == 0, (
+                f"No email handler should be attached when smtp_config is None, "
+                f"got {len(email_handlers)}"
+            )
+        finally:
+            self._close_handlers(task)

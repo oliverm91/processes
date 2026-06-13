@@ -31,21 +31,19 @@ from collections import defaultdict
 
 from processes import Process, Task, TaskDependency
 
-from .log_cleaner import clean_tasks_logs
-
-_CURDIR = os.path.dirname(__file__)
+from .base_test import BaseTest
 
 
-def _make_task(name: str, func, deps=None) -> Task:
+def _make_task(name: str, func, log_dir: str, deps=None) -> Task:
     return Task(
         name=name,
-        log_path=os.path.join(_CURDIR, f"{name}.log"),
+        log_path=os.path.join(log_dir, f"{name}.log"),
         func=func,
         dependencies=deps or [],
     )
 
 
-def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
+def _run_diamond_iteration(sibling_count: int, run_idx: int, log_dir: str) -> None:
     """One diamond fan-in iteration, isolated so closures bind to params."""
     call_counts: dict[str, int] = defaultdict(int)
     counts_lock = threading.Lock()
@@ -58,8 +56,6 @@ def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
 
     def make_sibling(idx: int):
         def _sibling(_root_payload):
-            # Force all siblings to release simultaneously so that
-            # their completions race on the runner's shared dicts.
             barrier.wait(timeout=10)
             with counts_lock:
                 call_counts[f"S{idx}"] += 1
@@ -75,37 +71,35 @@ def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
         return sorted(sibling_results)
 
     dep = TaskDependency
-    tasks = [_make_task("root", root_func)]
+    tasks = [_make_task("root", root_func, log_dir)]
     for i in range(sibling_count):
         tasks.append(
             _make_task(
                 f"S{i}",
                 make_sibling(i),
+                log_dir,
                 deps=[dep("root", use_result_as_additional_args=True)],
             )
         )
     collector_deps = [
         dep(f"S{i}", use_result_as_additional_args=True) for i in range(sibling_count)
     ]
-    tasks.append(_make_task("collector", collector, deps=collector_deps))
+    tasks.append(_make_task("collector", collector, log_dir, deps=collector_deps))
 
     with Process(tasks) as process:
         result = process.run(parallel=True, max_workers=sibling_count + 2)
 
     tag = f"[iter {run_idx}]"
 
-    # Every task ran exactly once — no double-submission, no drop.
     assert call_counts["root"] == 1, f"{tag} root called {call_counts['root']}x"
     assert call_counts["collector"] == 1, f"{tag} collector called {call_counts['collector']}x"
     for i in range(sibling_count):
         assert call_counts[f"S{i}"] == 1, f"{tag} sibling S{i} called {call_counts[f'S{i}']}x"
 
-    # The collector saw every sibling result — no race lost any input.
     assert call_counts["__collector_arg_count"] == sibling_count, (
         f"{tag} collector received {call_counts['__collector_arg_count']} "
         f"args, expected {sibling_count}"
     )
-
     assert not result.failed_tasks, f"{tag} unexpected failures: {result.failed_tasks}"
     assert len(result.passed_tasks_results) == sibling_count + 2, f"{tag} passed count mismatch"
 
@@ -115,21 +109,12 @@ def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
     )
 
 
-def test_diamond_fan_in_race() -> None:
-    """Wide diamond fan-in: N siblings → 1 dependent, all gated by barrier."""
-    clean_tasks_logs()
-    try:
-        for run_idx in range(5):
-            _run_diamond_iteration(sibling_count=16, run_idx=run_idx)
-    finally:
-        clean_tasks_logs()
-
-
 def _run_cascading_iteration(
     failing_branches: int,
     passing_branches: int,
     chain_depth: int,
     run_idx: int,
+    log_dir: str,
 ) -> None:
     """One cascading-failure iteration, isolated so closures bind to params."""
     call_counts: dict[str, int] = defaultdict(int)
@@ -164,12 +149,13 @@ def _run_cascading_iteration(
     for b in range(failing_branches):
         chain_names = [f"F{b}_{d}" for d in range(chain_depth + 1)]
         failing_chains.append(chain_names)
-        tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=True)))
+        tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=True), log_dir))
         for d in range(1, chain_depth + 1):
             tasks.append(
                 _make_task(
                     chain_names[d],
                     make_child(chain_names[d]),
+                    log_dir,
                     deps=[dep(chain_names[d - 1])],
                 )
             )
@@ -178,12 +164,13 @@ def _run_cascading_iteration(
     for b in range(passing_branches):
         chain_names = [f"P{b}_{d}" for d in range(chain_depth + 1)]
         passing_chains.append(chain_names)
-        tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=False)))
+        tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=False), log_dir))
         for d in range(1, chain_depth + 1):
             tasks.append(
                 _make_task(
                     chain_names[d],
                     make_child(chain_names[d]),
+                    log_dir,
                     deps=[dep(chain_names[d - 1])],
                 )
             )
@@ -224,11 +211,9 @@ def _run_cascading_iteration(
         f"missing={expected_passed - set(result.passed_tasks_results)}, "
         f"extra={set(result.passed_tasks_results) - expected_passed}"
     )
-
     assert not (result.failed_tasks & set(result.passed_tasks_results)), (
         f"{tag} a task appears in both passed and failed sets"
     )
-
     assert len(result.failed_tasks) + len(result.passed_tasks_results) == len(tasks), (
         f"{tag} task accounting drifted: "
         f"{len(result.failed_tasks)} failed + "
@@ -236,16 +221,19 @@ def _run_cascading_iteration(
     )
 
 
-def test_high_fanout_cascading_failures_race() -> None:
-    """Many failing + passing branches released simultaneously from a barrier."""
-    clean_tasks_logs()
-    try:
+class TestParallelRaceConditions(BaseTest):
+    def test_diamond_fan_in_race(self) -> None:
+        """Wide diamond fan-in: N siblings → 1 dependent, all gated by barrier."""
+        for run_idx in range(5):
+            _run_diamond_iteration(sibling_count=16, run_idx=run_idx, log_dir=self._CURDIR)
+
+    def test_high_fanout_cascading_failures_race(self) -> None:
+        """Many failing + passing branches released simultaneously from a barrier."""
         for run_idx in range(5):
             _run_cascading_iteration(
                 failing_branches=8,
                 passing_branches=8,
                 chain_depth=3,
                 run_idx=run_idx,
+                log_dir=self._CURDIR,
             )
-    finally:
-        clean_tasks_logs()

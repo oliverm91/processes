@@ -1,11 +1,10 @@
-import os
 import time
 
 import pytest
 
 from processes import Process, Task, TaskDependency
 
-from .log_cleaner import clean_tasks_logs
+from .base_test import BaseTest
 
 
 def task_1() -> int:
@@ -38,137 +37,89 @@ def task_6(t2_res: int, t5_res: int) -> int:
     return t2_res + t5_res
 
 
-curdir = os.path.dirname(__file__)
-log_file_path = os.path.join(curdir, "logfile_1.log")
-
-
 @pytest.fixture
 def fast_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     """Replace ``time.sleep`` with a no-op for tests that don't measure wall time."""
     monkeypatch.setattr(time, "sleep", lambda *_args, **_kwargs: None)
 
 
-def test_run_single_task_sequential(fast_sleep: None) -> None:
-    clean_tasks_logs()
-    t1 = Task("task_1", log_file_path, task_1)
-    with Process([t1]) as process:
-        process.run(parallel=False)
-    assert True
+class TestNormalRun(BaseTest):
+    def test_run_single_task_sequential(self, fast_sleep: None) -> None:
+        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
+        with Process([t1]) as process:
+            process.run(parallel=False)
+        assert True
 
+    def test_run_single_task_parallel(self, fast_sleep: None) -> None:
+        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
+        with Process([t1]) as process:
+            process.run(parallel=True)
+        assert True
 
-def test_run_single_task_parallel(fast_sleep: None) -> None:
-    clean_tasks_logs()
-    t1 = Task("task_1", log_file_path, task_1)
-    with Process([t1]) as process:
-        process.run(parallel=True)
-    assert True
+    def test_run_independent_tasks_sequential(self, fast_sleep: None) -> None:
+        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
+        t2 = Task("task_2", self._log("logfile_1.log"), task_2)
+        with Process([t1, t2]) as process:
+            process.run(parallel=False)
+        assert True
 
+    def test_run_independent_tasks_parallel(self, fast_sleep: None) -> None:
+        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
+        t2 = Task("task_2", self._log("logfile_1.log"), task_2)
+        with Process([t1, t2]) as process:
+            process.run(parallel=True)
+        assert True
 
-def test_run_independent_tasks_sequential(fast_sleep: None) -> None:
-    clean_tasks_logs()
-    t1 = Task("task_1", log_file_path, task_1)
-    t2 = Task("task_2", log_file_path, task_2)
+    def _build_dependent_task_graph(self) -> list[Task]:
+        """Six-task graph: t1, t2 independent → t4(t2), t5(t1) → t6(t2,t5); t3 standalone."""
+        log = self._log("logfile_1.log")
+        return [
+            Task("task_1", log, task_1),
+            Task("task_2", log, task_2),
+            Task("task_3", log, task_3, args=(1,)),
+            Task("task_4", log, task_4,
+                 dependencies=[TaskDependency("task_2", use_result_as_additional_args=True)]),
+            Task("task_5", log, task_5,
+                 dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)]),
+            Task("task_6", log, task_6,
+                 dependencies=[
+                     TaskDependency("task_2", use_result_as_additional_args=True),
+                     TaskDependency("task_5", use_result_as_additional_args=True),
+                 ]),
+        ]
 
-    with Process([t1, t2]) as process:
-        process.run(parallel=False)
-    assert True
+    def test_run_dependent_tasks_sequential(self) -> None:
+        with Process(self._build_dependent_task_graph()) as process:
+            t_start = time.time()
+            process_result = process.run(parallel=False)
+            t_end = time.time()
 
-
-def test_run_independent_tasks_parallel(fast_sleep: None) -> None:
-    clean_tasks_logs()
-    t1 = Task("task_1", log_file_path, task_1)
-    t2 = Task("task_2", log_file_path, task_2)
-
-    with Process([t1, t2]) as process:
-        process.run(parallel=True)
-    assert True
-
-
-def test_run_dependent_tasks_sequential():
-    clean_tasks_logs()
-    t1 = Task("task_1", log_file_path, task_1)
-    t2 = Task("task_2", log_file_path, task_2)
-    t3 = Task("task_3", log_file_path, task_3, args=(1,))
-    t4 = Task(
-        "task_4",
-        log_file_path,
-        task_4,
-        dependencies=[TaskDependency("task_2", use_result_as_additional_args=True)],
-    )
-    t5 = Task(
-        "task_5",
-        log_file_path,
-        task_5,
-        dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)],
-    )
-    t6 = Task(
-        "task_6",
-        log_file_path,
-        task_6,
-        dependencies=[
-            TaskDependency("task_2", use_result_as_additional_args=True),
-            TaskDependency("task_5", use_result_as_additional_args=True),
-        ],
-    )
-
-    with Process([t1, t2, t3, t4, t5, t6]) as process:
-        t0 = time.time()
-        process_result = process.run(parallel=False)
-        t1 = time.time()
-
-    assert len(process_result.passed_tasks_results) == 6, (
-        f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
-    )
-    assert len(process_result.failed_tasks) == 0, (
-        f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
-    )
-    assert int(round(t1 - t0, 0)) == 4, (
-        f"Sequential run took {t1 - t0} seconds. Expected 4 seconds."
-    )
-    clean_tasks_logs()
-
-
-def test_run_dependent_tasks_parallel():
-    clean_tasks_logs()
-    t1 = Task("task_1", log_file_path, task_1)
-    t2 = Task("task_2", log_file_path, task_2)
-    t3 = Task("task_3", log_file_path, task_3, args=(1,))
-    t4 = Task(
-        "task_4",
-        log_file_path,
-        task_4,
-        dependencies=[TaskDependency("task_2", use_result_as_additional_args=True)],
-    )
-    t5 = Task(
-        "task_5",
-        log_file_path,
-        task_5,
-        dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)],
-    )
-    t6 = Task(
-        "task_6",
-        log_file_path,
-        task_6,
-        dependencies=[
-            TaskDependency("task_2", use_result_as_additional_args=True),
-            TaskDependency("task_5", use_result_as_additional_args=True),
-        ],
-    )
-
-    n_workers = os.cpu_count()
-    with Process([t1, t2, t3, t4, t5, t6]) as process:
-        t0 = time.time()
-        process_result = process.run(parallel=True, max_workers=n_workers)
-        t1 = time.time()
-
-    assert len(process_result.passed_tasks_results) == 6, (
-        f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
-    )
-    assert len(process_result.failed_tasks) == 0, (
-        f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
-    )
-    if n_workers > 2:
-        assert int(round(t1 - t0, 0)) == 2, (
-            f"Parallel run took {t1 - t0} seconds. Expected 2 seconds."
+        assert len(process_result.passed_tasks_results) == 6, (
+            f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
         )
-    clean_tasks_logs()
+        assert len(process_result.failed_tasks) == 0, (
+            f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
+        )
+        assert int(round(t_end - t_start, 0)) == 4, (
+            f"Sequential run took {t_end - t_start} seconds. Expected 4 seconds."
+        )
+
+    def test_run_dependent_tasks_parallel(self) -> None:
+        import os
+
+        n_workers = os.cpu_count()
+        with Process(self._build_dependent_task_graph()) as process:
+            t_start = time.time()
+            process_result = process.run(parallel=True, max_workers=n_workers)
+            t_end = time.time()
+
+        assert len(process_result.passed_tasks_results) == 6, (
+            f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
+        )
+        assert len(process_result.failed_tasks) == 0, (
+            f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
+        )
+        if n_workers and n_workers > 2:
+            assert int(round(t_end - t_start, 0)) == 2, (
+                f"Parallel run took {t_end - t_start} seconds. Expected 2 seconds."
+            )

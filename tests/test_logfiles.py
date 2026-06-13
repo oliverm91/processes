@@ -1,130 +1,84 @@
-import os
-
 from processes import Process, Task
 
-from .log_cleaner import clean_tasks_logs
+from .base_test import BaseTest
 
 
-def test_single_task_worked_log_entry():
-    """
-    Test the log entry for a single task that worked.
-    """
-    clean_tasks_logs()
+class TestLogFiles(BaseTest):
+    def test_single_task_worked_log_entry(self) -> None:
+        """Test the log entry for a single task that worked."""
 
-    def task_1() -> int:
-        return 1
+        def task_1() -> int:
+            return 1
 
-    curdir = os.path.dirname(__file__)
-    tasks = []
-    log_file_path = os.path.join(curdir, "logfile_1.log")
-    t1 = Task("task_1", log_file_path, task_1)
-    tasks.append(t1)
+        log_path = self._log("logfile_1.log")
+        with Process([Task("task_1", log_path, task_1)]) as process:
+            process.run()
 
-    with Process(tasks) as process:
-        process.run()
-
-    with open(log_file_path) as f:
-        lines = f.readlines()
+        with open(log_path) as f:
+            lines = f.readlines()
         assert len(lines) == 2
         assert "Starting task_1." in lines[0]
         assert "Finished task_1." in lines[1]
 
-    os.remove(log_file_path)
+    def test_two_task_worked_log_entry_same_logfile(self) -> None:
+        """Test the log entry for two tasks that worked using the same log file."""
 
+        def task_1() -> int:
+            return 1
 
-def test_two_task_worked_log_entry_same_logfile():
-    """
-    Test the log entry for two tasks that worked using the same log file.
-    """
-    clean_tasks_logs()
+        log_path = self._log("logfile_1.log")
+        tasks = [Task("task_1", log_path, task_1), Task("task_2", log_path, task_1)]
+        with Process(tasks) as process:
+            process.run()
 
-    def task_1() -> int:
-        return 1
-
-    curdir = os.path.dirname(__file__)
-    tasks = []
-    log_file_path = os.path.join(curdir, "logfile_1.log")
-    t1 = Task("task_1", log_file_path, task_1)
-    tasks.append(t1)
-    t2 = Task("task_2", log_file_path, task_1)
-    tasks.append(t2)
-
-    with Process(tasks) as process:
-        process.run()
-
-    with open(log_file_path) as f:
-        lines = f.readlines()
+        with open(log_path) as f:
+            lines = f.readlines()
         assert len(lines) == 4
         assert "Starting task_1." in lines[0]
         assert "Finished task_1." in lines[1]
         assert "Starting task_2." in lines[2]
         assert "Finished task_2." in lines[3]
-    os.remove(log_file_path)
 
+    def test_two_task_worked_log_entry_different_logfile(self) -> None:
+        """Test the log entry for two tasks that worked using two different log files."""
 
-def test_two_task_worked_log_entry_different_logfile():
-    """
-    Test the log entry for two tasks that worked using two different log files.
-    """
-    clean_tasks_logs()
+        def task_1() -> int:
+            return 1
 
-    def task_1() -> int:
-        return 1
+        def task_2() -> int:
+            return 2
 
-    def task_2() -> int:
-        return 2
+        log_path1 = self._log("logfile_1.log")
+        log_path2 = self._log("logfile_2.log")
+        tasks = [Task("task_1", log_path1, task_1), Task("task_2", log_path2, task_2)]
+        with Process(tasks) as process:
+            process.run()
 
-    curdir = os.path.dirname(__file__)
-    tasks = []
-    log_file_path1 = os.path.join(curdir, "logfile_1.log")
-    log_file_path2 = os.path.join(curdir, "logfile_2.log")
-    t1 = Task("task_1", log_file_path1, task_1)
-    tasks.append(t1)
-    t2 = Task("task_2", log_file_path2, task_2)
-    tasks.append(t2)
+        with open(log_path1) as f:
+            lines1 = f.readlines()
+        assert len(lines1) == 2
+        assert "Starting task_1." in lines1[0]
+        assert "Finished task_1." in lines1[1]
 
-    with Process(tasks) as process:
-        process.run()
+        with open(log_path2) as f:
+            lines2 = f.readlines()
+        assert len(lines2) == 2
+        assert "Starting task_2." in lines2[0]
+        assert "Finished task_2." in lines2[1]
 
-    with open(log_file_path1) as f:
-        lines = f.readlines()
-        assert len(lines) == 2
-        assert "Starting task_1." in lines[0]
-        assert "Finished task_1." in lines[1]
+    def test_exception_log_entry(self) -> None:
+        """Test the log entry for a task that raised an exception."""
 
-    with open(log_file_path2) as f:
-        lines = f.readlines()
-        assert len(lines) == 2
-        assert "Starting task_2." in lines[0]
-        assert "Finished task_2." in lines[1]
+        def task_1() -> int:
+            return 1 / 0
 
-    os.remove(log_file_path1)
-    os.remove(log_file_path2)
+        log_path = self._log("logfile_1.log")
+        with Process([Task("task_1", log_path, task_1)]) as process:
+            process.run()
 
-
-def test_exception_log_entry():
-    """
-    Test the log entry for a task that raised an exception.
-    """
-    clean_tasks_logs()
-
-    def task_1() -> int:
-        return 1 / 0
-
-    curdir = os.path.dirname(__file__)
-    tasks = []
-    log_file_path = os.path.join(curdir, "logfile_1.log")
-    t1 = Task("task_1", log_file_path, task_1)
-    tasks.append(t1)
-
-    with Process(tasks) as process:
-        process.run()
-
-    with open(log_file_path) as f:
-        lines = f.readlines()
-        assert len(lines) >= 2 * len(tasks) + 4  # 4 lines minimum extra lines for the traceback
+        with open(log_path) as f:
+            lines = f.readlines()
+        assert len(lines) >= 2 + 4  # 4 lines minimum extra lines for the traceback
         assert "Starting task_1." in lines[0]
         assert "division by zero" in lines[1]
         assert "division by zero" in lines[-1]
-
-    os.remove(log_file_path)
