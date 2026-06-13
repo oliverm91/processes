@@ -209,7 +209,11 @@ To create an html_smtp_handler objects, you need to setup:
 - Security tuple
 ```python
 smtp_handler = HTMLSMTPHandler(
-    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'], 
-    use_tls=True, credentials=('user', 'pass')
+    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'],
+    credentials=('user', 'pass'),
+    secure=(),                       # () = STARTTLS; omit for no encryption
+    email_style='modern',            # classic | modern | compact
+    color_palette='neutral',         # neutral | catppuccin | neobones | slate
+    email_language='en',             # en | es | pt | fr | de | it
 )
 ```

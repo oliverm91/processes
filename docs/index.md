@@ -29,6 +29,7 @@ File logging and **email notification** is supported.
 * [⚙️ Core Concepts](#️-core-concepts)
 * [🛠️ Use Cases](#️-use-cases)
 * [💻 Quick Start](#-quick-start)
+* [📧 Customizing the HTML email](#-customizing-the-html-email)
 * [🛡️ Fault Tolerance & Logs](#️-fault-tolerance--logs)
 * [📦 Installation](#-installation)
 
@@ -74,8 +75,12 @@ from processes import Process, Task, TaskDependency, HTMLSMTPHandler
 
 # 1. Setup Email Alerts (Optional)
 smtp_handler = HTMLSMTPHandler(
-    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'], 
-    use_tls=True, credentials=('user', 'pass')
+    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'],
+    credentials=('user', 'pass'),
+    secure=(),                       # () = STARTTLS; omit for no encryption
+    email_style='modern',            # classic | modern | compact
+    color_palette='neutral',         # neutral | catppuccin | neobones | slate
+    email_language='en',             # en | es | pt | fr | de | it
 )
 
 # 2. If necessary, create wrappers for your Tasks.
@@ -113,6 +118,55 @@ with Process(tasks) as process: # Context Manager ensures correct disposal of lo
     process_result = process.run() # To enable parallelization use .run(parallel=True)
 
 ```
+
+---
+
+## 📧 Customizing the HTML email
+
+When a task with an `HTMLSMTPHandler` raises, the alert is a **styled HTML
+email** built from a bundled template. The body includes the exception,
+the traceback (with the user-frame highlighted), the task context, the
+list of downstream tasks that were skipped because of the failure, and
+the local variables at the failing frame (see [Traced Variables](#traced-variables) below).
+
+Four keyword-only arguments on `HTMLSMTPHandler` control the look, the language, and which frame's locals appear in the email body:
+
+| Argument | Values | Default |
+|---|---|---|
+| `email_style` | `classic`, `modern`, `compact` | `modern` |
+| `color_palette` | `neutral`, `catppuccin`, `neobones`, `slate` | `neutral` |
+| `email_language` | `en`, `es`, `pt`, `fr`, `de`, `it` | `en` |
+| `last_path_traced_vars` | any path substring, or `None` | `None` (outermost user frame) |
+
+```python
+from processes import HTMLSMTPHandler
+
+smtp = HTMLSMTPHandler(
+    mailhost=("smtp.example.com", 587),
+    fromaddr="alerts@example.com",
+    toaddrs=["oncall@example.com"],
+    credentials=("user", "pass"),
+    secure=(),                          # () = STARTTLS; omit for no encryption
+    email_style="compact",              # classic | modern | compact
+    color_palette="catppuccin",         # neutral | catppuccin | neobones | slate
+    email_language="es",                # en | es | pt | fr | de | it
+)
+```
+
+All assets ship inside the wheel — the styles are Jinja-style HTML
+templates at `src/processes/themes/styles/` and the palettes are CSS
+fragments at `src/processes/themes/palettes/`. No template engine or
+extra install is required; the formatter composes them at send time.
+
+### Traced Variables
+
+On failure, the email body includes the local variables of the
+**outermost user frame in the traceback** — i.e. the last frame in
+the chain that is not inside `site-packages` or your virtualenv.
+A `file:line` reference next to the section tells you exactly where
+in the source the listed values were captured, which is usually the
+fastest way to figure out *why* a complex task broke deep inside a
+wrapper.
 
 ---
 
