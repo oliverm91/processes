@@ -1,38 +1,40 @@
 import os
 import time
 
+import pytest
+
 from processes import Process, Task, TaskDependency
 
 from .log_cleaner import clean_tasks_logs
 
 
 def task_1() -> int:
-    time.sleep(2)
+    time.sleep(1)
     return 1
 
 
 def task_2() -> int:
-    time.sleep(1)
+    time.sleep(0.5)
     return 2
 
 
 def task_3(input: int) -> int:
-    time.sleep(0.5)
+    time.sleep(0.25)
     return input
 
 
 def task_4(t2_res: int) -> int:
-    time.sleep(2.5)
+    time.sleep(1.25)
     return 3 + t2_res
 
 
 def task_5(t1_res: int) -> int:
-    time.sleep(1.5)
+    time.sleep(0.75)
     return 4 + t1_res
 
 
 def task_6(t2_res: int, t5_res: int) -> int:
-    time.sleep(0.5)
+    time.sleep(0.25)
     return t2_res + t5_res
 
 
@@ -40,7 +42,13 @@ curdir = os.path.dirname(__file__)
 log_file_path = os.path.join(curdir, "logfile_1.log")
 
 
-def test_run_single_task_sequential():
+@pytest.fixture
+def fast_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace ``time.sleep`` with a no-op for tests that don't measure wall time."""
+    monkeypatch.setattr(time, "sleep", lambda *_args, **_kwargs: None)
+
+
+def test_run_single_task_sequential(fast_sleep: None) -> None:
     clean_tasks_logs()
     t1 = Task("task_1", log_file_path, task_1)
     with Process([t1]) as process:
@@ -48,7 +56,7 @@ def test_run_single_task_sequential():
     assert True
 
 
-def test_run_single_task_parallel():
+def test_run_single_task_parallel(fast_sleep: None) -> None:
     clean_tasks_logs()
     t1 = Task("task_1", log_file_path, task_1)
     with Process([t1]) as process:
@@ -56,7 +64,7 @@ def test_run_single_task_parallel():
     assert True
 
 
-def test_run_independent_tasks_sequential():
+def test_run_independent_tasks_sequential(fast_sleep: None) -> None:
     clean_tasks_logs()
     t1 = Task("task_1", log_file_path, task_1)
     t2 = Task("task_2", log_file_path, task_2)
@@ -66,7 +74,7 @@ def test_run_independent_tasks_sequential():
     assert True
 
 
-def test_run_independent_tasks_parallel():
+def test_run_independent_tasks_parallel(fast_sleep: None) -> None:
     clean_tasks_logs()
     t1 = Task("task_1", log_file_path, task_1)
     t2 = Task("task_2", log_file_path, task_2)
@@ -114,8 +122,8 @@ def test_run_dependent_tasks_sequential():
     assert len(process_result.failed_tasks) == 0, (
         f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
     )
-    assert int(round(t1 - t0, 0)) == 8, (
-        f"Sequential run took {t1 - t0} seconds. Expected 8 seconds."
+    assert int(round(t1 - t0, 0)) == 4, (
+        f"Sequential run took {t1 - t0} seconds. Expected 4 seconds."
     )
     clean_tasks_logs()
 
@@ -160,7 +168,7 @@ def test_run_dependent_tasks_parallel():
         f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
     )
     if n_workers > 2:
-        assert int(round(t1 - t0, 0)) == 4, (
-            f"Parallel run took {t1 - t0} seconds. Expected 4 seconds."
+        assert int(round(t1 - t0, 0)) == 2, (
+            f"Parallel run took {t1 - t0} seconds. Expected 2 seconds."
         )
     clean_tasks_logs()
