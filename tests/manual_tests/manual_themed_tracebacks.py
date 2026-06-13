@@ -68,7 +68,7 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from processes import HTMLSMTPHandler, Process, Task, TaskDependency  # noqa: E402
+from processes import HTMLEmailStyle, Process, SMTPConfig, Task, TaskDependency  # noqa: E402
 
 # --------------------------------------------------------------------------- #
 # Constants                                                                   #
@@ -91,18 +91,17 @@ RECURSION_DEPTH = 60
 # --------------------------------------------------------------------------- #
 
 
-def _make_mail_handler(
+def _make_smtp_and_style(
     email_style: str, color_palette: str, email_language: str
-) -> HTMLSMTPHandler:
-    return HTMLSMTPHandler(
+) -> tuple[SMTPConfig, HTMLEmailStyle]:
+    smtp = SMTPConfig(
         mailhost=(SMTP_HOST, SMTP_PORT),
         fromaddr=FROM_ADDR,
         toaddrs=[f"{email_style}@{color_palette}.{email_language}"],
         timeout=5,
-        email_style=email_style,
-        color_palette=color_palette,
-        email_language=email_language,
     )
+    style = HTMLEmailStyle(style=email_style, palette=color_palette, language=email_language)
+    return smtp, style
 
 
 # --------------------------------------------------------------------------- #
@@ -157,7 +156,9 @@ def _log_path(logs_dir: str, name: str) -> str:
     return os.path.join(logs_dir, f"{name}.log")
 
 
-def build_tasks(logs_dir: str, mail_handler: HTMLSMTPHandler) -> list[Task]:
+def build_tasks(
+    logs_dir: str, smtp: SMTPConfig, style: HTMLEmailStyle
+) -> list[Task]:
     dep = TaskDependency
     return [
         Task(
@@ -170,21 +171,24 @@ def build_tasks(logs_dir: str, mail_handler: HTMLSMTPHandler) -> list[Task]:
                 "timeout_seconds": 15,
                 "dry_run": True,
             },
-            html_mail_handler=mail_handler,
+            smtp_config=smtp,
+            email_style=style,
         ),
         Task(
             name="child_a",
             log_path=_log_path(logs_dir, "child_a"),
             func=child_a,
             dependencies=[dep("risky_step")],
-            html_mail_handler=mail_handler,
+            smtp_config=smtp,
+            email_style=style,
         ),
         Task(
             name="child_b",
             log_path=_log_path(logs_dir, "child_b"),
             func=child_b,
             dependencies=[dep("risky_step")],
-            html_mail_handler=mail_handler,
+            smtp_config=smtp,
+            email_style=style,
         ),
     ]
 
@@ -204,8 +208,8 @@ def _run_one_combo(
     print(f"\n>>> [style={email_style!r}, palette={color_palette!r}, language={email_language!r}]")
     print("-" * 72)
 
-    mail_handler = _make_mail_handler(email_style, color_palette, email_language)
-    tasks = build_tasks(logs_dir, mail_handler)
+    smtp, style = _make_smtp_and_style(email_style, color_palette, email_language)
+    tasks = build_tasks(logs_dir, smtp, style)
     print(f"tasks: {len(tasks)} (1 root + 2 downstream)")
 
     try:

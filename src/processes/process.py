@@ -1,26 +1,12 @@
 import concurrent.futures
+from collections import deque
 from types import TracebackType
 from typing import Literal, Self
 
+from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
 from .task import Task, TaskResult
 
-
-class DependencyNotFoundError(Exception):
-    """Raised when a task depends on a non-existent task."""
-
-    pass
-
-
-class TaskNotFoundError(Exception):
-    """Raised when attempting to retrieve a task that does not exist in the process."""
-
-    pass
-
-
-class CircularDependencyError(Exception):
-    """Raised when circular dependencies are detected among tasks."""
-
-    pass
+__all__ = ["CircularDependencyError", "DependencyNotFoundError", "TaskNotFoundError"]
 
 
 class ProcessResult:
@@ -35,12 +21,26 @@ class ProcessResult:
     passed_tasks_results : dict[str, TaskResult]
         Mapping of task names to TaskResult objects for all tasks that executed successfully.
     failed_tasks : set[str]
-        Set of task names for all tasks that failed during execution.
+        All tasks that did not produce a result — union of ``errored_tasks`` and
+        ``skipped_tasks``.
+    skipped_tasks : set[str]
+        Subset of ``failed_tasks``: tasks that were never run because an upstream
+        dependency failed (cascade-skipped).
+    errored_tasks : set[str]
+        Subset of ``failed_tasks``: tasks whose function actually raised an exception
+        (``failed_tasks - skipped_tasks``).
     """
 
-    def __init__(self, passed_tasks_results: dict[str, TaskResult], failed_tasks: set[str]):
+    def __init__(
+        self,
+        passed_tasks_results: dict[str, TaskResult],
+        failed_tasks: set[str],
+        skipped_tasks: set[str],
+    ):
         self.passed_tasks_results = passed_tasks_results
         self.failed_tasks = failed_tasks
+        self.skipped_tasks = skipped_tasks
+        self.errored_tasks: set[str] = failed_tasks - skipped_tasks
 
 
 class Process:
@@ -146,15 +146,15 @@ class Process:
         for task in self.tasks:
             for dep in task.get_dependencies_names():
                 if dep not in names:
-                    raise DependencyNotFoundError(
-                        f"Task {task.name} depends on missing task: {dep}"
-                    )
+                    raise DependencyNotFoundError(task.name, dep)
 
     def _topological_sort(self) -> None:
-        """Sort tasks based on dependencies using Kahn's Algorithm in O(V+E) time.
+        """Sort tasks based on dependencies using Kahn's algorithm in O(V+E) time.
 
         Reorders the task list so that dependencies are always executed before
-        tasks that depend on them.
+        tasks that depend on them.  Also builds ``_task_map`` (name → Task) and
+        ``_dependants_map`` (name → [direct dependant names]) for O(1) / O(V+E)
+        downstream lookups.
 
         Raises
         ------
@@ -170,11 +170,11 @@ class Process:
                 graph[dep.task_name].append(task.name)
                 in_degree[task.name] += 1
 
-        queue = [name for name, deg in in_degree.items() if deg == 0]
+        queue: deque[str] = deque(name for name, deg in in_degree.items() if deg == 0)
         sorted_tasks = []
 
         while queue:
-            u = queue.pop(0)
+            u = queue.popleft()
             sorted_tasks.append(task_map[u])
             for v in graph[u]:
                 in_degree[v] -= 1
@@ -183,10 +183,13 @@ class Process:
 
         if len(sorted_tasks) != len(self.tasks):
             raise CircularDependencyError("Circular dependency detected.")
+
+        self._task_map: dict[str, Task] = task_map
+        self._dependants_map: dict[str, list[str]] = graph
         self.tasks = sorted_tasks
 
     def get_task(self, task_name: str) -> Task:
-        """Retrieve a task by name.
+        """Retrieve a task by name in O(1).
 
         Parameters
         ----------
@@ -203,10 +206,10 @@ class Process:
         TaskNotFoundError
             If no task with the given name exists.
         """
-        for task in self.tasks:
-            if task.name == task_name:
-                return task
-        raise TaskNotFoundError(f"Task not found: {task_name}")
+        try:
+            return self._task_map[task_name]
+        except KeyError:
+            raise TaskNotFoundError(task_name)
 
     def run(self, parallel: bool | None = None, max_workers: int = 4) -> ProcessResult:
         """Execute all tasks in the process.
@@ -244,6 +247,8 @@ class Process:
     def get_dependant_tasks(self, task_name: str) -> list[Task]:
         """Retrieve all tasks that directly or indirectly depend on a given task.
 
+        Uses a pre-built adjacency map for O(V+E) traversal.
+
         Parameters
         ----------
         task_name : str
@@ -253,18 +258,18 @@ class Process:
         -------
         list[Task]
             List of all tasks that depend on the specified task, including
-            transitive dependencies (tasks that depend on tasks that depend
-            on the specified task).
+            transitive dependants.
         """
-        found = []
-
-        def find(name: str) -> None:
-            for t in self.tasks:
-                if name in t.get_dependencies_names() and t not in found:
-                    found.append(t)
-                    find(t.name)
-
-        find(task_name)
+        found: list[Task] = []
+        seen: set[str] = set()
+        queue: deque[str] = deque(self._dependants_map.get(task_name, []))
+        while queue:
+            name = queue.popleft()
+            if name in seen:
+                continue
+            seen.add(name)
+            found.append(self._task_map[name])
+            queue.extend(self._dependants_map.get(name, []))
         return found
 
     def close_loggers(self) -> None:
@@ -273,7 +278,7 @@ class Process:
         Should be called when the process is done to ensure proper resource cleanup.
         """
         for task in self.tasks:
-            for handler in task.logger.handlers:
+            for handler in list(task.logger.handlers):
                 handler.close()
                 task.logger.removeHandler(handler)
 
@@ -301,6 +306,7 @@ class ProcessRunner:
         self.process = process_ref
         self.passed_results: dict[str, TaskResult] = {}
         self.failed_tasks: set[str] = set()
+        self.skipped_tasks: set[str] = set()
         self.submitted_tasks: set[str] = set()
 
     def run(self, parallel: bool, max_workers: int) -> ProcessResult:
@@ -322,7 +328,7 @@ class ProcessRunner:
             self._run_parallel(max_workers)
         else:
             self._run_sequential()
-        return ProcessResult(self.passed_results, self.failed_tasks)
+        return ProcessResult(self.passed_results, self.failed_tasks, self.skipped_tasks)
 
     def _is_unrunnable(self, task: Task) -> bool:
         """Check if a task cannot be run due to failed dependencies.
@@ -336,10 +342,12 @@ class ProcessRunner:
         -------
         bool
             True if any of the task's dependencies have failed, False otherwise.
-            If True, the task is also marked as failed.
+            If True, the task is recorded in both ``failed_tasks`` and
+            ``skipped_tasks`` (cascade-skip).
         """
         if any(d.task_name in self.failed_tasks for d in task.dependencies):
-            self.failed_tasks.add(task.name)  # Propagate failure
+            self.failed_tasks.add(task.name)
+            self.skipped_tasks.add(task.name)
             return True
         return False
 

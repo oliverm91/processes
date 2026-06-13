@@ -7,7 +7,7 @@ hand to inspect everything the framework emits in one shot:
     *   Per-task console output (which functions fired, in what order).
     *   Per-task log files under ``tests/manual_tests/logs/`` (one ``.log``
         per task — see the ``FileHandler`` attached in ``Task.__init__``).
-    *   The HTML email the ``HTMLSMTPHandler`` sends to maildev (open the
+    *   The HTML email sent via ``SMTPConfig`` to maildev (open the
         web UI and check the rendered "Downstream Impact" list).
 
 Prerequisites
@@ -79,7 +79,7 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from processes import HTMLSMTPHandler, Process, Task, TaskDependency  # noqa: E402
+from processes import Process, SMTPConfig, Task, TaskDependency  # noqa: E402
 
 # --------------------------------------------------------------------------- #
 # Maildev wiring                                                              #
@@ -92,8 +92,8 @@ FROM_ADDR = "pipeline-alerts@enterprise.test"
 TO_ADDRS = ["sre-oncall@enterprise.test"]
 
 
-def _make_mail_handler() -> HTMLSMTPHandler:
-    return HTMLSMTPHandler(
+def _make_smtp_config() -> SMTPConfig:
+    return SMTPConfig(
         mailhost=(SMTP_HOST, SMTP_PORT),
         fromaddr=FROM_ADDR,
         toaddrs=TO_ADDRS,
@@ -251,7 +251,7 @@ def _log_path(logs_dir: str, name: str) -> str:
     return os.path.join(logs_dir, f"{name}.log")
 
 
-def build_tasks(logs_dir: str, mail_handler: HTMLSMTPHandler) -> list[Task]:
+def build_tasks(logs_dir: str, smtp: SMTPConfig) -> list[Task]:
     dep = TaskDependency
 
     def _task(
@@ -268,7 +268,7 @@ def build_tasks(logs_dir: str, mail_handler: HTMLSMTPHandler) -> list[Task]:
             args=args,
             kwargs=kwargs or {},
             dependencies=deps or [],
-            html_mail_handler=mail_handler,
+            smtp_config=smtp,
         )
 
     return [
@@ -387,8 +387,8 @@ def main() -> int:
 
     print(f"recipients: {TO_ADDRS}")
 
-    mail_handler = _make_mail_handler()
-    tasks = build_tasks(logs_dir, mail_handler)
+    smtp = _make_smtp_config()
+    tasks = build_tasks(logs_dir, smtp)
     print(f"tasks:      {len(tasks)}")
     print("-" * 72)
 

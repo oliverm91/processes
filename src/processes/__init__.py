@@ -1,22 +1,14 @@
 from importlib.metadata import PackageNotFoundError as _pnfe
 from importlib.metadata import version as _v
 
-from .html_logging import HTMLSMTPHandler as HTMLSMTPHandler
-from .process import (
+from .email_config import HTMLEmailStyle as HTMLEmailStyle, SMTPConfig as SMTPConfig
+from .exceptions import (
     CircularDependencyError as CircularDependencyError,
-)
-from .process import (
     DependencyNotFoundError as DependencyNotFoundError,
-)
-from .process import (
-    Process as Process,
-)
-from .process import (
     TaskNotFoundError as TaskNotFoundError,
 )
-from .task import Task as Task
-from .task import TaskDependency as TaskDependency
-from .task import TaskResult as TaskResult
+from .process import Process as Process
+from .task import Task as Task, TaskDependency as TaskDependency, TaskResult as TaskResult
 
 try:
     __version__ = _v("processes")

@@ -26,7 +26,7 @@
 - ⚡ **Run in parallel when you can** — independent tasks run together on a thread pool; the runtime switches on automatically for jobs with 10+ tasks.
 - 🛡️ **One failure doesn't stop the rest** — a failed task skips only the jobs that depend on it, and **every other part of the workflow keeps running**.
 - 📝 **One log file per task** — share a single log across the whole run, or keep them separate for easier debugging.
-- 📧 **Email alerts when something breaks** — attach an `HTMLSMTPHandler` and get a styled HTML email (with traceback, task context, and the list of jobs that were skipped) the instant a task raises.
+- 📧 **Email alerts when something breaks** — pass an `SMTPConfig` to a task and get a styled HTML email (with traceback, task context, and the list of jobs that were skipped) the instant it raises.
 - 🧰 **Modern, strictly-typed Python 3.10+** — `from __future__ import annotations`, full `mypy --strict` clean, `dict[str, TaskResult]`, `set[str]`, `|` unions.
 
 ---
@@ -87,7 +87,7 @@ A realistic mini-pipeline: fetch two sources **in parallel**, transform them, ag
 import logging
 from pathlib import Path
 
-from processes import HTMLSMTPHandler, Process, Task, TaskDependency
+from processes import HTMLEmailStyle, Process, SMTPConfig, Task, TaskDependency
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
@@ -134,8 +134,8 @@ def archive_report(report: str) -> str:
     return str(out)
 
 
-# --- 6. Optional: an email handler so failures page on-call ---------------
-smtp = HTMLSMTPHandler(
+# --- 6. Optional: SMTP config so failures page on-call --------------------
+smtp = SMTPConfig(
     mailhost=("smtp.example.com", 587),
     fromaddr="alerts@example.com",
     toaddrs=["oncall@example.com"],
@@ -188,7 +188,7 @@ tasks = [
         LOG_DIR / "notify_slack.log",
         notify_slack,
         dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
-        html_mail_handler=smtp,
+        smtp_config=smtp,
     ),
     Task(
         "archive_report",
@@ -230,14 +230,22 @@ Task(
     args: tuple = (),
     kwargs: dict | None = None,
     dependencies: list[TaskDependency] | None = None,
-    html_mail_handler: HTMLSMTPHandler | None = None,
+    smtp_config: SMTPConfig | None = None,
+    email_style: HTMLEmailStyle | None = None,
+    timeout: float | None = None,
+    retries: int | None = 0,
+    retry_on: tuple[type[Exception], ...] | None = None,
 )
 ```
 
 - `name` — unique within the `Process`; no spaces.
 - `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`).
 - `func` — the callable; receives `func(*args, **kwargs)` after result-injection.
-- `html_mail_handler` — fires on `logging.ERROR`; email body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`.
+- `smtp_config` — when set, fires an HTML email on `logging.ERROR`; body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`.
+- `email_style` — optional presentation override; defaults to `HTMLEmailStyle()` (modern, neutral, English) when `smtp_config` is set.
+- `timeout` — seconds allowed per attempt; `None` means no limit. When the timeout fires the underlying thread is detached (Python threading limitation).
+- `retries` — additional attempts after the first failure; `0` or `None` means a single attempt. Defaults to `0`.
+- `retry_on` — tuple of exception types that trigger a retry. When `retries >= 1` and `retry_on` is `None`, defaults to `(ConnectionError, TimeoutError)` at call time.
 
 ### `TaskDependency`
 
@@ -269,28 +277,39 @@ process.run(parallel: bool | None = None, max_workers: int = 4) -> ProcessResult
 ### `ProcessResult`
 
 ```python
-ProcessResult(
-    passed_tasks_results: dict[str, TaskResult],   # name -> TaskResult
-    failed_tasks: set[str],                       # names that raised or were skipped
-)
+result.passed_tasks_results  # dict[str, TaskResult] — name → TaskResult for every task that succeeded
+result.failed_tasks          # set[str] — all tasks that did not produce a result (errored + skipped)
+result.errored_tasks         # set[str] — tasks whose function actually raised
+result.skipped_tasks         # set[str] — tasks skipped because an upstream dependency failed
 
 TaskResult(worked: bool, result: Any, exception: Exception | None)
 ```
 
-### `HTMLSMTPHandler`
+### `SMTPConfig`
 
 ```python
-HTMLSMTPHandler(
-    mailhost, fromaddr, toaddrs,
-    credentials=None, secure=None, timeout=5,
-    *,
-    email_style="modern",          # classic | modern | compact
-    color_palette="neutral",       # neutral | catppuccin | neobones | slate
-    email_language="en",           # en | es | pt | fr | de | it
+SMTPConfig(
+    mailhost,                      # (host, port)
+    fromaddr,
+    toaddrs,                       # list[str]
+    credentials=None,              # (username, password) | None
+    secure=None,                   # () = STARTTLS; omit for no encryption
+    timeout=5,
 )
 ```
 
-- `secure=()` → STARTTLS; omit for no encryption.
+### `HTMLEmailStyle`
+
+```python
+HTMLEmailStyle(
+    style="modern",                # classic | modern | compact
+    palette="neutral",             # neutral | catppuccin | neobones | slate
+    language="en",                 # en | es | pt | fr | de | it
+    traced_vars_frame_filter=None, # substring to pick the traced frame | None
+)
+```
+
+All fields are optional — omit `HTMLEmailStyle` entirely to use the defaults.
 
 </details>
 
@@ -299,10 +318,12 @@ HTMLSMTPHandler(
 
 When a task raises:
 
-1. The exception is caught and stored in `TaskResult.exception`; the task name goes into `failed_tasks`.
-2. **Every task that depends on it (directly or indirectly) is skipped** — marked as failed without running.
+1. The exception is caught and stored in `TaskResult.exception`; the task name goes into `failed_tasks` and `errored_tasks`.
+2. **Every task that depends on it (directly or indirectly) is skipped** — added to `failed_tasks` and `skipped_tasks` without running.
 3. **Every other independent part of the workflow keeps running.** With `parallel=True` they keep running concurrently on the worker pool.
-4. After `run()` returns, `ProcessResult.failed_tasks` lets you decide whether to retry, alert, or ignore.
+4. After `run()` returns, `ProcessResult.errored_tasks` and `ProcessResult.skipped_tasks` let you distinguish root failures from cascade skips for triage or alerting.
+
+When a task has `retries >= 1`, a failure matching `retry_on` triggers another attempt before the task is declared failed and its dependants are skipped. This gives transient errors (network blips, connection resets) a chance to resolve without aborting downstream work.
 
 This makes the library a good fit for fan-out / fan-in pipelines, "best-effort" notifications, and any workflow where one broken step should not blackhole the rest.
 
@@ -321,7 +342,7 @@ This makes the library a good fit for fan-out / fan-in pipelines, "best-effort" 
 | DAG validation at construction | **yes** | yes (DAG file) | n/a | partial |
 | Strict typing (`mypy --strict`) | **yes** | partial | partial | no |
 
-`Processes` is **not** a distributed scheduler — there are no workers on remote machines, no retries, no SLA monitoring, no web UI. If you need any of those, you need Airflow or a similar orchestrator. If you want a small, fast, dependency-aware pipeline that *just runs* in a single process, this is it.
+`Processes` is **not** a distributed scheduler — there are no workers on remote machines, no SLA monitoring, no web UI. If you need any of those, you need Airflow or a similar orchestrator. If you want a small, fast, dependency-aware pipeline that *just runs* in a single process, this is it.
 
 </details>
 

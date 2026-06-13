@@ -197,23 +197,24 @@ If a task fails it can notify via email:
 - The traceback of the error
 - The tasks that could not be executed in the process due to this failure.
 
-To set this up, you need to pass a `HTMLSMTPHandler` object to the Task constructor as 
+To set this up, pass an `SMTPConfig` to the Task constructor:
 ```python
-t = Task("task_name", "logfile", func_to_run, html_mail_handler=smtp_handler) 
-```
+from processes import SMTPConfig, HTMLEmailStyle, Task
 
-To create an html_smtp_handler objects, you need to setup:
-- Who sends the email
-- A list with the recipients
-- SMTP credentials
-- Security tuple
-```python
-smtp_handler = HTMLSMTPHandler(
-    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'],
+smtp = SMTPConfig(
+    mailhost=('smtp_server', 587),
+    fromaddr='sender@example.com',
+    toaddrs=['admin@example.com', 'user@example.com'],
     credentials=('user', 'pass'),
     secure=(),                       # () = STARTTLS; omit for no encryption
-    email_style='modern',            # classic | modern | compact
-    color_palette='neutral',         # neutral | catppuccin | neobones | slate
-    email_language='en',             # en | es | pt | fr | de | it
 )
+
+# Optional: customise the HTML presentation (all fields have defaults)
+style = HTMLEmailStyle(
+    style='modern',                  # classic | modern | compact
+    palette='neutral',               # neutral | catppuccin | neobones | slate
+    language='en',                   # en | es | pt | fr | de | it
+)
+
+t = Task("task_name", "logfile", func_to_run, smtp_config=smtp, email_style=style)
 ```
