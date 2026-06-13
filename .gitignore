@@ -54,6 +54,8 @@ cover/
 # Translations
 *.mo
 *.pot
+CLAUDE.md
+/.claude
 
 # Django stuff:
 *.log
