@@ -26,7 +26,7 @@ from email import message_from_string
 from unittest.mock import patch
 
 from processes import HTMLSMTPHandler, Process, Task
-from processes.html_logging import ExceptionHTMLFormatter
+from processes.exception_html_formatter import ExceptionHTMLFormatter
 
 from .log_cleaner import clean_tasks_logs
 
@@ -80,7 +80,7 @@ _SUBJECT_MARKERS = {
     "it": "Errore nell'attività ",
 }
 
-# All 7 content placeholders that every template must declare and that
+# All 9 content placeholders that every template must declare and that
 # ``format()`` must substitute — no ``{{xxx}}`` may remain in the output.
 _CONTENT_KEYS = (
     "task_name",
@@ -88,7 +88,10 @@ _CONTENT_KEYS = (
     "args",
     "kwargs",
     "exception",
-    "traceback",
+    "traceback_before",
+    "traceback_highlight",
+    "traceback_after",
+    "traced_vars",
     "downstream_items",
 )
 
@@ -103,6 +106,8 @@ _LANG_CONTENT_KEYS = (
     "lang_downstream_title",
     "lang_downstream_blurb",
     "lang_traceback_title",
+    "lang_traced_vars_title",
+    "lang_traced_vars_blurb",
 )
 
 
@@ -228,6 +233,107 @@ def test_formatter_default_language_is_english() -> None:
     output = formatter.format(_make_record())
     assert "Pipeline Failure:" in output
     assert "Function" in output
+
+
+# --------------------------------------------------------------------------- #
+# 2b. Traced variables section                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_traced_vars_section_renders_under_traceback() -> None:
+    """When the LogRecord carries ``exc_info``, the rendered body must
+    include the *Traced Variables* section (under the traceback) with
+    the local variables from the resolved target frame."""
+    import sys
+
+    # Build a 2-frame chain inside the test so the auto-resolve lands on
+    # this test's frame and we can assert on a known local variable.
+    def _inner() -> None:
+        marker = "traced_vars_marker_42"
+        raise RuntimeError(f"planned traced-vars failure; marker={marker}")
+
+    try:
+        _inner()
+    except Exception:
+        record = _make_record("traced_task")
+        record.exc_info = sys.exc_info()
+
+    formatter = ExceptionHTMLFormatter(
+        email_style="modern", color_palette="neutral", email_language="en"
+    )
+    body = formatter.format(record)
+
+    # Section title appears.
+    assert "Traced Variables" in body, (
+        "Rendered body is missing the 'Traced Variables' section title"
+    )
+
+    # The marker (both name and value) appears in the locals listing
+    # (auto-resolve picked this test's frame, so the local var is visible).
+    assert "marker" in body, (
+        "Rendered body is missing the local var name from the resolved frame"
+    )
+    assert "traced_vars_marker_42" in body, (
+        "Rendered body is missing the local var value from the resolved frame"
+    )
+
+    # The 'where in the code the values came from' is rendered as a blurb
+    # line BEFORE the traced-vars <pre> block, using the language-specific
+    # lang_traced_vars_blurb string with {location} substituted.  Auto-resolve
+    # picked this test's frame, so the file:line reference points inside
+    # this test module.
+    assert "The following local variables had these values at" in body, (
+        "Rendered body is missing the 'lang_traced_vars_blurb' blurb that "
+        "points to where the traced variables came from"
+    )
+    assert "test_email_themes.py:" in body, (
+        "Rendered body is missing the test file:line reference that was "
+        "substituted into the traced-vars blurb"
+    )
+    # The console-style '# at …' header that used to live inside the <pre>
+    # block must NOT be there anymore — the location now lives in the blurb.
+    assert "# at " not in body, (
+        "Rendered body still carries the in-pre '# at …' console-style "
+        "header; the location should be in the blurb above the block"
+    )
+
+    # Section ordering: the traceback block must come before the
+    # traced-vars block.  We check by finding both anchors in the body.
+    tb_pos = body.find("RuntimeError: planned traced-vars failure")
+    tv_pos = body.find("Traced Variables")
+    assert 0 <= tb_pos < tv_pos, (
+        "The 'Traced Variables' section must appear AFTER the traceback "
+        f"(tb_pos={tb_pos}, tv_pos={tv_pos})"
+    )
+
+    # The frame line in the traceback that matches the resolved frame is
+    # wrapped in <strong>...</strong> so the reader can spot the frame
+    # whose locals are listed below.  The line was sentinelled as plain
+    # ASCII before html.escape() and swapped for <strong> tags after.
+    strong_open = body.find("<strong>")
+    strong_close = body.find("</strong>")
+    assert strong_open != -1 and strong_close != -1, (
+        "Rendered body is missing the <strong>…</strong> wrapper around "
+        "the matching traceback frame line"
+    )
+    assert strong_open < strong_close, (
+        "<strong> must come before </strong>"
+    )
+    strong_block = body[strong_open:strong_close + len("</strong>")]
+    assert "test_email_themes.py" in strong_block, (
+        "Bolded traceback line should reference the matching frame's "
+        f"filename, got: {strong_block!r}"
+    )
+    assert " in _inner" in strong_block, (
+        "Bolded traceback line should reference the matching frame's "
+        f"function name '_inner', got: {strong_block!r}"
+    )
+    # Only one frame line is bolded — count the open tags.  The blurb
+    # line and any in-pre output must NOT pick up the wrapper.
+    assert body.count("<strong>") == 1, (
+        "Exactly one traceback frame line should be bolded, got "
+        f"{body.count('<strong>')} <strong> tags"
+    )
 
 
 def test_handler_rejects_unknown_email_style() -> None:
