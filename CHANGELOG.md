@@ -1,3 +1,21 @@
+## v2.0.0 (2026-06-12)
+
+### BREAKING CHANGE
+
+- log records no longer carry
+``post_traceback_html_body``. Consumers introspecting that attribute
+must read ``record.task_context`` instead.
+
+### Feat
+
+- **email_alerting**: Traced Variables section with file:line reference in email body
+- **email_alerting**: language alternatives for HTML email body
+- **email_alerting**: template-driven HTML body from pure metadata
+
+### Fix
+
+- **process**: parallel runner no longer raises on unrunnable tail
+
 ## v1.0.5 (2026-01-19)
 
 ### Fix
