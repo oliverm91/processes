@@ -197,6 +197,7 @@ class Task:
                     email_style=self.html_mail_handler.email_style,
                     color_palette=self.html_mail_handler.color_palette,
                     email_language=self.html_mail_handler.email_language,
+                    last_path_traced_vars=self.html_mail_handler.last_path_traced_vars,
                 )
             )
             _html_mail_handler.setLevel(logging.ERROR)

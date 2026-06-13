@@ -37,6 +37,26 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         Defaults to None.
     timeout : int
         Connection timeout in seconds. Defaults to 5.
+
+    Parameters
+    ----------
+    email_style : str
+        HTML layout to use for the email body. One of ``"classic"``,
+        ``"modern"`` or ``"compact"``. Defaults to ``"modern"``.
+    color_palette : str
+        Color scheme injected into the layout. One of ``"neutral"``,
+        ``"catppuccin"``, ``"neobones"`` or ``"slate"``. Defaults to
+        ``"neutral"``.
+    email_language : str
+        ISO 639-1 language code for the email body and subject. One of
+        ``"en"``, ``"es"``, ``"pt"``, ``"fr"``, ``"de"`` or ``"it"``.
+        Defaults to ``"en"``.
+    last_path_traced_vars : str | None
+        Substring used to pick the traceback frame whose local variables
+        appear in the email body's *Traced Variables* section. If
+        ``None`` (the default) the outermost user frame in the traceback
+        is used; if set, the outermost frame whose filename contains the
+        substring is used instead.
     """
 
     def __init__(
@@ -55,6 +75,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         email_style: str = _DEFAULT_STYLE,
         color_palette: str = _DEFAULT_PALETTE,
         email_language: str = _DEFAULT_LANGUAGE,
+        last_path_traced_vars: str | None = None,
     ):
         if email_style not in _VALID_STYLES:
             raise ValueError(
@@ -68,6 +89,11 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             raise ValueError(
                 f"email_language must be one of {sorted(_VALID_LANGUAGES)}, got {email_language!r}"
             )
+        if last_path_traced_vars is not None and not isinstance(last_path_traced_vars, str):
+            raise TypeError(
+                f"last_path_traced_vars must be a str or None. "
+                f"Got {type(last_path_traced_vars)}"
+            )
 
         self._crd = credentials
         self._sec = secure
@@ -75,6 +101,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
         self.email_style = email_style
         self.color_palette = color_palette
         self.email_language = email_language
+        self.last_path_traced_vars = last_path_traced_vars
 
         super().__init__(
             mailhost,
@@ -108,6 +135,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             email_style=self.email_style,
             color_palette=self.color_palette,
             email_language=self.email_language,
+            last_path_traced_vars=self.last_path_traced_vars,
         )
 
     def __copy__(self) -> "HTMLSMTPHandler":
