@@ -81,7 +81,7 @@ FROM_ADDR = "traceback-canary@enterprise.test"
 
 _STYLES = ("classic", "modern", "compact")
 _PALETTES = ("neutral", "catppuccin", "neobones", "slate")
-_LANGUAGES = ("en", "es")#, "pt", "fr", "de", "it")
+_LANGUAGES = ("en", "es")  # , "pt", "fr", "de", "it")
 
 RECURSION_DEPTH = 60
 
@@ -157,9 +157,7 @@ def _log_path(logs_dir: str, name: str) -> str:
     return os.path.join(logs_dir, f"{name}.log")
 
 
-def build_tasks(
-    logs_dir: str, mail_handler: HTMLSMTPHandler
-) -> list[Task]:
+def build_tasks(logs_dir: str, mail_handler: HTMLSMTPHandler) -> list[Task]:
     dep = TaskDependency
     return [
         Task(
@@ -203,10 +201,7 @@ def _run_one_combo(
 
     Returns ``(ok, exit_code)`` — ``ok`` is True iff the post-conditions held.
     """
-    print(
-        f"\n>>> [style={email_style!r}, "
-        f"palette={color_palette!r}, language={email_language!r}]"
-    )
+    print(f"\n>>> [style={email_style!r}, palette={color_palette!r}, language={email_language!r}]")
     print("-" * 72)
 
     mail_handler = _make_mail_handler(email_style, color_palette, email_language)
@@ -276,8 +271,7 @@ def main() -> int:
     print("to (per combo):    <email_style>@<color_palette>.<email_language>")
     print(f"recursion depth:   {RECURSION_DEPTH} frames")
     print(
-        f"themes to render:  {total} "
-        f"(styles={styles}, palettes={palettes}, languages={languages})"
+        f"themes to render:  {total} (styles={styles}, palettes={palettes}, languages={languages})"
     )
     print("=" * 72)
 

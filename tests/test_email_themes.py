@@ -39,11 +39,12 @@ def _decode_mime_body(msg: str) -> str:
     payload = parsed.get_payload(decode=True) or b""
     return payload.decode("utf-8", errors="replace")
 
+
 # Style-specific markers that must appear in the rendered body to prove
 # the chosen style layout is actually in use (not just the default).
 _STYLE_MARKERS = {
-    "classic": ["<h1>Pipeline Failure:", "class=\"impact\"", "class=\"traceback\""],
-    "modern": ["class=\"card\"", "class=\"header\"", "class=\"alert\""],
+    "classic": ["<h1>Pipeline Failure:", 'class="impact"', 'class="traceback"'],
+    "modern": ['class="card"', 'class="header"', 'class="alert"'],
     "compact": ["[failure]", "[Function]", "[Downstream Impact]", "[Traceback]"],
 }
 
@@ -141,17 +142,14 @@ def test_every_style_palette_renders_complete_substitution() -> None:
     """Every (style, palette) pair must render with all 7 placeholders filled."""
     for style in _STYLES:
         for palette in _PALETTES:
-            formatter = ExceptionHTMLFormatter(
-                email_style=style, color_palette=palette
-            )
+            formatter = ExceptionHTMLFormatter(email_style=style, color_palette=palette)
             output = formatter.format(_make_record(f"task_{style}_{palette}"))
 
             # (a) All 7 content placeholders are substituted — no {{xxx}} remains.
             for key in _CONTENT_KEYS:
                 placeholder = "{{" + key + "}}"
                 assert placeholder not in output, (
-                    f"[{style}/{palette}] placeholder {placeholder!r} "
-                    f"was not substituted"
+                    f"[{style}/{palette}] placeholder {placeholder!r} was not substituted"
                 )
 
             # (b) The palette marker has been replaced with the palette's CSS
@@ -166,9 +164,7 @@ def test_every_style_palette_renders_complete_substitution() -> None:
 
             # (c) At least one style-specific marker is present.
             for marker in _STYLE_MARKERS[style]:
-                assert marker in output, (
-                    f"[{style}/{palette}] style marker {marker!r} not found"
-                )
+                assert marker in output, f"[{style}/{palette}] style marker {marker!r} not found"
 
 
 def test_every_language_renders_translated_body() -> None:
@@ -182,9 +178,7 @@ def test_every_language_renders_translated_body() -> None:
                     color_palette=palette,
                     email_language=language,
                 )
-                output = formatter.format(
-                    _make_record(f"task_{language}_{style}_{palette}")
-                )
+                output = formatter.format(_make_record(f"task_{language}_{style}_{palette}"))
 
                 # No language placeholder may remain unsubstituted.
                 for key in _LANG_CONTENT_KEYS:
@@ -270,9 +264,7 @@ def test_traced_vars_section_renders_under_traceback() -> None:
 
     # The marker (both name and value) appears in the locals listing
     # (auto-resolve picked this test's frame, so the local var is visible).
-    assert "marker" in body, (
-        "Rendered body is missing the local var name from the resolved frame"
-    )
+    assert "marker" in body, "Rendered body is missing the local var name from the resolved frame"
     assert "traced_vars_marker_42" in body, (
         "Rendered body is missing the local var value from the resolved frame"
     )
@@ -316,10 +308,8 @@ def test_traced_vars_section_renders_under_traceback() -> None:
         "Rendered body is missing the <strong>…</strong> wrapper around "
         "the matching traceback frame line"
     )
-    assert strong_open < strong_close, (
-        "<strong> must come before </strong>"
-    )
-    strong_block = body[strong_open:strong_close + len("</strong>")]
+    assert strong_open < strong_close, "<strong> must come before </strong>"
+    strong_block = body[strong_open : strong_close + len("</strong>")]
     assert "test_email_themes.py" in strong_block, (
         "Bolded traceback line should reference the matching frame's "
         f"filename, got: {strong_block!r}"
@@ -429,7 +419,7 @@ def test_handler_to_formatter_wiring_under_task() -> None:
         # Style marker: modern template uses class="card" for the main wrapper.
         assert 'class="card"' in body, (
             "Rendered email body is missing the 'modern' style marker "
-            "class=\"card\" — handler kwargs were not propagated to the "
+            'class="card" — handler kwargs were not propagated to the '
             "formatter inside Task._setup_logger"
         )
 
@@ -456,7 +446,6 @@ def test_handler_to_formatter_wiring_under_task() -> None:
         clean_tasks_logs()
         if os.path.isfile(log_path):
             os.remove(log_path)
-
 
 
 def test_handler_subject_carries_language_prefix() -> None:

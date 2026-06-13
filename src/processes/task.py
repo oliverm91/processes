@@ -200,12 +200,8 @@ class Task:
                 )
             )
             _html_mail_handler.setLevel(logging.ERROR)
-            lang_strings = _load_language_strings(
-                self.html_mail_handler.email_language
-            )
-            _html_mail_handler.subject = (
-                f"{lang_strings['lang_email_subject']}{self.name}"
-            )
+            lang_strings = _load_language_strings(self.html_mail_handler.email_language)
+            _html_mail_handler.subject = f"{lang_strings['lang_email_subject']}{self.name}"
             logger.addHandler(_html_mail_handler)
 
         self.logger = logger

@@ -142,7 +142,7 @@ def test_complex_dag_dual_independent_failures() -> None:
             make_task("C2", deps=[dep("C1")], fail=True),
             make_task("C3", deps=[dep("C2")]),
             # Aggregator
-            make_task("D",  deps=[dep("A3"), dep("B4"), dep("C3")]),
+            make_task("D", deps=[dep("A3"), dep("B4"), dep("C3")]),
         ]
 
         failing_task_names = {"B3", "C2"}
@@ -178,8 +178,7 @@ def test_complex_dag_dual_independent_failures() -> None:
 
         for name in independent_task_names:
             assert call_counts[name] == 1, (
-                f"Independent task {name} did not execute exactly once "
-                f"(got {call_counts[name]})"
+                f"Independent task {name} did not execute exactly once (got {call_counts[name]})"
             )
             assert name in result.passed_tasks_results, (
                 f"Independent task {name} missing from passed_results"
@@ -218,8 +217,7 @@ def test_complex_dag_dual_independent_failures() -> None:
             rec = recorders[name]
             error_records = [r for r in rec.records if r.levelno == logging.ERROR]
             assert len(error_records) == 1, (
-                f"Task {name} should emit exactly one ERROR record, "
-                f"got {len(error_records)}"
+                f"Task {name} should emit exactly one ERROR record, got {len(error_records)}"
             )
             record = error_records[0]
 
@@ -253,9 +251,7 @@ def test_complex_dag_dual_independent_failures() -> None:
             assert isinstance(ctx["downstream_impact"], list)
             # The downstream list must be the *exact* set of tasks that get
             # skipped because of this particular failure.
-            expected_downstream = {
-                n for n in skipped_task_names if name in _ancestors_of(n, tasks)
-            }
+            expected_downstream = {n for n in skipped_task_names if name in _ancestors_of(n, tasks)}
             assert set(ctx["downstream_impact"]) == expected_downstream
 
             # And no HTML markup anywhere in the metadata.
@@ -287,8 +283,7 @@ def test_complex_dag_dual_independent_failures() -> None:
         smtp_instance = mock_smtp_class.return_value
         sendmail_calls = smtp_instance.sendmail.call_args_list
         assert len(sendmail_calls) == len(failing_task_names), (
-            f"sendmail should fire {len(failing_task_names)} times, "
-            f"got {len(sendmail_calls)}"
+            f"sendmail should fire {len(failing_task_names)} times, got {len(sendmail_calls)}"
         )
 
         # Each email body must:
@@ -306,7 +301,7 @@ def test_complex_dag_dual_independent_failures() -> None:
             assert "To: sre-oncall@enterprise.test" in msg
             assert "Subject: Error in task " in msg
             assert "MIME-Version: 1.0" in msg
-            assert 'Content-Type: text/html' in msg
+            assert "Content-Type: text/html" in msg
 
             # Identify which failing task this email is for.
             match = re.search(r"Pipeline Failure: (\w+)", msg)
@@ -331,9 +326,7 @@ def test_complex_dag_dual_independent_failures() -> None:
             assert 'class="header"' in msg, (
                 "Email body missing the modern 'header' wrapper around the failure heading"
             )
-            assert "Pipeline Failure:" in msg, (
-                "Email body missing the per-task failure heading"
-            )
+            assert "Pipeline Failure:" in msg, "Email body missing the per-task failure heading"
             assert "<h2>Downstream Impact</h2>" in msg, (
                 "Email body missing 'Downstream Impact' heading"
             )
@@ -345,14 +338,11 @@ def test_complex_dag_dual_independent_failures() -> None:
             )
             for ds in expected_downstream:
                 assert f"<li>{ds}</li>" in msg, (
-                    f"Email for {failing} is missing downstream impact entry "
-                    f"for {ds!r}"
+                    f"Email for {failing} is missing downstream impact entry for {ds!r}"
                 )
             # No spurious entries from the *other* failure branch.
             other_branch_downstream = sorted(
-                n
-                for n in skipped_task_names
-                if failing not in _ancestors_of(n, tasks)
+                n for n in skipped_task_names if failing not in _ancestors_of(n, tasks)
             )
             for ds in other_branch_downstream:
                 assert f"<li>{ds}</li>" not in msg, (

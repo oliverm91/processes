@@ -416,10 +416,7 @@ class ProcessRunner:
                     # marked the remaining tasks as failed, completing
                     # the DAG. Re-check the loop condition before
                     # declaring a stall.
-                    if len(self.passed_results) + len(self.failed_tasks) < len(
-                        self.process.tasks
-                    ):
+                    if len(self.passed_results) + len(self.failed_tasks) < len(self.process.tasks):
                         raise RuntimeError(
-                            "Parallel execution stalled: "
-                            "no candidates found and no tasks running"
+                            "Parallel execution stalled: no candidates found and no tasks running"
                         )

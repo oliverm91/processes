@@ -96,13 +96,9 @@ def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
 
     # Every task ran exactly once — no double-submission, no drop.
     assert call_counts["root"] == 1, f"{tag} root called {call_counts['root']}x"
-    assert call_counts["collector"] == 1, (
-        f"{tag} collector called {call_counts['collector']}x"
-    )
+    assert call_counts["collector"] == 1, f"{tag} collector called {call_counts['collector']}x"
     for i in range(sibling_count):
-        assert call_counts[f"S{i}"] == 1, (
-            f"{tag} sibling S{i} called {call_counts[f'S{i}']}x"
-        )
+        assert call_counts[f"S{i}"] == 1, f"{tag} sibling S{i} called {call_counts[f'S{i}']}x"
 
     # The collector saw every sibling result — no race lost any input.
     assert call_counts["__collector_arg_count"] == sibling_count, (
@@ -111,9 +107,7 @@ def _run_diamond_iteration(sibling_count: int, run_idx: int) -> None:
     )
 
     assert not result.failed_tasks, f"{tag} unexpected failures: {result.failed_tasks}"
-    assert len(result.passed_tasks_results) == sibling_count + 2, (
-        f"{tag} passed count mismatch"
-    )
+    assert len(result.passed_tasks_results) == sibling_count + 2, f"{tag} passed count mismatch"
 
     stored = result.passed_tasks_results["collector"].result
     assert stored == sorted(f"sibling_{i}_payload" for i in range(sibling_count)), (
@@ -215,9 +209,7 @@ def _run_cascading_iteration(
 
     for chain in passing_chains:
         for name in chain:
-            assert call_counts[name] == 1, (
-                f"{tag} passing task {name} called {call_counts[name]}x"
-            )
+            assert call_counts[name] == 1, f"{tag} passing task {name} called {call_counts[name]}x"
 
     expected_failed = {n for chain in failing_chains for n in chain}
     expected_passed = {n for chain in passing_chains for n in chain}

@@ -120,18 +120,15 @@ class ExceptionHTMLFormatter(logging.Formatter):
         super().__init__()
         if email_style not in _VALID_STYLES:
             raise ValueError(
-                f"email_style must be one of {sorted(_VALID_STYLES)}, "
-                f"got {email_style!r}"
+                f"email_style must be one of {sorted(_VALID_STYLES)}, got {email_style!r}"
             )
         if color_palette not in _VALID_PALETTES:
             raise ValueError(
-                f"color_palette must be one of {sorted(_VALID_PALETTES)}, "
-                f"got {color_palette!r}"
+                f"color_palette must be one of {sorted(_VALID_PALETTES)}, got {color_palette!r}"
             )
         if email_language not in _VALID_LANGUAGES:
             raise ValueError(
-                f"email_language must be one of {sorted(_VALID_LANGUAGES)}, "
-                f"got {email_language!r}"
+                f"email_language must be one of {sorted(_VALID_LANGUAGES)}, got {email_language!r}"
             )
         self._email_style = email_style
         self._color_palette = color_palette
@@ -159,9 +156,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
         if record.exc_info:
             exc_type, exc_value, exc_tb = record.exc_info
             exception = "" if exc_value is None else str(exc_value)
-            tb_str = "".join(
-                traceback.format_exception(exc_type, exc_value, exc_tb)
-            )
+            tb_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
             self._print_traced_locals(exc_tb)
             traced_vars = self._build_traced_vars_html(exc_tb)
             location = self._build_traced_vars_location(exc_tb)
@@ -213,9 +208,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
         frame = target.tb_frame
         return f"{frame.f_code.co_filename}:{frame.f_lineno}"
 
-    def _split_traceback_at_target(
-        self, tb_str: str, location: str
-    ) -> tuple[str, str, str]:
+    def _split_traceback_at_target(self, tb_str: str, location: str) -> tuple[str, str, str]:
         """Split ``tb_str`` around the frame line matching ``location``.
 
         Returns a 3-tuple ``(before, highlight, after)`` where ``highlight``
@@ -281,17 +274,9 @@ class ExceptionHTMLFormatter(logging.Formatter):
 
         needle = self._last_path_traced_vars
         if needle is None:
-            matches = [
-                tb
-                for tb in frames
-                if not _is_library_path(tb.tb_frame.f_code.co_filename)
-            ]
+            matches = [tb for tb in frames if not _is_library_path(tb.tb_frame.f_code.co_filename)]
         else:
-            matches = [
-                tb
-                for tb in frames
-                if needle in tb.tb_frame.f_code.co_filename
-            ]
+            matches = [tb for tb in frames if needle in tb.tb_frame.f_code.co_filename]
 
         return matches[-1] if matches else frames[-1]
 
@@ -311,10 +296,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
         filename = frame.f_code.co_filename
         lineno = frame.f_lineno
         funcname = frame.f_code.co_name
-        print(
-            f"[{type(self).__name__}] local vars at "
-            f"{filename}:{lineno} in {funcname}:"
-        )
+        print(f"[{type(self).__name__}] local vars at {filename}:{lineno} in {funcname}:")
         for name, value in frame.f_locals.items():
             try:
                 rendered = repr(value)
@@ -329,9 +311,7 @@ class ExceptionHTMLFormatter(logging.Formatter):
         return rendered
 
     def format(self, record: logging.LogRecord) -> str:
-        exception, tb_str, traced_vars, traced_vars_location = (
-            self._format_exception_block(record)
-        )
+        exception, tb_str, traced_vars, traced_vars_location = self._format_exception_block(record)
         # Split the traceback into (before, highlight, after) segments
         # around the frame line that matches the traced-vars location.
         # Output is pure text — the templates own the visual styling

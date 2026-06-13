@@ -85,9 +85,9 @@ from processes import HTMLSMTPHandler, Process, Task, TaskDependency  # noqa: E4
 # Maildev wiring                                                              #
 # --------------------------------------------------------------------------- #
 
-SMTP_HOST = "127.0.0.1"    # avoid Windows IPv6/localhost resolution quirks
-SMTP_PORT = 1025           # maildev's default SMTP port (web UI runs on 1080)
-WEB_PORT = 1080            # maildev's default web UI port
+SMTP_HOST = "127.0.0.1"  # avoid Windows IPv6/localhost resolution quirks
+SMTP_PORT = 1025  # maildev's default SMTP port (web UI runs on 1080)
+WEB_PORT = 1080  # maildev's default web UI port
 FROM_ADDR = "pipeline-alerts@enterprise.test"
 TO_ADDRS = ["sre-oncall@enterprise.test"]
 
@@ -116,9 +116,9 @@ def ingest_orders(
     return {
         "feed": feed,
         "rows": [
-            {"order_id": "O-1001", "user_id": "U-7",  "sku": "SKU-A", "amount": 49.90},
+            {"order_id": "O-1001", "user_id": "U-7", "sku": "SKU-A", "amount": 49.90},
             {"order_id": "O-1002", "user_id": "U-12", "sku": "SKU-B", "amount": 12.00},
-            {"order_id": "O-1003", "user_id": "U-7",  "sku": "SKU-C", "amount":  3.50},
+            {"order_id": "O-1003", "user_id": "U-7", "sku": "SKU-C", "amount": 3.50},
         ],
         "batch_size": batch_size,
         "dry_run": dry_run,
@@ -152,8 +152,7 @@ def enrich_with_users(
     print(f"  [enrich_with_users] source={users_source} rows={len(rows)} timeout={timeout}s")
     return {
         "enriched_rows": [
-            {**row, "user_email": f"user{row['user_id']}@example.test"}
-            for row in rows
+            {**row, "user_email": f"user{row['user_id']}@example.test"} for row in rows
         ],
         "timeout": timeout,
     }
@@ -163,9 +162,7 @@ def _inventory_chunk_header(warehouse: str, strategy: str) -> str:
     """Local frame 1/4 — assemble the cached chunk's opening text and
     forward the call down the chain so this frame stays on the stack
     when the decoder later raises."""
-    return _inventory_chunk_seal(
-        f'{{"warehouse": "{warehouse}", "strategy": "{strategy}",'
-    )
+    return _inventory_chunk_seal(f'{{"warehouse": "{warehouse}", "strategy": "{strategy}",')
 
 
 def _inventory_chunk_seal(header: str) -> str:
@@ -241,10 +238,7 @@ def archive_run_metadata(
     retention_days: int = 30,
 ) -> str:
     """Archive the run manifest.  Runs in parallel with publish_dashboard."""
-    print(
-        f"  [archive_run_metadata] destination={destination} "
-        f"retention_days={retention_days}"
-    )
+    print(f"  [archive_run_metadata] destination={destination} retention_days={retention_days}")
     return f"archived://{destination}?retention={retention_days}d"
 
 

@@ -58,18 +58,15 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
     ):
         if email_style not in _VALID_STYLES:
             raise ValueError(
-                f"email_style must be one of {sorted(_VALID_STYLES)}, "
-                f"got {email_style!r}"
+                f"email_style must be one of {sorted(_VALID_STYLES)}, got {email_style!r}"
             )
         if color_palette not in _VALID_PALETTES:
             raise ValueError(
-                f"color_palette must be one of {sorted(_VALID_PALETTES)}, "
-                f"got {color_palette!r}"
+                f"color_palette must be one of {sorted(_VALID_PALETTES)}, got {color_palette!r}"
             )
         if email_language not in _VALID_LANGUAGES:
             raise ValueError(
-                f"email_language must be one of {sorted(_VALID_LANGUAGES)}, "
-                f"got {email_language!r}"
+                f"email_language must be one of {sorted(_VALID_LANGUAGES)}, got {email_language!r}"
             )
 
         self._crd = credentials
@@ -142,11 +139,7 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             # tuple; ``smtplib.SMTP`` requires a host string.  Unpack it
             # explicitly — passing the tuple raises
             # ``TypeError: getaddrinfo() argument 1 must be string or None``.
-            host = (
-                self.mailhost[0]
-                if isinstance(self.mailhost, tuple)
-                else self.mailhost
-            )
+            host = self.mailhost[0] if isinstance(self.mailhost, tuple) else self.mailhost
             smtp = smtplib.SMTP(host, port)
             msg = self.format(record)
 
