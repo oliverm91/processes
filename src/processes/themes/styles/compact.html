@@ -54,7 +54,13 @@
 
         <div class="section">
             <div class="label">[{{lang_traceback_title}}]</div>
-            <pre class="traceback">{{traceback}}</pre>
+            <pre class="traceback">{{traceback_before}}<strong>{{traceback_highlight}}</strong>{{traceback_after}}</pre>
+        </div>
+
+        <div class="section">
+            <div class="label">[{{lang_traced_vars_title}}]</div>
+            <div class="traced-vars-blurb">{{lang_traced_vars_blurb}}</div>
+            <pre class="traceback">{{traced_vars}}</pre>
         </div>
     </div>
 </body>

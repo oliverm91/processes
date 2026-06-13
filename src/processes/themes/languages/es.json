@@ -9,5 +9,7 @@
   "lang_downstream_title": "Impacto en tareas dependientes",
   "lang_downstream_blurb": "Las siguientes tareas dependientes se omitirán:",
   "lang_traceback_title": "Traza de error",
+  "lang_traced_vars_title": "Variables rastreadas",
+  "lang_traced_vars_blurb": "Las siguientes variables locales tenían estos valores en {location}:",
   "lang_email_subject": "Error en la tarea "
 }

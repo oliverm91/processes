@@ -68,6 +68,12 @@
             color: var(--text-muted);
             margin: 24px 0 8px 0;
         }
+        .traced-vars-blurb {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin: 4px 0 8px 0;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -98,7 +104,11 @@
             </div>
 
             <div class="section-title">{{lang_traceback_title}}</div>
-            <pre class="traceback">{{traceback}}</pre>
+            <pre class="traceback">{{traceback_before}}<strong>{{traceback_highlight}}</strong>{{traceback_after}}</pre>
+
+            <div class="section-title">{{lang_traced_vars_title}}</div>
+            <div class="traced-vars-blurb">{{lang_traced_vars_blurb}}</div>
+            <pre class="traceback">{{traced_vars}}</pre>
         </div>
     </div>
 </body>

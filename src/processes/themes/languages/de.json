@@ -9,5 +9,7 @@
   "lang_downstream_title": "Auswirkung auf nachgelagerte Aufgaben",
   "lang_downstream_blurb": "Die folgenden nachgelagerten Aufgaben werden übersprungen:",
   "lang_traceback_title": "Fehlerverlauf",
+  "lang_traced_vars_title": "Verfolgte Variablen",
+  "lang_traced_vars_blurb": "Die folgenden lokalen Variablen hatten diese Werte in {location}:",
   "lang_email_subject": "Fehler in Aufgabe "
 }

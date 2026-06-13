@@ -1,19 +1,9 @@
-import html
-import json
 import logging
 import logging.handlers
-import os
 import smtplib
 import ssl
-import traceback
 from email.mime.text import MIMEText
 from email.utils import formatdate
-from typing import cast
-
-_THEMES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "themes")
-_STYLES_DIR = os.path.join(_THEMES_DIR, "styles")
-_PALETTES_DIR = os.path.join(_THEMES_DIR, "palettes")
-_LANGUAGES_DIR = os.path.join(_THEMES_DIR, "languages")
 
 _VALID_STYLES = frozenset({"classic", "modern", "compact"})
 _VALID_PALETTES = frozenset({"neutral", "catppuccin", "neobones", "slate"})
@@ -22,28 +12,6 @@ _VALID_LANGUAGES = frozenset({"en", "es", "pt", "fr", "de", "it"})
 _DEFAULT_STYLE = "modern"
 _DEFAULT_PALETTE = "neutral"
 _DEFAULT_LANGUAGE = "en"
-
-_PALETTE_MARKER = "{{__palette_css__}}"
-
-
-def _load_language_strings(language: str) -> dict[str, str]:
-    """Load translatable strings for the given ISO 639-1 language code.
-
-    Parameters
-    ----------
-    language : str
-        One of the supported language codes (``"en"``, ``"es"``, ``"pt"``,
-        ``"fr"``, ``"de"``, ``"it"``).
-
-    Returns
-    -------
-    dict[str, str]
-        Mapping from placeholder name (e.g. ``"lang_function_label"``) to
-        the translated string.
-    """
-    path = os.path.join(_LANGUAGES_DIR, f"{language}.json")
-    with open(path, encoding="utf-8") as fh:
-        return cast(dict[str, str], json.load(fh))
 
 
 class HTMLSMTPHandler(logging.handlers.SMTPHandler):
@@ -197,113 +165,3 @@ class HTMLSMTPHandler(logging.handlers.SMTPHandler):
             smtp.quit()
         except Exception:
             self.handleError(record)
-
-
-class ExceptionHTMLFormatter(logging.Formatter):
-    """
-    A logging formatter that converts exception records to HTML format.
-
-    Renders a Jinja-like template by composing a bundled style layout from
-    ``themes/styles/`` with a color palette from ``themes/palettes/``, using
-    the pure metadata dict supplied via ``extra={"task_context": ...}`` on
-    the originating log call.  This keeps the log payload framework-agnostic
-    (no raw HTML fragments in ``extra``) while still producing a richly
-    formatted HTML email body.
-
-    Parameters
-    ----------
-    email_style : str
-        Name of the bundled style layout (``"classic"``, ``"modern"`` or
-        ``"compact"``).
-    color_palette : str
-        Name of the bundled color palette (``"neutral"``, ``"catppuccin"``,
-        ``"neobones"`` or ``"slate"``) injected into the style at the
-        ``{{__palette_css__}}`` marker.
-    email_language : str
-        ISO 639-1 language code for the email body and subject
-        (``"en"``, ``"es"``, ``"pt"``, ``"fr"``, ``"de"``, ``"it"``).
-    """
-
-    def __init__(
-        self,
-        *,
-        email_style: str = _DEFAULT_STYLE,
-        color_palette: str = _DEFAULT_PALETTE,
-        email_language: str = _DEFAULT_LANGUAGE,
-    ) -> None:
-        super().__init__()
-        if email_style not in _VALID_STYLES:
-            raise ValueError(
-                f"email_style must be one of {sorted(_VALID_STYLES)}, "
-                f"got {email_style!r}"
-            )
-        if color_palette not in _VALID_PALETTES:
-            raise ValueError(
-                f"color_palette must be one of {sorted(_VALID_PALETTES)}, "
-                f"got {color_palette!r}"
-            )
-        if email_language not in _VALID_LANGUAGES:
-            raise ValueError(
-                f"email_language must be one of {sorted(_VALID_LANGUAGES)}, "
-                f"got {email_language!r}"
-            )
-        self._email_style = email_style
-        self._color_palette = color_palette
-        self._email_language = email_language
-        self._cached_template: str | None = None
-
-    def _resolve_template(self) -> str:
-        """Compose the bundled style + palette into a single template string."""
-        style_path = os.path.join(_STYLES_DIR, f"{self._email_style}.html")
-        palette_path = os.path.join(_PALETTES_DIR, f"{self._color_palette}.css")
-        with open(style_path, encoding="utf-8") as fh:
-            style = fh.read()
-        with open(palette_path, encoding="utf-8") as fh:
-            palette = fh.read()
-        return style.replace(_PALETTE_MARKER, palette)
-
-    def _get_template(self) -> str:
-        if self._cached_template is None:
-            self._cached_template = self._resolve_template()
-        return self._cached_template
-
-    def _format_exception_block(self, record: logging.LogRecord) -> tuple[str, str]:
-        if record.exc_info:
-            exc_type, exc_value, exc_tb = record.exc_info
-            exception = "" if exc_value is None else str(exc_value)
-            tb_str = "".join(
-                traceback.format_exception(exc_type, exc_value, exc_tb)
-            )
-        else:
-            exception = record.getMessage()
-            tb_str = ""
-        return exception, tb_str
-
-    def _render(self, template: str, substitutions: dict[str, str]) -> str:
-        rendered = template
-        for key, value in substitutions.items():
-            rendered = rendered.replace("{{" + key + "}}", value)
-        return rendered
-
-    def format(self, record: logging.LogRecord) -> str:
-        exception, tb_str = self._format_exception_block(record)
-        task_context = getattr(record, "task_context", None) or {}
-
-        downstream = task_context.get("downstream_impact", []) or []
-        downstream_items = "".join(
-            f"<li>{html.escape(str(name), quote=True)}</li>" for name in downstream
-        )
-
-        substitutions = dict(_load_language_strings(self._email_language))
-        substitutions.update(
-            {
-                "task_name": html.escape(str(task_context.get("task_name", "?")), quote=True),
-                "function": html.escape(str(task_context.get("function", "?")), quote=True),
-                "args": html.escape(repr(task_context.get("args", ())), quote=True),
-                "kwargs": html.escape(repr(task_context.get("kwargs", {})), quote=True),
-                "exception": html.escape(exception, quote=True),
-                "traceback": html.escape(tb_str, quote=True),
-                "downstream_items": downstream_items,
-            }
-        )
-        return self._render(self._get_template(), substitutions)

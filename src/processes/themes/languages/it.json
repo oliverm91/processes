@@ -9,5 +9,7 @@
   "lang_downstream_title": "Impatto sulle attività dipendenti",
   "lang_downstream_blurb": "Le seguenti attività dipendenti verranno saltate:",
   "lang_traceback_title": "Traccia dell'errore",
+  "lang_traced_vars_title": "Variabili tracciate",
+  "lang_traced_vars_blurb": "Le seguenti variabili locali avevano questi valori in {location}:",
   "lang_email_subject": "Errore nell'attività "
 }

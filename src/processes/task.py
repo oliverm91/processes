@@ -8,11 +8,8 @@ if TYPE_CHECKING:
 
 import logging
 
-from .html_logging import (
-    ExceptionHTMLFormatter,
-    HTMLSMTPHandler,
-    _load_language_strings,
-)
+from .exception_html_formatter import ExceptionHTMLFormatter, _load_language_strings
+from .html_logging import HTMLSMTPHandler
 
 
 class TaskResult:

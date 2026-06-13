@@ -9,5 +9,7 @@
   "lang_downstream_title": "Impact sur les tâches dépendantes",
   "lang_downstream_blurb": "Les tâches dépendantes suivantes seront ignorées :",
   "lang_traceback_title": "Trace d'erreur",
+  "lang_traced_vars_title": "Variables suivies",
+  "lang_traced_vars_blurb": "Les variables locales suivantes avaient ces valeurs à {location} :",
   "lang_email_subject": "Erreur dans la tâche "
 }
