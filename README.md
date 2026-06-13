@@ -2,209 +2,361 @@
   <img src="https://raw.githubusercontent.com/oliverm91/processes/refs/heads/main/assets/banner.svg" width="100%" alt="Processes - Smart Task Orchestration">
 </div>
 
-# 🚀 Processes: Robust Routines Management
+# Processes: Smart Task Orchestration
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 ![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)
-
-
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://oliverm91.github.io/processes/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+[![PyPI version](https://img.shields.io/pypi/v/processes.svg)](https://pypi.org/project/processes/)
 
 [![Python Tests Status](https://github.com/oliverm91/processes/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/oliverm91/processes/actions/workflows/tests.yml)
 [![Ruff Lint Status](https://github.com/oliverm91/processes/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/oliverm91/processes/actions/workflows/lint.yml)
 [![mypy-check](https://github.com/oliverm91/processes/actions/workflows/mypy.yml/badge.svg)](https://github.com/oliverm91/processes/actions/workflows/mypy.yml)
 
-[![PyPI version](https://img.shields.io/pypi/v/processes.svg)](https://pypi.org/project/processes/)
+---
 
-
-
-
-**Processes** is a lightweight, high-performance Python library designed to execute complex task graphs. It manages **dependencies**, handles **parallel execution**, and ensures system resilience without any external libraries.
-
-File logging and **email notification** is supported.
+**Run a list of Python callables that depend on each other — in parallel when possible, with per-task log files and optional HTML email notification on failure. Zero dependencies. Pure Python 3.10+.**
 
 ---
 
-## 📑 Table of Contents
-* [✨ Features](#-features)
-* [⚙️ Core Concepts](#️-core-concepts)
-* [🛠️ Use Cases](#️-use-cases)
-* [💻 Quick Start](#-quick-start)
-* [🛡️ Fault Tolerance & Logs](#️-fault-tolerance--logs)
-* [📦 Installation](#-installation)
+## ✨ Why Processes?
+
+- 🔗 **Declare what depends on what** — write your tasks in any order; the runtime sorts them so every dependency runs first.
+- ⚡ **Run in parallel when you can** — independent tasks run together on a thread pool; the runtime switches on automatically for jobs with 10+ tasks.
+- 🛡️ **One failure doesn't stop the rest** — a failed task skips only the jobs that depend on it, and **every other part of the workflow keeps running**.
+- 📝 **One log file per task** — share a single log across the whole run, or keep them separate for easier debugging.
+- 📧 **Email alerts when something breaks** — attach an `HTMLSMTPHandler` and get a styled HTML email (with traceback, task context, and the list of jobs that were skipped) the instant a task raises.
+- 🧰 **Modern, strictly-typed Python 3.10+** — `from __future__ import annotations`, full `mypy --strict` clean, `dict[str, TaskResult]`, `set[str]`, `|` unions.
 
 ---
 
-## ✨ Features
+## ⚙️ How it works
 
-* **🐍 Pure Python:** Zero external dependencies. Built entirely on the **Python Standard Library**.
-* **⚡ Parallel Execution:** Built-in support for parallelization to maximize throughput.
-* **🔗 Dependency Resolution:** Automatically sorts and executes tasks based on their requirements, regardless of input order.
-* **📝 Shared Logging:** Multiple tasks can write to the same logfile or maintain separate ones seamlessly.
-* **📧 Email Notifications:** Integrated SMTP support (including HTML) to alert you the moment an exception occurs.
+A `Process` holds a list of `Task`s. At construction it validates names, types, dependency references, and detects cycles — raising before anything runs. 
 
----
+When you call `process.run()`, tasks are topologically sorted and scheduled: dependencies first, independent tasks in parallel.
 
-## ⚙️ Core Concepts
-
-The library operates on two main primitives:
-
-1.  **Task**: The atomic unit of work. It encapsulates a function, its parameters, its specific logfile, and its relationship with other tasks.
-2.  **Process**: The orchestrator. It builds the execution graph, validates dependencies, and manages the lifecycle of the entire workflow.
-
+A `TaskDependency` can forward an upstream result directly into a downstream function, as a positional or keyword argument. The result is a `ProcessResult` with `passed_tasks_results` and `failed_tasks` for inspection.
 
 ---
 
-## 🛠️ Use Cases
-- **ETL Pipelines:** Fetch data from an API, transform it, and load it into a database as separate, dependent tasks.
+## 🚀 Quick start
 
-- **System Maintenance:** Run parallel cleanup scripts, check server health, and receive email alerts if a specific check fails.
-
-- **Automated Reporting:** Generate multiple data parts in parallel, aggregate them into a final report, and distribute via SMTP.
-
-
----
-
-## 💻 Quick Start
-
-Four short examples — read top to bottom.
-
-### 1. One task
-
-```python
-from processes import Process, Task
-
-def hello():
-    return 42
-
-tasks = [Task("greet", "run.log", hello)]
-
-with Process(tasks) as process:
-    result = process.run()
-
-print(result.passed_tasks_results["greet"].result)   # 42
-```
-
-### 2. `args` and `kwargs`
-
-`args` and `kwargs` are forwarded to your function — like `func(*args, **kwargs)`.
-
-```python
-from processes import Process, Task
-
-def fetch(source, *, limit=100, dry_run=False):
-    return ["row1", "row2"]
-
-tasks = [
-    Task(
-        "fetch_orders", "run.log", fetch,
-        args=("orders_api",),
-        kwargs={"limit": 500, "dry_run": True},
-    ),
-]
-
-with Process(tasks) as process:
-    process.run()
-```
-
-### 3. Dependencies + result injection
-
-`TaskDependency` orders tasks. To also pipe the upstream result into the downstream function, pick one:
-
-* `use_result_as_additional_args=True` — appended as the next **positional** argument.
-* `use_result_as_additional_kwargs=True` + `additional_kwarg_name="..."` — passed as a **keyword** argument.
+A 15-line "hello pipeline" — one upstream task feeding a downstream one, run in parallel.
 
 ```python
 from processes import Process, Task, TaskDependency
 
-def load_users():
+
+def load_users() -> list[dict]:
     return [{"id": 1}, {"id": 2}, {"id": 3}]
 
-def enrich(api_key, users):                # `users` injected positionally
+
+def enrich(users: list[dict]) -> list[dict]:
     return [{**u, "name": f"user-{u['id']}"} for u in users]
 
-def summarize(*, enriched, label="report"):  # `enriched` injected as kwarg
-    return f"{label}: {len(enriched)} users"
 
 tasks = [
     Task("load", "run.log", load_users),
+    Task(
+        "enrich",
+        "run.log",
+        enrich,
+        dependencies=[TaskDependency("load", use_result_as_additional_args=True)],
+    ),
+]
+
+with Process(tasks) as p:
+    result = p.run(parallel=True)
+
+print(result.passed_tasks_results["enrich"].result)
+# [{'id': 1, 'name': 'user-1'}, {'id': 2, 'name': 'user-2'}, {'id': 3, 'name': 'user-3'}]
+```
+
+---
+
+## 🧪 End-to-end example
+
+A realistic mini-pipeline: fetch two sources **in parallel**, transform them, aggregate, and notify — with per-task log files, result piping, and one task deliberately failing to show fault isolation.
+
+<details>
+<summary>Show the full end-to-end example</summary>
+
+```python
+import logging
+from pathlib import Path
+
+from processes import HTMLSMTPHandler, Process, Task, TaskDependency
+
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+
+
+# --- 1. Two independent "fetch" tasks that run in parallel -----------------
+def fetch_orders() -> list[dict]:
+    logging.info("querying orders API")
+    return [{"order_id": 1, "amount": 42.0}, {"order_id": 2, "amount": 17.5}]
+
+
+def fetch_inventory() -> list[dict]:
+    logging.info("querying inventory API")
+    return [{"sku": "A-1", "qty": 12}, {"sku": "B-2", "qty": 3}]
+
+
+# --- 2. Two transforms that consume the upstream results -------------------
+def total_revenue(orders: list[dict]) -> float:
+    total = sum(o["amount"] for o in orders)
+    logging.info("revenue computed: %s", total)
+    return total
+
+
+def stock_value(inventory: list[dict], *, price_per_unit: float = 10.0) -> float:
+    value = sum(i["qty"] for i in inventory) * price_per_unit
+    logging.info("stock value: %s", value)
+    return value
+
+
+# --- 3. An aggregator that joins the two branches --------------------------
+def build_report(*, revenue: float, stock: float) -> str:
+    return f"daily-report | revenue={revenue:.2f} stock={stock:.2f}"
+
+
+# --- 4. A flaky notifier that ALWAYS fails — to show fault isolation -------
+def notify_slack(report: str) -> None:
+    raise RuntimeError("slack webhook returned 503")
+
+
+# --- 5. A sibling task that does NOT depend on notify and still runs -------
+def archive_report(report: str) -> str:
+    out = LOG_DIR / "report.txt"
+    out.write_text(report)
+    return str(out)
+
+
+# --- 6. Optional: an email handler so failures page on-call ---------------
+smtp = HTMLSMTPHandler(
+    mailhost=("smtp.example.com", 587),
+    fromaddr="alerts@example.com",
+    toaddrs=["oncall@example.com"],
+    credentials=("user", "pass"),
+    secure=(),
+)
+
+tasks = [
+    Task("fetch_orders",   LOG_DIR / "fetch_orders.log",   fetch_orders),
+    Task("fetch_inventory", LOG_DIR / "fetch_inventory.log", fetch_inventory),
 
     Task(
-        "enrich", "run.log", enrich,
-        args=("MY_API_KEY",),
+        "compute_revenue",
+        LOG_DIR / "compute_revenue.log",
+        total_revenue,
+        dependencies=[TaskDependency("fetch_orders", use_result_as_additional_args=True)],
+    ),
+    Task(
+        "compute_stock",
+        LOG_DIR / "compute_stock.log",
+        stock_value,
+        kwargs={"price_per_unit": 7.25},
         dependencies=[
-            TaskDependency("load", use_result_as_additional_args=True),
+            TaskDependency(
+                "fetch_inventory",
+                use_result_as_additional_kwargs=True,
+                additional_kwarg_name="inventory",
+            )
         ],
     ),
 
     Task(
-        "summary", "run.log", summarize,
-        kwargs={"label": "daily"},
+        "build_report",
+        LOG_DIR / "build_report.log",
+        build_report,
         dependencies=[
-            TaskDependency(
-                "enrich",
-                use_result_as_additional_kwargs=True,
-                additional_kwarg_name="enriched",
-            ),
+            TaskDependency("compute_revenue", use_result_as_additional_kwargs=True,
+                           additional_kwarg_name="revenue"),
+            TaskDependency("compute_stock",    use_result_as_additional_kwargs=True,
+                           additional_kwarg_name="stock"),
         ],
+    ),
+
+    # notify_slack fails on purpose. archive_report is a *sibling*
+    # of notify_slack (both depend on build_report), so it has no
+    # dependency on the failed task and runs normally — the rest of
+    # the workflow is not blackholed by one broken step.
+    Task(
+        "notify_slack",
+        LOG_DIR / "notify_slack.log",
+        notify_slack,
+        dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
+        html_mail_handler=smtp,
+    ),
+    Task(
+        "archive_report",
+        LOG_DIR / "archive_report.log",
+        archive_report,
+        dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
     ),
 ]
 
 with Process(tasks) as process:
     result = process.run(parallel=True)
 
-print(result.passed_tasks_results["summary"].result)
-# "daily: 3 users"
+print("passed:", sorted(result.passed_tasks_results))
+# archive_report, build_report, compute_revenue, compute_stock, fetch_inventory, fetch_orders
+print("failed:", sorted(result.failed_tasks))
+# notify_slack
+print("report:", result.passed_tasks_results["build_report"].result)
+# daily-report | revenue=59.50 stock=262.50
 ```
 
-> Task order doesn't matter — `Process` sorts them. A failure only skips its own dependents; the rest keeps running.
+The failing `notify_slack` task does **not** abort the run. `archive_report` is a sibling of the failed task (both depend on the successful `build_report`), so it runs unaffected — the rest of the workflow is not blackholed by one broken step. The HTML email handler also fires on the `notify_slack` task, paging on-call with the full traceback and the list of downstream tasks that were skipped because of it.
 
-### 4. Email alerts on failure
-
-Attach an `HTMLSMTPHandler` to any task. If it raises, an HTML email is sent.
-
-```python
-from processes import HTMLSMTPHandler, Process, Task
-
-smtp = HTMLSMTPHandler(
-    mailhost=("smtp.example.com", 587),
-    fromaddr="alerts@example.com",
-    toaddrs=["oncall@example.com"],
-    credentials=("user", "pass"),
-    secure=(),                             # () = STARTTLS; omit for no encryption
-)
-
-tasks = [
-    Task("risky_step", "run.log", lambda: 1 / 0, html_mail_handler=smtp),
-]
-
-with Process(tasks) as process:
-    process.run()
-```
+</details>
 
 ---
 
-## 🛡️ Fault Tolerance & Logs
-### Resilience by Design
-If a `Task` raises an exception, the `Process` **does not stop**. It intelligently skips any tasks that depend on the failed one but continues to execute all other independent branches of your workflow.
+## 📚 API Reference
 
-### Advanced Logging
-All tasks record their execution flow to their assigned logfiles. You can share a single logfile across the whole process or isolate specific tasks for easier debugging.
+<details>
+<summary>Show API reference</summary>
 
+### `Task`
+
+```python
+Task(
+    name: str,
+    log_path: str | os.PathLike,
+    func: Callable[..., Any],
+    args: tuple = (),
+    kwargs: dict | None = None,
+    dependencies: list[TaskDependency] | None = None,
+    html_mail_handler: HTMLSMTPHandler | None = None,
+)
+```
+
+- `name` — unique within the `Process`; no spaces.
+- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`).
+- `func` — the callable; receives `func(*args, **kwargs)` after result-injection.
+- `html_mail_handler` — fires on `logging.ERROR`; email body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`.
+
+### `TaskDependency`
+
+```python
+TaskDependency(
+    task_name: str,
+    use_result_as_additional_args: bool = False,
+    use_result_as_additional_kwargs: bool = False,
+    additional_kwarg_name: str = "",
+)
+```
+
+- `use_result_as_additional_args=True` — upstream result appended as the next **positional** arg.
+- `use_result_as_additional_kwargs=True` with a non-empty `additional_kwarg_name` — upstream result injected as a **keyword** arg.
+- Both flags can be combined (positional first, then kwarg).
+
+### `Process`
+
+```python
+Process(tasks: list[Task])  # validates types, names, deps, cycles
+
+process.run(parallel: bool | None = None, max_workers: int = 4) -> ProcessResult
+```
+
+- Raises `DependencyNotFoundError`, `CircularDependencyError`, `TypeError`, `ValueError` on construction if the workflow is malformed.
+- `parallel=None` auto-parallelises when `len(tasks) >= 10`; `max_workers=1` is always sequential.
+- Use as a context manager — it cleans up `FileHandler`s on exit.
+
+### `ProcessResult`
+
+```python
+ProcessResult(
+    passed_tasks_results: dict[str, TaskResult],   # name -> TaskResult
+    failed_tasks: set[str],                       # names that raised or were skipped
+)
+
+TaskResult(worked: bool, result: Any, exception: Exception | None)
+```
+
+### `HTMLSMTPHandler`
+
+```python
+HTMLSMTPHandler(
+    mailhost, fromaddr, toaddrs,
+    credentials=None, secure=None, timeout=5,
+    *,
+    email_style="modern",          # classic | modern | compact
+    color_palette="neutral",       # neutral | catppuccin | neobones | slate
+    email_language="en",           # en | es | pt | fr | de | it
+)
+```
+
+- `secure=()` → STARTTLS; omit for no encryption.
+
+</details>
+
+<details>
+<summary>Show fault-tolerance rules in detail</summary>
+
+When a task raises:
+
+1. The exception is caught and stored in `TaskResult.exception`; the task name goes into `failed_tasks`.
+2. **Every task that depends on it (directly or indirectly) is skipped** — marked as failed without running.
+3. **Every other independent part of the workflow keeps running.** With `parallel=True` they keep running concurrently on the worker pool.
+4. After `run()` returns, `ProcessResult.failed_tasks` lets you decide whether to retry, alert, or ignore.
+
+This makes the library a good fit for fan-out / fan-in pipelines, "best-effort" notifications, and any workflow where one broken step should not blackhole the rest.
+
+</details>
+
+<details>
+<summary>Show comparison with other libraries</summary>
+
+| | **Processes** | Airflow | Celery | Luigi |
+|---|---|---|---|---|
+| External dependencies | **None** | many | broker (Redis/RabbitMQ) | few |
+| Setup cost | `pip install` | cluster | broker + workers | task + config |
+| Parallelism | built-in | via executors | via workers | via workers |
+| Per-task file logs | **yes (built-in)** | via handlers | via signals | partial |
+| HTML email on failure | **yes (built-in)** | via callbacks | via signals | manual |
+| DAG validation at construction | **yes** | yes (DAG file) | n/a | partial |
+| Strict typing (`mypy --strict`) | **yes** | partial | partial | no |
+
+`Processes` is **not** a distributed scheduler — there are no workers on remote machines, no retries, no SLA monitoring, no web UI. If you need any of those, you need Airflow or a similar orchestrator. If you want a small, fast, dependency-aware pipeline that *just runs* in a single process, this is it.
+
+</details>
+
+<details>
+<summary>Show advanced configuration</summary>
+
+- **Shared log file** — pass the same `log_path` to every `Task` for a single combined run.log; pass distinct paths for per-task isolation.
+- **Auto-parallel** — `Process.run()` with no argument runs sequentially for small workflows and switches to parallel for `len(tasks) >= 10`. Pass `parallel=True` or `parallel=False` to force the mode.
+- **Result inspection** — iterate `result.passed_tasks_results.items()` to log or post-process every successful task; iterate `result.failed_tasks` for triage.
+- **Re-raising** — wrap `process.run()` in `try/except` if you need a non-zero exit code on any failure; the library itself does not raise on partial failure.
+
+</details>
 
 ---
 
 ## 📦 Installation
 
-Registered in PyPI: https://pypi.org/project/processes/
+From PyPI:
+
 ```bash
 pip install processes
 ```
 
-Also, since it's a pure Python library, you can install it directly from the repository:
+Or straight from the repository (pure Python, no build step):
 
 ```bash
 pip install git+https://github.com/oliverm91/processes.git
 ```
+
+Requires **Python 3.10+**.
+
+---
+
+## 📄 License & contributing
+
+Released under the **MIT License** — see [docs](https://oliverm91.github.io/processes/) for full API details.
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, style, and commit-message conventions used by this project.
