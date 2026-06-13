@@ -68,53 +68,120 @@ The library operates on two main primitives:
 ---
 
 ## 💻 Quick Start
-Define your tasks and their dependencies. **Processes** will handle the execution order and data injection between tasks.
+
+Four short examples — read top to bottom.
+
+### 1. One task
 
 ```python
-from datetime import date
+from processes import Process, Task
 
-from processes import Process, Task, TaskDependency, HTMLSMTPHandler
+def hello():
+    return 42
 
-# 1. Setup Email Alerts (Optional)
-smtp_handler = HTMLSMTPHandler(
-    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'], 
-    use_tls=True, credentials=('user', 'pass')
-)
+tasks = [Task("greet", "run.log", hello)]
 
-# 2. If necessary, create wrappers for your Tasks.
-def get_previous_working_day():
-    return date(2025, 12, 30)
-def indep_task():
-    return "foo"
-def search_and_sum_csv(t: date):
-    return 10
-def sum_data_from_csv_and_x(x, a=1, b=2):
-    return x + a + b
+with Process(tasks) as process:
+    result = process.run()
 
-# 3. Create the Task Graph (order is irrelevant, that is handled by Process)
+print(result.passed_tasks_results["greet"].result)   # 42
+```
+
+### 2. `args` and `kwargs`
+
+`args` and `kwargs` are forwarded to your function — like `func(*args, **kwargs)`.
+
+```python
+from processes import Process, Task
+
+def fetch(source, *, limit=100, dry_run=False):
+    return ["row1", "row2"]
+
 tasks = [
-    Task("t-1", "etl.log", get_previous_working_day),
-    Task("intependent", "indep.log", indep_task, html_mail_handler=smtp_handler),  # This task will send email on failure
-    Task("sum_csv", "etl.log", search_and_sum_csv,
-            dependencies= [
-                TaskDependency("t-1",
-                use_result_as_additional_args=True)  # Adds result of t-1 task to search_and_sum_csv function as aditional args
-            ]
-        ),
-    Task("sum_x_and_csv", "etl.log", sum_data_from_csv_and_x,
-            args = (10,), kwargs = {"b": 100},
-            dependencies=[
-                TaskDependency("sum_csv",
-            use_result_as_additional_kwargs=True,
-            additional_kwarg_name="a")
-        ]
-    )
+    Task(
+        "fetch_orders", "run.log", fetch,
+        args=("orders_api",),
+        kwargs={"limit": 500, "dry_run": True},
+    ),
 ]
 
-# 4. Run the Process
-with Process(tasks) as process: # Context Manager ensures correct disposal of loggers
-    process_result = process.run() # To enable parallelization use .run(parallel=True)
+with Process(tasks) as process:
+    process.run()
+```
 
+### 3. Dependencies + result injection
+
+`TaskDependency` orders tasks. To also pipe the upstream result into the downstream function, pick one:
+
+* `use_result_as_additional_args=True` — appended as the next **positional** argument.
+* `use_result_as_additional_kwargs=True` + `additional_kwarg_name="..."` — passed as a **keyword** argument.
+
+```python
+from processes import Process, Task, TaskDependency
+
+def load_users():
+    return [{"id": 1}, {"id": 2}, {"id": 3}]
+
+def enrich(api_key, users):                # `users` injected positionally
+    return [{**u, "name": f"user-{u['id']}"} for u in users]
+
+def summarize(*, enriched, label="report"):  # `enriched` injected as kwarg
+    return f"{label}: {len(enriched)} users"
+
+tasks = [
+    Task("load", "run.log", load_users),
+
+    Task(
+        "enrich", "run.log", enrich,
+        args=("MY_API_KEY",),
+        dependencies=[
+            TaskDependency("load", use_result_as_additional_args=True),
+        ],
+    ),
+
+    Task(
+        "summary", "run.log", summarize,
+        kwargs={"label": "daily"},
+        dependencies=[
+            TaskDependency(
+                "enrich",
+                use_result_as_additional_kwargs=True,
+                additional_kwarg_name="enriched",
+            ),
+        ],
+    ),
+]
+
+with Process(tasks) as process:
+    result = process.run(parallel=True)
+
+print(result.passed_tasks_results["summary"].result)
+# "daily: 3 users"
+```
+
+> Task order doesn't matter — `Process` sorts them. A failure only skips its own dependents; the rest keeps running.
+
+### 4. Email alerts on failure
+
+Attach an `HTMLSMTPHandler` to any task. If it raises, an HTML email is sent.
+
+```python
+from processes import HTMLSMTPHandler, Process, Task
+
+smtp = HTMLSMTPHandler(
+    mailhost=("smtp.example.com", 587),
+    fromaddr="alerts@example.com",
+    toaddrs=["oncall@example.com"],
+    credentials=("user", "pass"),
+    secure=(),                             # () = STARTTLS; omit for no encryption
+)
+
+tasks = [
+    Task("risky_step", "run.log", lambda: 1 / 0, html_mail_handler=smtp),
+]
+
+with Process(tasks) as process:
+    process.run()
 ```
 
 ---
