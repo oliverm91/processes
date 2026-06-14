@@ -208,8 +208,8 @@ class Process:
         """
         try:
             return self._task_map[task_name]
-        except KeyError:
-            raise TaskNotFoundError(task_name)
+        except KeyError as err:
+            raise TaskNotFoundError(task_name) from err
 
     def run(self, parallel: bool | None = None, max_workers: int = 4) -> ProcessResult:
         """Execute all tasks in the process.

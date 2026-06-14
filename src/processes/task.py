@@ -260,7 +260,9 @@ class Task:
             style = email_style or HTMLEmailStyle()
             logger.addHandler(_build_task_email_handler(smtp_config, style, self.name))
 
-        self._frame_filter: str | None = email_style.traced_vars_frame_filter if email_style is not None else None
+        self._frame_filter: str | None = (
+            email_style.traced_vars_frame_filter if email_style is not None else None
+        )
         self.logger = logger
 
     def _check_input_types(
@@ -345,8 +347,8 @@ class Task:
         fut = executor.submit(self.func, *args, **kwargs)
         try:
             return fut.result(timeout=self.timeout)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError(f"Task '{self.name}' timed out after {self.timeout}s")
+        except concurrent.futures.TimeoutError as err:
+            raise TimeoutError(f"Task '{self.name}' timed out after {self.timeout}s") from err
         finally:
             executor.shutdown(wait=False)
 
@@ -418,8 +420,11 @@ class Task:
                 return TaskResult(True, result, None)
             except Exception as e:
                 last_exc = e
-                if self.retries >= 1 and attempt < max_attempts and isinstance(e, effective_retry_on):
-                    self.logger.warning(f"Attempt {attempt}/{max_attempts} failed: {e}. Retrying...")
+                retryable = self.retries >= 1 and attempt < max_attempts
+                if retryable and isinstance(e, effective_retry_on):
+                    self.logger.warning(
+                        f"Attempt {attempt}/{max_attempts} failed: {e}. Retrying..."
+                    )
                     continue
                 break
 
