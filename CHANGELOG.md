@@ -1,3 +1,15 @@
+## v4.1.0 (2026-06-14)
+
+### Feat
+
+- add extra_payload to WebhookConfig for service-specific routing keys
+- include traced variables in task logfiles
+- add generic WebhookChannel with optional HMAC body signing
+
+### Refactor
+
+- make traced_vars a plain {name: repr(value)} dict
+
 ## v4.0.0 (2026-06-14)
 
 ### BREAKING CHANGE
