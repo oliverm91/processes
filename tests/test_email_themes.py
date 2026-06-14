@@ -10,9 +10,9 @@ Covers:
     in the output.
 *   Constructor validation on ``HTMLEmailStyle`` — unknown style/palette/language
     names must raise ``ValueError`` at construction time.
-*   The wiring inside ``Task.__init__``: setting ``email_style`` on a Task must
-    propagate through the runtime formatter so the rendered email body and subject
-    carry the chosen options.
+*   The wiring inside ``Task.__init__``: an ``EmailChannel`` passed via
+    ``channels`` must propagate its style through the runtime formatter so the
+    rendered email body and subject carry the chosen options.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from unittest.mock import patch
 
 import pytest
 
-from processes import HTMLEmailStyle, Process, SMTPConfig, Task
+from processes import EmailChannel, HTMLEmailStyle, Process, SMTPConfig, Task
 from processes._email_internals import _HTMLEmailFormatter
 from processes._tb_utils import (
     _build_traced_vars_html,
@@ -356,9 +356,9 @@ class TestEmailRendering(BaseTest):
 
 class TestTaskEmailWiring(BaseTest):
     def test_task_wiring_propagates_style_palette_language(self) -> None:
-        """smtp_config + non-default email_style attached to a Task must produce an
-        email body that carries the chosen style, palette and language, and a subject
-        carrying the language prefix."""
+        """An EmailChannel with a non-default style attached to a Task must produce
+        an email body that carries the chosen style, palette and language, and a
+        subject carrying the language prefix."""
         smtp_cfg = SMTPConfig(
             mailhost=("smtp.enterprise.test", 25),
             fromaddr="alerts@enterprise.test",
@@ -373,8 +373,7 @@ class TestTaskEmailWiring(BaseTest):
             name="wired",
             log_path=self._log("wired_task.log"),
             func=boom,
-            smtp_config=smtp_cfg,
-            email_style=style_cfg,
+            channels=[EmailChannel(smtp_cfg, style_cfg)],
         )
 
         with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
@@ -417,8 +416,7 @@ class TestTaskEmailWiring(BaseTest):
             name="subject_de",
             log_path=self._log("subject_task.log"),
             func=boom,
-            smtp_config=smtp_cfg,
-            email_style=style_cfg,
+            channels=[EmailChannel(smtp_cfg, style_cfg)],
         )
 
         with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
@@ -436,7 +434,7 @@ class TestTaskEmailWiring(BaseTest):
         )
 
     def test_task_without_email_style_uses_defaults(self) -> None:
-        """When smtp_config is provided but email_style is None, the handler uses
+        """When EmailChannel is constructed without a style, the handler uses
         the HTMLEmailStyle defaults (modern/neutral/en)."""
         smtp_cfg = SMTPConfig(
             mailhost=("smtp.test", 25),
@@ -451,7 +449,7 @@ class TestTaskEmailWiring(BaseTest):
             name="default_style",
             log_path=self._log("default_style_task.log"),
             func=boom,
-            smtp_config=smtp_cfg,
+            channels=[EmailChannel(smtp_cfg)],
         )
 
         with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
@@ -480,10 +478,16 @@ class TestTaskEmailWiring(BaseTest):
             raise RuntimeError("boom")
 
         task_a = Task(
-            name="iso_task_a", log_path=self._log("iso_task_a.log"), func=boom, smtp_config=smtp_cfg
+            name="iso_task_a",
+            log_path=self._log("iso_task_a.log"),
+            func=boom,
+            channels=[EmailChannel(smtp_cfg)],
         )
         task_b = Task(
-            name="iso_task_b", log_path=self._log("iso_task_b.log"), func=boom, smtp_config=smtp_cfg
+            name="iso_task_b",
+            log_path=self._log("iso_task_b.log"),
+            func=boom,
+            channels=[EmailChannel(smtp_cfg)],
         )
         try:
             email_handlers_a = [
@@ -509,22 +513,19 @@ class TestTaskEmailWiring(BaseTest):
         finally:
             self._close_handlers(task_a, task_b)
 
-    def test_no_smtp_config_attaches_no_email_handler(self) -> None:
-        """When smtp_config is None, no email handler must be attached even if
-        email_style is provided."""
+    def test_no_channels_attaches_no_email_handler(self) -> None:
+        """When no channels are given, no email handler must be attached."""
         task = Task(
             name="no_smtp",
             log_path=self._log("no_smtp_task.log"),
             func=lambda: None,
-            smtp_config=None,
-            email_style=HTMLEmailStyle(style="classic"),
         )
         try:
             email_handlers = [
                 h for h in task.logger.handlers if isinstance(h, logging.handlers.SMTPHandler)
             ]
             assert len(email_handlers) == 0, (
-                f"No email handler should be attached when smtp_config is None, "
+                f"No email handler should be attached when no email channel is given, "
                 f"got {len(email_handlers)}"
             )
         finally:

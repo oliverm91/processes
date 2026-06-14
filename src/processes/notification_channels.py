@@ -36,6 +36,20 @@ class NotificationChannel(ABC):
             A handler ready to be added to the task's logger.
         """
 
+    @property
+    def frame_filter(self) -> str | None:
+        """Substring selecting the traceback frame to trace local variables of.
+
+        See ``HTMLEmailStyle.traced_vars_frame_filter``. Channels that don't
+        influence frame selection return ``None`` (the default).
+
+        Returns
+        -------
+        str | None
+            ``None`` unless overridden by a subclass.
+        """
+        return None
+
 
 class _FileChannel(NotificationChannel):
     """Notification channel that writes task log records to a plain-text file.
@@ -80,7 +94,7 @@ class _FileChannel(NotificationChannel):
         return handler
 
 
-class _EmailChannel(NotificationChannel):
+class EmailChannel(NotificationChannel):
     """Notification channel that sends an HTML email alert on task failure.
 
     Attributes
@@ -119,3 +133,14 @@ class _EmailChannel(NotificationChannel):
             email for each error log record.
         """
         return _build_task_email_handler(self.smtp_config, self.style, task_name)
+
+    @property
+    def frame_filter(self) -> str | None:
+        """Frame filter sourced from ``style.traced_vars_frame_filter``.
+
+        Returns
+        -------
+        str | None
+            The configured ``traced_vars_frame_filter``, or ``None``.
+        """
+        return self.style.traced_vars_frame_filter

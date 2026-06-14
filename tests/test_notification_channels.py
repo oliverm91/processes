@@ -5,7 +5,7 @@ Covers:
 *   ``NotificationChannel`` cannot be instantiated directly.
 *   ``_FileChannel.build_handler`` returns a ``FileHandler`` at the right
     level, formatted with ``_TaskLogfileFormatter``, writing to the given path.
-*   ``_EmailChannel.build_handler`` returns an ``ERROR``-level handler with the
+*   ``EmailChannel.build_handler`` returns an ``ERROR``-level handler with the
     localized subject, mirroring the behaviour of ``_build_task_email_handler``.
 """
 
@@ -15,10 +15,10 @@ import logging
 
 import pytest
 
-from processes import HTMLEmailStyle, NotificationChannel, Process, SMTPConfig, Task
+from processes import EmailChannel, HTMLEmailStyle, NotificationChannel, Process, SMTPConfig, Task
 from processes._email_internals import _HTMLEmailFormatter
 from processes._logfile_formatting import _TaskLogfileFormatter
-from processes.notification_channels import _EmailChannel, _FileChannel
+from processes.notification_channels import _FileChannel
 
 from .base_test import BaseTest
 
@@ -81,7 +81,7 @@ class TestEmailChannel(BaseTest):
         )
 
     def test_build_handler_defaults_to_error_level_and_default_style(self) -> None:
-        channel = _EmailChannel(self._smtp_config())
+        channel = EmailChannel(self._smtp_config())
         handler = channel.build_handler("email_task")
 
         assert handler.level == logging.ERROR
@@ -89,14 +89,22 @@ class TestEmailChannel(BaseTest):
         assert handler.subject == "Error in task email_task"
 
     def test_build_handler_uses_provided_style_for_subject_language(self) -> None:
-        channel = _EmailChannel(self._smtp_config(), HTMLEmailStyle(language="es"))
+        channel = EmailChannel(self._smtp_config(), HTMLEmailStyle(language="es"))
         handler = channel.build_handler("email_task")
 
         assert handler.subject == "Error en la tarea email_task"
 
     def test_default_style_is_modern_neutral_english(self) -> None:
-        channel = _EmailChannel(self._smtp_config())
+        channel = EmailChannel(self._smtp_config())
         assert channel.style == HTMLEmailStyle()
+
+    def test_frame_filter_sourced_from_style(self) -> None:
+        channel = EmailChannel(self._smtp_config(), HTMLEmailStyle(traced_vars_frame_filter="json"))
+        assert channel.frame_filter == "json"
+
+    def test_frame_filter_defaults_to_none(self) -> None:
+        channel = EmailChannel(self._smtp_config())
+        assert channel.frame_filter is None
 
 
 class _RecordingChannel(NotificationChannel):

@@ -10,9 +10,8 @@ if TYPE_CHECKING:
 import logging
 
 from ._tb_utils import _build_traced_vars_html, _build_traced_vars_location, _format_traceback
-from .email_config import HTMLEmailStyle, SMTPConfig
 from .exceptions import CircularDependencyError
-from .notification_channels import NotificationChannel, _EmailChannel, _FileChannel
+from .notification_channels import NotificationChannel, _FileChannel
 
 
 class TaskResult:
@@ -133,10 +132,10 @@ class Task:
         Keyword arguments to pass to the function. Defaults to empty dict.
     dependencies : list[TaskDependency]
         List of tasks this task depends on. Defaults to empty list.
-    smtp_config : SMTPConfig, optional
-        SMTP transport configuration for HTML email error alerts.
-    email_style : HTMLEmailStyle, optional
-        HTML presentation settings used alongside ``smtp_config``.
+    channels : list[NotificationChannel]
+        Additional notification channels attached to this task's logger, on
+        top of the implicit file channel built from ``log_path``. Defaults to
+        empty list.
     timeout : float | None
         Seconds allowed per attempt before a ``TimeoutError`` is raised.
         ``None`` means no limit. Defaults to ``None``.
@@ -147,9 +146,6 @@ class Task:
         Exception types that trigger a retry. When ``retries >= 1`` and
         ``retry_on`` is ``None``, defaults at call time to
         ``(ConnectionError, TimeoutError)``. Defaults to ``None``.
-    channels : list[NotificationChannel]
-        Additional notification channels attached to this task's logger,
-        on top of the implicit file and email channels. Defaults to empty list.
     logger : logging.Logger
         Logger instance for this task, automatically configured.
 
@@ -170,13 +166,13 @@ class Task:
         an empty dict.
     dependencies : list[TaskDependency] | None
         Tasks this task depends on. ``None`` is treated as an empty list.
-    smtp_config : SMTPConfig | None
-        SMTP transport configuration. When provided, a styled HTML email is sent
-        on ``logging.ERROR`` and above. Defaults to ``None``.
-    email_style : HTMLEmailStyle | None
-        HTML presentation settings (style, palette, language, traced-vars filter).
-        Used only when ``smtp_config`` is set. Defaults to ``HTMLEmailStyle()``
-        (modern, neutral, English).
+    channels : list[NotificationChannel] | None
+        Additional notification channels whose handlers are attached to this
+        task's logger, alongside the implicit file channel built from
+        ``log_path``. Use ``EmailChannel`` for HTML email alerts on
+        ``logging.ERROR`` and above, or subclass ``NotificationChannel`` for
+        other destinations. ``None`` is treated as an empty list. Defaults to
+        ``None``.
     timeout : float | None
         Seconds allowed per attempt before ``TimeoutError`` is raised for that
         attempt. ``None`` means no limit. When a timeout fires, the underlying
@@ -189,11 +185,6 @@ class Task:
         Exception types that trigger a retry. Evaluated only when
         ``retries >= 1``. When ``None``, defaults at call time to
         ``(ConnectionError, TimeoutError)``. Defaults to ``None``.
-    channels : list[NotificationChannel] | None
-        Additional notification channels whose handlers are attached to this
-        task's logger, alongside the implicit ``FileChannel`` (and
-        ``EmailChannel`` when ``smtp_config`` is set). ``None`` is treated as
-        an empty list. Defaults to ``None``.
 
     Raises
     ------
@@ -219,12 +210,10 @@ class Task:
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
         dependencies: list[TaskDependency] | None = None,
-        smtp_config: SMTPConfig | None = None,
-        email_style: HTMLEmailStyle | None = None,
+        channels: list[NotificationChannel] | None = None,
         timeout: float | None = None,
         retries: int | None = 0,
         retry_on: tuple[type[Exception], ...] | None = None,
-        channels: list[NotificationChannel] | None = None,
     ):
         self.name = name
         self.log_path = log_path
@@ -247,7 +236,7 @@ class Task:
         else:
             self.channels = channels
 
-        self._check_input_types(smtp_config, email_style)
+        self._check_input_types()
         if " " in self.name:
             raise ValueError(f"Task name cannot contain spaces. Got {self.name}")
 
@@ -262,34 +251,19 @@ class Task:
         logger = logging.getLogger(f"processes.{self.name}.{id(self)}")
         logger.setLevel(logging.DEBUG)
 
-        all_channels: list[NotificationChannel] = [_FileChannel(self.log_path)]
-        if smtp_config is not None:
-            style = email_style or HTMLEmailStyle()
-            all_channels.append(_EmailChannel(smtp_config, style))
-        all_channels.extend(self.channels)
+        all_channels: list[NotificationChannel] = [_FileChannel(self.log_path), *self.channels]
 
         for channel in all_channels:
             logger.addHandler(channel.build_handler(self.name))
 
-        self._frame_filter: str | None = (
-            email_style.traced_vars_frame_filter if email_style is not None else None
+        self._frame_filter: str | None = next(
+            (c.frame_filter for c in all_channels if c.frame_filter is not None), None
         )
         self.logger = logger
 
-    def _check_input_types(
-        self,
-        smtp_config: SMTPConfig | None,
-        email_style: HTMLEmailStyle | None,
-    ) -> None:
+    def _check_input_types(self) -> None:
         """
         Validates all input parameter types.
-
-        Parameters
-        ----------
-        smtp_config : SMTPConfig | None
-            SMTP transport configuration passed to the constructor, if any.
-        email_style : HTMLEmailStyle | None
-            HTML presentation settings passed to the constructor, if any.
 
         Raises
         ------
@@ -304,11 +278,6 @@ class Task:
 
         if not isinstance(self.kwargs, dict):
             raise TypeError(f"kwargs must be dict. Got {type(self.kwargs)}")
-
-        if smtp_config is not None and not isinstance(smtp_config, SMTPConfig):
-            raise TypeError(f"smtp_config must be of type SMTPConfig. Got {type(smtp_config)}")
-        if email_style is not None and not isinstance(email_style, HTMLEmailStyle):
-            raise TypeError(f"email_style must be of type HTMLEmailStyle. Got {type(email_style)}")
 
         if not isinstance(self.dependencies, list):
             raise TypeError(f"dependencies must be list. Got {type(self.dependencies)}")

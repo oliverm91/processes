@@ -30,7 +30,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from unittest.mock import patch
 
-from processes import Process, SMTPConfig, Task, TaskDependency
+from processes import EmailChannel, Process, SMTPConfig, Task, TaskDependency
 
 from .base_test import BaseTest
 
@@ -87,7 +87,7 @@ class TestComplexDagFailures(BaseTest):
                 log_path=os.path.join(self._CURDIR, f"{name}.log"),
                 func=make_func(name, fail=fail),
                 dependencies=deps,
-                smtp_config=smtp_config,
+                channels=[EmailChannel(smtp_config)],
             )
 
         dep = TaskDependency

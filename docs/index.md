@@ -71,7 +71,7 @@ Define your tasks and their dependencies. **Processes** will handle the executio
 ```python
 from datetime import date
 
-from processes import Process, Task, TaskDependency, SMTPConfig, HTMLEmailStyle
+from processes import Process, Task, TaskDependency, SMTPConfig, HTMLEmailStyle, EmailChannel
 
 # 1. Setup Email Alerts (Optional)
 smtp_config = SMTPConfig(
@@ -100,7 +100,7 @@ def sum_data_from_csv_and_x(x, a=1, b=2):
 # 3. Create the Task Graph (order is irrelevant, that is handled by Process)
 tasks = [
     Task("t-1", "etl.log", get_previous_working_day),
-    Task("intependent", "indep.log", indep_task, smtp_config=smtp_config, email_style=email_style),  # This task will send email on failure
+    Task("intependent", "indep.log", indep_task, channels=[EmailChannel(smtp_config, email_style)]),  # This task will send email on failure
     Task("sum_csv", "etl.log", search_and_sum_csv,
             dependencies= [
                 TaskDependency("t-1",
@@ -127,7 +127,7 @@ with Process(tasks) as process: # Context Manager ensures correct disposal of lo
 
 ## 📧 Customizing the HTML email
 
-When a task with an `smtp_config` raises, the alert is a **styled HTML
+When a task with an `EmailChannel` raises, the alert is a **styled HTML
 email** built from a bundled template. The body includes the exception,
 the traceback (with the user-frame highlighted), the task context, the
 list of downstream tasks that were skipped because of the failure, and
@@ -146,7 +146,7 @@ Email delivery and presentation are configured with two separate dataclasses:
 | `traced_vars_frame_filter` | any path substring, or `None` | `None` (outermost user frame) |
 
 ```python
-from processes import SMTPConfig, HTMLEmailStyle, Task
+from processes import SMTPConfig, HTMLEmailStyle, EmailChannel, Task
 
 smtp = SMTPConfig(
     mailhost=("smtp.example.com", 587),
@@ -162,12 +162,12 @@ style = HTMLEmailStyle(
     language="es",                      # en | es | pt | fr | de | it
 )
 
-t = Task("task_name", "logfile", func_to_run, smtp_config=smtp, email_style=style)
+t = Task("task_name", "logfile", func_to_run, channels=[EmailChannel(smtp, style)])
 ```
 
-If `smtp_config` is set and `email_style` is omitted, `HTMLEmailStyle()` defaults
-(modern, neutral, English) are used. If `smtp_config` is `None`, `email_style` is ignored
-and no email handler is attached.
+If `style` is omitted, `EmailChannel` defaults to `HTMLEmailStyle()`
+(modern, neutral, English). If no `EmailChannel` is included in `channels`,
+no email handler is attached.
 
 All assets ship inside the wheel — the styles are Jinja-style HTML
 templates at `src/processes/themes/styles/` and the palettes are CSS
