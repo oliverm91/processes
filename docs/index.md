@@ -71,16 +71,20 @@ Define your tasks and their dependencies. **Processes** will handle the executio
 ```python
 from datetime import date
 
-from processes import Process, Task, TaskDependency, HTMLSMTPHandler
+from processes import Process, Task, TaskDependency, SMTPConfig, HTMLEmailStyle
 
 # 1. Setup Email Alerts (Optional)
-smtp_handler = HTMLSMTPHandler(
-    ('smtp_server', 587), 'sender@example.com', ['admin@example.com', 'user@example.com'],
+smtp_config = SMTPConfig(
+    mailhost=('smtp_server', 587),
+    fromaddr='sender@example.com',
+    toaddrs=['admin@example.com', 'user@example.com'],
     credentials=('user', 'pass'),
     secure=(),                       # () = STARTTLS; omit for no encryption
-    email_style='modern',            # classic | modern | compact
-    color_palette='neutral',         # neutral | catppuccin | neobones | slate
-    email_language='en',             # en | es | pt | fr | de | it
+)
+email_style = HTMLEmailStyle(
+    style='modern',                  # classic | modern | compact
+    palette='neutral',                # neutral | catppuccin | neobones | slate
+    language='en',                    # en | es | pt | fr | de | it
 )
 
 # 2. If necessary, create wrappers for your Tasks.
@@ -96,7 +100,7 @@ def sum_data_from_csv_and_x(x, a=1, b=2):
 # 3. Create the Task Graph (order is irrelevant, that is handled by Process)
 tasks = [
     Task("t-1", "etl.log", get_previous_working_day),
-    Task("intependent", "indep.log", indep_task, html_mail_handler=smtp_handler),  # This task will send email on failure
+    Task("intependent", "indep.log", indep_task, smtp_config=smtp_config, email_style=email_style),  # This task will send email on failure
     Task("sum_csv", "etl.log", search_and_sum_csv,
             dependencies= [
                 TaskDependency("t-1",
