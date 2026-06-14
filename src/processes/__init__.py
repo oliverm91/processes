@@ -12,6 +12,9 @@ from .exceptions import (
 from .exceptions import (
     TaskNotFoundError as TaskNotFoundError,
 )
+from .notification_channels import EmailChannel as EmailChannel
+from .notification_channels import FileChannel as FileChannel
+from .notification_channels import NotificationChannel as NotificationChannel
 from .process import Process as Process
 from .task import Task as Task
 from .task import TaskDependency as TaskDependency
