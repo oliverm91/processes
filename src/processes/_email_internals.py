@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from email.utils import formatdate
 from typing import cast
 
+from ._error_data import _ErrorContextFormatter
 from .email_config import HTMLEmailStyle, SMTPConfig
 
 _THEMES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "themes")
@@ -27,7 +28,7 @@ def _load_language_strings(language: str) -> dict[str, str]:
         return cast(dict[str, str], json.load(fh))
 
 
-class _HTMLEmailFormatter(logging.Formatter):
+class _HTMLEmailFormatter(_ErrorContextFormatter):
     """Pure renderer: reads all error context from ``record.task_context`` and
     fills the HTML template.  No exception-info parsing or frame walking here.
     """
@@ -83,37 +84,31 @@ class _HTMLEmailFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Render a log record as a complete HTML email body."""
-        ctx = getattr(record, "task_context", None) or {}
-
-        exception = ctx.get("exception", record.getMessage())
-        tb_str = ctx.get("traceback_str", "")
-        traced_vars = ctx.get("traced_vars", "")
-        traced_vars_location = ctx.get("traced_vars_location", "")
+        error = self._error_data(record)
 
         tb_before, tb_highlight, tb_after = self._split_traceback_at_target(
-            tb_str, traced_vars_location
+            error.traceback_str, error.traced_vars_location
         )
 
-        downstream = ctx.get("downstream_impact", []) or []
         downstream_items = "".join(
-            f"<li>{html.escape(str(name), quote=True)}</li>" for name in downstream
+            f"<li>{html.escape(str(name), quote=True)}</li>" for name in error.downstream_impact
         )
 
         substitutions = dict(_load_language_strings(self._email_language))
         substitutions["lang_traced_vars_blurb"] = substitutions.get(
             "lang_traced_vars_blurb", ""
-        ).replace("{location}", traced_vars_location)
+        ).replace("{location}", error.traced_vars_location)
         substitutions.update(
             {
-                "task_name": html.escape(str(ctx.get("task_name", "?")), quote=True),
-                "function": html.escape(str(ctx.get("function", "?")), quote=True),
-                "args": html.escape(repr(ctx.get("args", ())), quote=True),
-                "kwargs": html.escape(repr(ctx.get("kwargs", {})), quote=True),
-                "exception": html.escape(exception, quote=True),
+                "task_name": html.escape(error.task_name, quote=True),
+                "function": html.escape(error.function, quote=True),
+                "args": html.escape(repr(error.args), quote=True),
+                "kwargs": html.escape(repr(error.kwargs), quote=True),
+                "exception": html.escape(error.exception, quote=True),
                 "traceback_before": html.escape(tb_before, quote=True),
                 "traceback_highlight": html.escape(tb_highlight, quote=True),
                 "traceback_after": html.escape(tb_after, quote=True),
-                "traced_vars": traced_vars,
+                "traced_vars": error.traced_vars,
                 "downstream_items": downstream_items,
             }
         )
