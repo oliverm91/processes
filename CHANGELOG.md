@@ -1,3 +1,9 @@
+## v3.1.1 (2026-06-13)
+
+### Refactor
+
+- rename _log_formatting to _logfile_formatting and _TaskLogFormatter to _TaskLogfileFormatter
+
 ## v3.1.0 (2026-06-13)
 
 ### Feat
