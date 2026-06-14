@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -21,9 +22,15 @@ class WebhookConfig:
         Shared secret used to HMAC-SHA256 sign the JSON request body. When
         set, the hex digest is sent in the ``X-Signature-SHA256`` header.
         ``None`` disables signing. Defaults to ``None``.
+    extra_payload : dict[str, Any]
+        Additional top-level keys merged into the JSON payload, taking
+        precedence over the generic fields if names collide. Useful for
+        service-specific routing fields (e.g. a Telegram ``chat_id``).
+        Defaults to ``{}``.
     """
 
     url: str
     headers: dict[str, str] = field(default_factory=dict)
     timeout: int = 5
     secret: str | None = None
+    extra_payload: dict[str, Any] = field(default_factory=dict)

@@ -67,6 +67,20 @@ class TestWebhookFormatter(BaseTest):
             "traced_vars_location": "demo.py:42",
         }
 
+    def test_extra_payload_merged_into_payload(self) -> None:
+        formatter = _WebhookFormatter(extra_payload={"chat_id": "12345", "channel": "#alerts"})
+        payload = json.loads(formatter.format(_make_record()))
+
+        assert payload["chat_id"] == "12345"
+        assert payload["channel"] == "#alerts"
+        assert payload["task_name"] == "demo_task"
+
+    def test_extra_payload_overrides_colliding_keys(self) -> None:
+        formatter = _WebhookFormatter(extra_payload={"task_name": "overridden"})
+        payload = json.loads(formatter.format(_make_record()))
+
+        assert payload["task_name"] == "overridden"
+
 
 class TestWebhookHandlerEmit(BaseTest):
     def _config(self, **overrides: object) -> WebhookConfig:
@@ -132,6 +146,19 @@ class TestWebhookHandlerEmit(BaseTest):
 
         request = mock_urlopen.call_args.args[0]
         assert request.get_header("X-signature-sha256") is None
+
+    def test_extra_payload_from_config_is_merged_into_body(self) -> None:
+        config = self._config(extra_payload={"chat_id": "12345"})
+        handler = _build_task_webhook_handler(config)
+
+        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value = MagicMock()
+            handler.emit(_make_record())
+
+        request = mock_urlopen.call_args.args[0]
+        body = json.loads(request.data)
+        assert body["chat_id"] == "12345"
+        assert body["task_name"] == "demo_task"
 
     def test_emit_routes_request_errors_through_handle_error(self) -> None:
         handler = _build_task_webhook_handler(self._config())
