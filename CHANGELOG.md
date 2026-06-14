@@ -1,3 +1,15 @@
+## v3.1.0 (2026-06-13)
+
+### Feat
+
+- **logging**: include failure context in task logfiles
+
+### Refactor
+
+- extract typed _ErrorData from task_context via shared base formatter
+- inline single-use _task_context_lines helper
+- move task logfile formatting out of _email_internals
+
 ## v3.0.1 (2026-06-13)
 
 ### Refactor
