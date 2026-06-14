@@ -16,9 +16,12 @@ _SIGNATURE_HEADER = "X-Signature-SHA256"
 class _WebhookFormatter(_ErrorContextFormatter):
     """Pure renderer: builds a generic JSON payload from ``record.task_context``."""
 
-    def __init__(self, extra_payload: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, extra_payload: dict[str, Any] | None = None, nest_under: str | None = None
+    ) -> None:
         super().__init__()
         self._extra_payload = extra_payload or {}
+        self._nest_under = nest_under or None
 
     def format(self, record: logging.LogRecord) -> str:
         """Render a log record as a JSON payload string.
@@ -33,10 +36,14 @@ class _WebhookFormatter(_ErrorContextFormatter):
         str
             A JSON-encoded object describing the task failure, merged with
             any configured ``extra_payload`` keys (which take precedence on
-            collision).
+            collision). If ``nest_under`` is set, the failure fields are
+            nested under that key instead of being top-level.
         """
         error = self._error_data(record)
-        payload = {**self._build_payload(error), **self._extra_payload}
+        generic_payload = self._build_payload(error)
+        if self._nest_under is not None:
+            generic_payload = {self._nest_under: generic_payload}
+        payload = {**generic_payload, **self._extra_payload}
         return json.dumps(payload)
 
     def _build_payload(self, error: _ErrorData) -> dict[str, Any]:
@@ -109,6 +116,8 @@ def _build_task_webhook_handler(config: WebhookConfig) -> _WebhookHandler:
         A handler at ``logging.ERROR`` level with a ``_WebhookFormatter``.
     """
     handler = _WebhookHandler(config)
-    handler.setFormatter(_WebhookFormatter(extra_payload=config.extra_payload))
+    handler.setFormatter(
+        _WebhookFormatter(extra_payload=config.extra_payload, nest_under=config.nest_under)
+    )
     handler.setLevel(logging.ERROR)
     return handler

@@ -27,6 +27,13 @@ class WebhookConfig:
         precedence over the generic fields if names collide. Useful for
         service-specific routing fields (e.g. a Telegram ``chat_id``).
         Defaults to ``{}``.
+    nest_under : str | None
+        If set, the generic failure fields (``task_name``, ``function``,
+        ``exception``, etc.) are nested under this key instead of being
+        top-level, e.g. ``{"data": {...}, "chat_id": ...}`` for
+        ``nest_under="data"``. ``extra_payload`` keys always stay top-level
+        and still take precedence on collision. ``None`` or ``""`` means no
+        nesting (the default, flat payload). Defaults to ``None``.
     """
 
     url: str
@@ -34,3 +41,4 @@ class WebhookConfig:
     timeout: int = 5
     secret: str | None = None
     extra_payload: dict[str, Any] = field(default_factory=dict)
+    nest_under: str | None = None

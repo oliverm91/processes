@@ -11,6 +11,7 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import logging
 
 import pytest
@@ -146,6 +147,60 @@ class TestWebhookChannel(BaseTest):
         channel = WebhookChannel(self._webhook_config())
         assert channel.frame_filter is None
 
+    def _failure_record(self) -> logging.LogRecord:
+        record = logging.LogRecord(
+            name="processes.task_1",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="boom",
+            args=None,
+            exc_info=None,
+        )
+        record.task_context = {
+            "task_name": "task_1",
+            "function": "do_thing",
+            "args": (),
+            "kwargs": {},
+            "downstream_impact": [],
+            "exception": "boom",
+            "traceback_str": "",
+            "traced_vars": {},
+            "traced_vars_location": "",
+        }
+        return record
+
+    def test_format_without_nest_under_is_flat(self) -> None:
+        formatter = _WebhookFormatter(extra_payload={"chat_id": "123"})
+        payload = json.loads(formatter.format(self._failure_record()))
+
+        assert payload["task_name"] == "task_1"
+        assert payload["chat_id"] == "123"
+
+    def test_format_with_nest_under_nests_generic_fields(self) -> None:
+        formatter = _WebhookFormatter(extra_payload={"chat_id": "123"}, nest_under="data")
+        payload = json.loads(formatter.format(self._failure_record()))
+
+        assert payload["data"]["task_name"] == "task_1"
+        assert payload["data"]["function"] == "do_thing"
+        assert payload["chat_id"] == "123"
+        assert "task_name" not in payload
+
+    def test_extra_payload_still_wins_on_collision_with_nest_under(self) -> None:
+        formatter = _WebhookFormatter(extra_payload={"data": "overridden"}, nest_under="data")
+        payload = json.loads(formatter.format(self._failure_record()))
+
+        assert payload["data"] == "overridden"
+
+    def test_webhook_config_nest_under_reaches_formatter(self) -> None:
+        config = self._webhook_config(nest_under="data")
+        channel = WebhookChannel(config)
+        handler = channel.build_handler("webhook_task")
+
+        assert isinstance(handler.formatter, _WebhookFormatter)
+        payload = json.loads(handler.formatter.format(self._failure_record()))
+        assert payload["data"]["task_name"] == "task_1"
+
 
 class _RecordingChannel(NotificationChannel):
     """Test-only channel that captures every record it receives."""
@@ -171,7 +226,7 @@ class TestTaskChannelsWiring(BaseTest):
             return 1
 
         channel = _RecordingChannel()
-        task = Task("task_1", self._log("channels_extra.log"), task_1, channels=[channel])
+        task = Task("task_1", task_1, self._log("channels_extra.log"), channels=[channel])
 
         with Process([task]) as process:
             process.run()
@@ -186,7 +241,7 @@ class TestTaskChannelsWiring(BaseTest):
 
         log_path = self._log("channels_default_plus_extra.log")
         channel = _RecordingChannel()
-        task = Task("task_1", log_path, task_1, channels=[channel])
+        task = Task("task_1", task_1, log_path, channels=[channel])
 
         with Process([task]) as process:
             process.run()
@@ -204,8 +259,8 @@ class TestTaskChannelsWiring(BaseTest):
         with pytest.raises(TypeError, match="channels must be list"):
             Task(
                 "task_1",
-                self._log("channels_bad_type.log"),
                 task_1,
+                self._log("channels_bad_type.log"),
                 channels="not-a-list",  # type: ignore[arg-type]
             )
 
@@ -216,7 +271,7 @@ class TestTaskChannelsWiring(BaseTest):
         with pytest.raises(TypeError, match="channel must be of type NotificationChannel"):
             Task(
                 "task_1",
-                self._log("channels_bad_entry.log"),
                 task_1,
+                self._log("channels_bad_entry.log"),
                 channels=["not-a-channel"],  # type: ignore[list-item]
             )
