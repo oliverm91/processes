@@ -7,7 +7,7 @@ from ._error_data import _ErrorContextFormatter
 _LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 
-class _TaskLogFormatter(_ErrorContextFormatter):
+class _TaskLogfileFormatter(_ErrorContextFormatter):
     """Plain-text formatter for task logfiles.
 
     On failure, appends the same failure context shown in the HTML email

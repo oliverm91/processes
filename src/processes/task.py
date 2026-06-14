@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 import logging
 
 from ._email_internals import _build_task_email_handler
-from ._log_formatting import _TaskLogFormatter
+from ._logfile_formatting import _TaskLogfileFormatter
 from ._tb_utils import _build_traced_vars_html, _build_traced_vars_location, _format_traceback
 from .email_config import HTMLEmailStyle, SMTPConfig
 from .exceptions import CircularDependencyError
@@ -251,7 +251,7 @@ class Task:
 
         file_handler = logging.FileHandler(self.log_path)
         file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(_TaskLogFormatter())
+        file_handler.setFormatter(_TaskLogfileFormatter())
         logger.addHandler(file_handler)
 
         if smtp_config is not None:
