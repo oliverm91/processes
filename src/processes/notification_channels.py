@@ -5,7 +5,9 @@ from abc import ABC, abstractmethod
 
 from ._email_internals import _build_task_email_handler
 from ._logfile_formatting import _TaskLogfileFormatter
+from ._webhook_internals import _build_task_webhook_handler
 from .email_config import HTMLEmailStyle, SMTPConfig
+from .webhook_config import WebhookConfig
 
 
 class NotificationChannel(ABC):
@@ -144,3 +146,44 @@ class EmailChannel(NotificationChannel):
             The configured ``traced_vars_frame_filter``, or ``None``.
         """
         return self.style.traced_vars_frame_filter
+
+
+class WebhookChannel(NotificationChannel):
+    """Notification channel that POSTs a JSON alert to a webhook URL on task failure.
+
+    The JSON payload is built generically from the task's failure context
+    (function, args/kwargs, exception, traceback, downstream impact, traced
+    variables), so it can be consumed directly or transformed by downstream
+    relays (e.g. Slack/Discord/Teams webhook adapters, custom alerting
+    servers). It is not coupled to any specific service.
+
+    Attributes
+    ----------
+    webhook_config : WebhookConfig
+        Webhook transport configuration for the alert.
+
+    Parameters
+    ----------
+    webhook_config : WebhookConfig
+        Webhook transport configuration for the alert.
+    """
+
+    def __init__(self, webhook_config: WebhookConfig):
+        self.webhook_config = webhook_config
+
+    def build_handler(self, task_name: str) -> logging.Handler:
+        """Build a JSON webhook handler.
+
+        Parameters
+        ----------
+        task_name : str
+            Name of the task the handler will be attached to. Unused by
+            this channel, accepted for interface consistency.
+
+        Returns
+        -------
+        logging.Handler
+            A handler at ``logging.ERROR`` level that POSTs a JSON payload
+            describing the failure for each error log record.
+        """
+        return _build_task_webhook_handler(self.webhook_config)

@@ -14,10 +14,12 @@ from .exceptions import (
 )
 from .notification_channels import EmailChannel as EmailChannel
 from .notification_channels import NotificationChannel as NotificationChannel
+from .notification_channels import WebhookChannel as WebhookChannel
 from .process import Process as Process
 from .task import Task as Task
 from .task import TaskDependency as TaskDependency
 from .task import TaskResult as TaskResult
+from .webhook_config import WebhookConfig as WebhookConfig
 
 try:
     __version__ = _v("processes")
