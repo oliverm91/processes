@@ -1,3 +1,20 @@
+## v4.0.0 (2026-06-14)
+
+### BREAKING CHANGE
+
+- Task no longer accepts smtp_config or email_style.
+Pass channels=[EmailChannel(smtp_config, style)] instead.
+
+### Feat
+
+- add NotificationChannel abstraction with file and email channels
+
+### Refactor
+
+- configure email alerts via channels instead of Task smtp_config
+- keep file and email channel implementations internal
+- build task handlers through notification channels
+
 ## v3.1.1 (2026-06-13)
 
 ### Refactor
