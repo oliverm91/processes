@@ -12,7 +12,7 @@ import logging
 from ._tb_utils import _build_traced_vars_html, _build_traced_vars_location, _format_traceback
 from .email_config import HTMLEmailStyle, SMTPConfig
 from .exceptions import CircularDependencyError
-from .notification_channels import EmailChannel, FileChannel, NotificationChannel
+from .notification_channels import NotificationChannel, _EmailChannel, _FileChannel
 
 
 class TaskResult:
@@ -262,10 +262,10 @@ class Task:
         logger = logging.getLogger(f"processes.{self.name}.{id(self)}")
         logger.setLevel(logging.DEBUG)
 
-        all_channels: list[NotificationChannel] = [FileChannel(self.log_path)]
+        all_channels: list[NotificationChannel] = [_FileChannel(self.log_path)]
         if smtp_config is not None:
             style = email_style or HTMLEmailStyle()
-            all_channels.append(EmailChannel(smtp_config, style))
+            all_channels.append(_EmailChannel(smtp_config, style))
         all_channels.extend(self.channels)
 
         for channel in all_channels:

@@ -16,8 +16,8 @@ class NotificationChannel(ABC):
     failure, its structured failure context) to some destination. ``Task``
     attaches one handler per configured channel to its logger.
 
-    Concrete channels (e.g. ``FileChannel``, ``EmailChannel``) wrap a
-    specific delivery mechanism. New channels can be added by subclassing
+    Concrete channels wrap a specific delivery mechanism (e.g. a logfile or
+    an email alert). New channels can be added by subclassing
     ``NotificationChannel`` and implementing ``build_handler``.
     """
 
@@ -37,7 +37,7 @@ class NotificationChannel(ABC):
         """
 
 
-class FileChannel(NotificationChannel):
+class _FileChannel(NotificationChannel):
     """Notification channel that writes task log records to a plain-text file.
 
     Attributes
@@ -80,7 +80,7 @@ class FileChannel(NotificationChannel):
         return handler
 
 
-class EmailChannel(NotificationChannel):
+class _EmailChannel(NotificationChannel):
     """Notification channel that sends an HTML email alert on task failure.
 
     Attributes
