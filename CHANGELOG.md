@@ -1,3 +1,9 @@
+## v3.0.1 (2026-06-13)
+
+### Refactor
+
+- **process**: use bare raise and extract _is_done helper
+
 ## v3.0.0 (2026-06-13)
 
 ### BREAKING CHANGE
