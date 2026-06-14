@@ -15,7 +15,15 @@ import logging
 
 import pytest
 
-from processes import EmailChannel, FileChannel, HTMLEmailStyle, NotificationChannel, SMTPConfig
+from processes import (
+    EmailChannel,
+    FileChannel,
+    HTMLEmailStyle,
+    NotificationChannel,
+    Process,
+    SMTPConfig,
+    Task,
+)
 from processes._email_internals import _HTMLEmailFormatter
 from processes._logfile_formatting import _TaskLogfileFormatter
 
@@ -96,3 +104,78 @@ class TestEmailChannel(BaseTest):
     def test_default_style_is_modern_neutral_english(self) -> None:
         channel = EmailChannel(self._smtp_config())
         assert channel.style == HTMLEmailStyle()
+
+
+class _RecordingChannel(NotificationChannel):
+    """Test-only channel that captures every record it receives."""
+
+    def __init__(self) -> None:
+        self.records: list[logging.LogRecord] = []
+
+    def build_handler(self, task_name: str) -> logging.Handler:
+        records = self.records
+
+        class _Handler(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                records.append(record)
+
+        handler = _Handler()
+        handler.setLevel(logging.INFO)
+        return handler
+
+
+class TestTaskChannelsWiring(BaseTest):
+    def test_extra_channel_receives_log_records(self) -> None:
+        def task_1() -> int:
+            return 1
+
+        channel = _RecordingChannel()
+        task = Task("task_1", self._log("channels_extra.log"), task_1, channels=[channel])
+
+        with Process([task]) as process:
+            process.run()
+
+        messages = [r.getMessage() for r in channel.records]
+        assert "Starting task_1." in messages
+        assert "Finished task_1." in messages
+
+    def test_default_channels_remain_when_extra_channel_given(self) -> None:
+        def task_1() -> int:
+            return 1
+
+        log_path = self._log("channels_default_plus_extra.log")
+        channel = _RecordingChannel()
+        task = Task("task_1", log_path, task_1, channels=[channel])
+
+        with Process([task]) as process:
+            process.run()
+
+        with open(log_path) as f:
+            lines = f.readlines()
+        assert "Starting task_1." in lines[0]
+        assert "Finished task_1." in lines[1]
+        assert len(channel.records) == 2
+
+    def test_channels_must_be_list(self) -> None:
+        def task_1() -> int:
+            return 1
+
+        with pytest.raises(TypeError, match="channels must be list"):
+            Task(
+                "task_1",
+                self._log("channels_bad_type.log"),
+                task_1,
+                channels="not-a-list",  # type: ignore[arg-type]
+            )
+
+    def test_channels_entries_must_be_notification_channel(self) -> None:
+        def task_1() -> int:
+            return 1
+
+        with pytest.raises(TypeError, match="channel must be of type NotificationChannel"):
+            Task(
+                "task_1",
+                self._log("channels_bad_entry.log"),
+                task_1,
+                channels=["not-a-channel"],  # type: ignore[list-item]
+            )

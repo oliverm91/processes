@@ -9,11 +9,10 @@ if TYPE_CHECKING:
 
 import logging
 
-from ._email_internals import _build_task_email_handler
-from ._logfile_formatting import _TaskLogfileFormatter
 from ._tb_utils import _build_traced_vars_html, _build_traced_vars_location, _format_traceback
 from .email_config import HTMLEmailStyle, SMTPConfig
 from .exceptions import CircularDependencyError
+from .notification_channels import EmailChannel, FileChannel, NotificationChannel
 
 
 class TaskResult:
@@ -148,6 +147,9 @@ class Task:
         Exception types that trigger a retry. When ``retries >= 1`` and
         ``retry_on`` is ``None``, defaults at call time to
         ``(ConnectionError, TimeoutError)``. Defaults to ``None``.
+    channels : list[NotificationChannel]
+        Additional notification channels attached to this task's logger,
+        on top of the implicit file and email channels. Defaults to empty list.
     logger : logging.Logger
         Logger instance for this task, automatically configured.
 
@@ -187,13 +189,19 @@ class Task:
         Exception types that trigger a retry. Evaluated only when
         ``retries >= 1``. When ``None``, defaults at call time to
         ``(ConnectionError, TimeoutError)``. Defaults to ``None``.
+    channels : list[NotificationChannel] | None
+        Additional notification channels whose handlers are attached to this
+        task's logger, alongside the implicit ``FileChannel`` (and
+        ``EmailChannel`` when ``smtp_config`` is set). ``None`` is treated as
+        an empty list. Defaults to ``None``.
 
     Raises
     ------
     TypeError
         If any parameter is not of the expected type, ``timeout`` is not a
-        positive number, ``retries`` is negative, or ``retry_on`` is not a
-        tuple of ``Exception`` subclasses.
+        positive number, ``retries`` is negative, ``retry_on`` is not a
+        tuple of ``Exception`` subclasses, or ``channels`` is not a list of
+        ``NotificationChannel`` instances.
     ValueError
         If ``name`` contains a space, if the same dependency name is
         listed more than once, or if the task lists itself as a
@@ -216,6 +224,7 @@ class Task:
         timeout: float | None = None,
         retries: int | None = 0,
         retry_on: tuple[type[Exception], ...] | None = None,
+        channels: list[NotificationChannel] | None = None,
     ):
         self.name = name
         self.log_path = log_path
@@ -233,6 +242,10 @@ class Task:
             self.dependencies = []
         else:
             self.dependencies = dependencies
+        if channels is None:
+            self.channels = []
+        else:
+            self.channels = channels
 
         self._check_input_types(smtp_config, email_style)
         if " " in self.name:
@@ -249,14 +262,14 @@ class Task:
         logger = logging.getLogger(f"processes.{self.name}.{id(self)}")
         logger.setLevel(logging.DEBUG)
 
-        file_handler = logging.FileHandler(self.log_path)
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(_TaskLogfileFormatter())
-        logger.addHandler(file_handler)
-
+        all_channels: list[NotificationChannel] = [FileChannel(self.log_path)]
         if smtp_config is not None:
             style = email_style or HTMLEmailStyle()
-            logger.addHandler(_build_task_email_handler(smtp_config, style, self.name))
+            all_channels.append(EmailChannel(smtp_config, style))
+        all_channels.extend(self.channels)
+
+        for channel in all_channels:
+            logger.addHandler(channel.build_handler(self.name))
 
         self._frame_filter: str | None = (
             email_style.traced_vars_frame_filter if email_style is not None else None
@@ -304,6 +317,15 @@ class Task:
             if not isinstance(dependency, TaskDependency):
                 raise TypeError(
                     f"dependency must be of type TaskDependency. Got {type(dependency)}"
+                )
+
+        if not isinstance(self.channels, list):
+            raise TypeError(f"channels must be list. Got {type(self.channels)}")
+
+        for channel in self.channels:
+            if not isinstance(channel, NotificationChannel):
+                raise TypeError(
+                    f"channel must be of type NotificationChannel. Got {type(channel)}"
                 )
 
         if self.timeout is not None and (
