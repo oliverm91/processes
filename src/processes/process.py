@@ -87,9 +87,9 @@ class Process:
             self._check_duplicate_names()
             self._check_dependencies_exist()
             self._topological_sort()
-        except Exception as e:
+        except Exception:
             self.close_loggers()
-            raise e
+            raise
         self.runner = ProcessRunner(self)
 
     def __enter__(self) -> Self:
@@ -309,6 +309,10 @@ class ProcessRunner:
         self.skipped_tasks: set[str] = set()
         self.submitted_tasks: set[str] = set()
 
+    def _is_done(self) -> bool:
+        """Whether every task has either passed or failed."""
+        return len(self.passed_results) + len(self.failed_tasks) >= len(self.process.tasks)
+
     def run(self, parallel: bool, max_workers: int) -> ProcessResult:
         """Execute all tasks in the process using the specified execution mode.
 
@@ -393,7 +397,7 @@ class ProcessRunner:
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             fut_to_name = {}
-            while len(self.passed_results) + len(self.failed_tasks) < len(self.process.tasks):
+            while not self._is_done():
                 # Look for candidates to execute now
                 candidates = [
                     t
@@ -432,7 +436,7 @@ class ProcessRunner:
                     # marked the remaining tasks as failed, completing
                     # the DAG. Re-check the loop condition before
                     # declaring a stall.
-                    if len(self.passed_results) + len(self.failed_tasks) < len(self.process.tasks):
+                    if not self._is_done():
                         raise RuntimeError(
                             "Parallel execution stalled: no candidates found and no tasks running"
                         )
