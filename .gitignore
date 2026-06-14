@@ -181,3 +181,5 @@ mail_config.toml
 /logs/
 logs/*
 logs
+
+PR_DESCRIPTION.md

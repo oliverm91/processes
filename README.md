@@ -342,6 +342,39 @@ substring instead. This is useful for deep-debugging code that runs through
 several layers of internal libraries or wrappers, where the default
 outermost-user-frame would land too high up the call stack.
 
+### `WebhookChannel`
+
+```python
+WebhookChannel(
+    webhook_config: WebhookConfig,
+)
+```
+
+```python
+WebhookConfig(
+    url: str,
+    headers: dict[str, str] = {},  # merged with default Content-Type: application/json
+    timeout: int = 5,
+    secret: str | None = None,  # HMAC-SHA256 signs the body when set
+    extra_payload: dict[str, Any] = {},  # extra top-level keys merged into the JSON body
+)
+```
+
+POSTs a generic JSON payload to `url` on `logging.ERROR` and above —
+`task_name`, `function`, `args`, `kwargs`, `exception`, `traceback`,
+`downstream_impact`, `traced_vars`, and `traced_vars_location`. Not coupled
+to any specific service (Slack, Discord, etc.); subclass and override
+`_WebhookFormatter._build_payload` to reshape the payload for one.
+
+`extra_payload` keys are merged into the JSON body and take precedence over
+the generic fields on collision — useful for service-specific routing data
+(e.g. a Telegram `chat_id` or a Slack `channel`/`username` override) without
+subclassing.
+
+If `secret` is set, the request carries an `X-Signature-SHA256` header with
+the hex-encoded `hmac.new(secret, body, hashlib.sha256)` digest of the JSON
+body, so receivers can verify the payload wasn't tampered with.
+
 </details>
 
 <details>

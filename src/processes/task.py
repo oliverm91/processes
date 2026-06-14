@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 import logging
 
-from ._tb_utils import _build_traced_vars_html, _build_traced_vars_location, _format_traceback
+from ._tb_utils import _build_traced_vars, _build_traced_vars_location, _format_traceback
 from .exceptions import CircularDependencyError
 from .notification_channels import NotificationChannel, _FileChannel
 
@@ -367,7 +367,7 @@ class Task:
             "downstream_impact": downstream_names,
             "exception": str(exc),
             "traceback_str": _format_traceback(exc),
-            "traced_vars": _build_traced_vars_html(exc_tb, self._frame_filter),
+            "traced_vars": _build_traced_vars(exc_tb, self._frame_filter),
             "traced_vars_location": _build_traced_vars_location(exc_tb, self._frame_filter),
         }
 

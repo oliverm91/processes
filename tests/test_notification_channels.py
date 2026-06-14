@@ -15,9 +15,19 @@ import logging
 
 import pytest
 
-from processes import EmailChannel, HTMLEmailStyle, NotificationChannel, Process, SMTPConfig, Task
+from processes import (
+    EmailChannel,
+    HTMLEmailStyle,
+    NotificationChannel,
+    Process,
+    SMTPConfig,
+    Task,
+    WebhookChannel,
+    WebhookConfig,
+)
 from processes._email_internals import _HTMLEmailFormatter
 from processes._logfile_formatting import _TaskLogfileFormatter
+from processes._webhook_internals import _WebhookFormatter
 from processes.notification_channels import _FileChannel
 
 from .base_test import BaseTest
@@ -104,6 +114,36 @@ class TestEmailChannel(BaseTest):
 
     def test_frame_filter_defaults_to_none(self) -> None:
         channel = EmailChannel(self._smtp_config())
+        assert channel.frame_filter is None
+
+
+class TestWebhookChannel(BaseTest):
+    def _webhook_config(self, **overrides: object) -> WebhookConfig:
+        defaults: dict[str, object] = {"url": "https://example.test/hook"}
+        defaults.update(overrides)
+        return WebhookConfig(**defaults)  # type: ignore[arg-type]
+
+    def test_build_handler_defaults_to_error_level(self) -> None:
+        channel = WebhookChannel(self._webhook_config())
+        handler = channel.build_handler("webhook_task")
+
+        assert handler.level == logging.ERROR
+        assert isinstance(handler.formatter, _WebhookFormatter)
+
+    def test_config_round_trips_onto_channel(self) -> None:
+        config = self._webhook_config(
+            headers={"Authorization": "Bearer x"}, timeout=10, secret="shh"
+        )
+        channel = WebhookChannel(config)
+
+        assert channel.webhook_config is config
+        assert channel.webhook_config.url == "https://example.test/hook"
+        assert channel.webhook_config.headers == {"Authorization": "Bearer x"}
+        assert channel.webhook_config.timeout == 10
+        assert channel.webhook_config.secret == "shh"
+
+    def test_frame_filter_defaults_to_none(self) -> None:
+        channel = WebhookChannel(self._webhook_config())
         assert channel.frame_filter is None
 
 
