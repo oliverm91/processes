@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import os
 import sys
 import traceback
@@ -86,8 +85,8 @@ def _resolve_target_tb(exc_tb: Any, frame_filter: str | None) -> Any:
     return matches[-1] if matches else frames[-1]
 
 
-def _build_traced_vars_html(exc_tb: Any, frame_filter: str | None) -> str:
-    """Return HTML-escaped ``name = repr(value)`` lines for the target frame's locals.
+def _build_traced_vars(exc_tb: Any, frame_filter: str | None) -> dict[str, str]:
+    """Return ``{name: repr(value)}`` for the target frame's local variables.
 
     Parameters
     ----------
@@ -99,22 +98,21 @@ def _build_traced_vars_html(exc_tb: Any, frame_filter: str | None) -> str:
 
     Returns
     -------
-    str
-        Newline-separated, HTML-escaped ``name = repr(value)`` lines for the
-        target frame's locals, or ``""`` if no frame is found.
+    dict[str, str]
+        Mapping of local variable names to ``repr(value)`` for the target
+        frame, in definition order, or ``{}`` if no frame is found.
     """
     target = _resolve_target_tb(exc_tb, frame_filter)
     if target is None:
-        return ""
+        return {}
     frame = target.tb_frame
-    lines: list[str] = []
+    traced_vars: dict[str, str] = {}
     for name, value in frame.f_locals.items():
         try:
-            rendered = repr(value)
+            traced_vars[name] = repr(value)
         except Exception as exc:
-            rendered = f"<unreprable: {type(exc).__name__}: {exc}>"
-        lines.append(f"{name} = {rendered}")
-    return "\n".join(html.escape(line, quote=True) for line in lines)
+            traced_vars[name] = f"<unreprable: {type(exc).__name__}: {exc}>"
+    return traced_vars
 
 
 def _build_traced_vars_location(exc_tb: Any, frame_filter: str | None) -> str:

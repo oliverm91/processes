@@ -127,6 +127,11 @@ class _HTMLEmailFormatter(_ErrorContextFormatter):
             f"<li>{html.escape(str(name), quote=True)}</li>" for name in error.downstream_impact
         )
 
+        traced_vars_html = "\n".join(
+            html.escape(f"{name} = {value}", quote=True)
+            for name, value in error.traced_vars.items()
+        )
+
         substitutions = dict(_load_language_strings(self._email_language))
         substitutions["lang_traced_vars_blurb"] = substitutions.get(
             "lang_traced_vars_blurb", ""
@@ -141,7 +146,7 @@ class _HTMLEmailFormatter(_ErrorContextFormatter):
                 "traceback_before": html.escape(tb_before, quote=True),
                 "traceback_highlight": html.escape(tb_highlight, quote=True),
                 "traceback_after": html.escape(tb_after, quote=True),
-                "traced_vars": error.traced_vars,
+                "traced_vars": traced_vars_html,
                 "downstream_items": downstream_items,
             }
         )

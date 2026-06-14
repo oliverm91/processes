@@ -27,7 +27,7 @@ import pytest
 from processes import EmailChannel, HTMLEmailStyle, Process, SMTPConfig, Task
 from processes._email_internals import _HTMLEmailFormatter
 from processes._tb_utils import (
-    _build_traced_vars_html,
+    _build_traced_vars,
     _build_traced_vars_location,
     _format_traceback,
 )
@@ -216,7 +216,7 @@ class TestEmailRendering(BaseTest):
                 {
                     "exception": str(exc),
                     "traceback_str": _format_traceback(exc),
-                    "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
+                    "traced_vars": _build_traced_vars(exc.__traceback__, frame_filter),
                     "traced_vars_location": _build_traced_vars_location(
                         exc.__traceback__, frame_filter
                     ),
@@ -258,7 +258,7 @@ class TestEmailRendering(BaseTest):
                 {
                     "exception": str(exc),
                     "traceback_str": _format_traceback(exc),
-                    "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
+                    "traced_vars": _build_traced_vars(exc.__traceback__, frame_filter),
                     "traced_vars_location": _build_traced_vars_location(
                         exc.__traceback__, frame_filter
                     ),
@@ -293,7 +293,7 @@ class TestEmailRendering(BaseTest):
                 {
                     "exception": str(exc),
                     "traceback_str": _format_traceback(exc),
-                    "traced_vars": _build_traced_vars_html(exc.__traceback__, None),
+                    "traced_vars": _build_traced_vars(exc.__traceback__, None),
                     "traced_vars_location": _build_traced_vars_location(exc.__traceback__, None),
                 }
             )

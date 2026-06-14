@@ -210,10 +210,16 @@ class TestComplexDagFailures(BaseTest):
             expected_downstream = {n for n in skipped_task_names if name in _ancestors_of(n, tasks)}
             assert set(ctx["downstream_impact"]) == expected_downstream
 
-            serialized = repr(ctx)
-            assert "<" not in serialized and ">" not in serialized, (
-                f"Task {name} task_context contains HTML markers: {serialized}"
+            assert isinstance(ctx["traced_vars"], dict), (
+                f"Task {name} task_context['traced_vars'] must be a plain "
+                f"{{name: repr(value)}} dict, got {type(ctx['traced_vars'])}"
             )
+
+            serialized = repr(ctx)
+            for entity in ("&lt;", "&gt;", "&amp;", "&#x27;", "&quot;"):
+                assert entity not in serialized, (
+                    f"Task {name} task_context contains an HTML entity ({entity}): {serialized}"
+                )
 
         # OUTCOME #4 — Mocked Alert Validation
         assert mock_smtp_class.call_count == len(failing_task_names), (

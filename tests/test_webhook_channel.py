@@ -44,7 +44,7 @@ def _make_record(task_name: str = "demo_task") -> logging.LogRecord:
         "downstream_impact": ["child_a", "child_b"],
         "exception": "RuntimeError('boom')",
         "traceback_str": "Traceback (most recent call last):\n...\nRuntimeError: boom\n",
-        "traced_vars": "a = 'a'\nflag = True",
+        "traced_vars": {"a": "'a'", "flag": "True"},
         "traced_vars_location": "demo.py:42",
     }
     return record
@@ -63,7 +63,7 @@ class TestWebhookFormatter(BaseTest):
             "exception": "RuntimeError('boom')",
             "traceback": "Traceback (most recent call last):\n...\nRuntimeError: boom\n",
             "downstream_impact": ["child_a", "child_b"],
-            "traced_vars": "a = 'a'\nflag = True",
+            "traced_vars": {"a": "'a'", "flag": "True"},
             "traced_vars_location": "demo.py:42",
         }
 

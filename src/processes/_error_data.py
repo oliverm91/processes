@@ -25,8 +25,9 @@ class _ErrorData:
         String representation of the raised exception. Defaults to ``""``.
     traceback_str : str
         Full formatted traceback. Defaults to ``""``.
-    traced_vars : str
-        Rendered local variables of the traced frame. Defaults to ``""``.
+    traced_vars : dict[str, str]
+        Mapping of local variable names to ``repr(value)`` for the traced
+        frame. Defaults to ``{}``.
     traced_vars_location : str
         ``"filename:lineno"`` of the traced frame. Defaults to ``""``.
     """
@@ -38,7 +39,7 @@ class _ErrorData:
     downstream_impact: list[str] = field(default_factory=list)
     exception: str = ""
     traceback_str: str = ""
-    traced_vars: str = ""
+    traced_vars: dict[str, str] = field(default_factory=dict)
     traced_vars_location: str = ""
 
 
@@ -69,6 +70,6 @@ class _ErrorContextFormatter(logging.Formatter):
             downstream_impact=ctx.get("downstream_impact", []) or [],
             exception=ctx.get("exception", record.getMessage()),
             traceback_str=ctx.get("traceback_str", ""),
-            traced_vars=ctx.get("traced_vars", ""),
+            traced_vars=ctx.get("traced_vars", {}) or {},
             traced_vars_location=ctx.get("traced_vars_location", ""),
         )
