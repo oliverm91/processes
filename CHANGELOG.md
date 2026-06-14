@@ -1,3 +1,16 @@
+## v5.0.0 (2026-06-14)
+
+### BREAKING CHANGE
+
+- log_path and func swap positions; existing positional
+Task(name, log_path, func, ...) calls must be updated to
+Task(name, func, log_path, ...).
+
+### Feat
+
+- add nest_under option to WebhookConfig for nested payload envelopes
+- make Task.log_path optional, reorder constructor signature
+
 ## v4.1.0 (2026-06-14)
 
 ### Feat
