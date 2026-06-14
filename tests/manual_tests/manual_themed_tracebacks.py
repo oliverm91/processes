@@ -156,9 +156,7 @@ def _log_path(logs_dir: str, name: str) -> str:
     return os.path.join(logs_dir, f"{name}.log")
 
 
-def build_tasks(
-    logs_dir: str, smtp: SMTPConfig, style: HTMLEmailStyle
-) -> list[Task]:
+def build_tasks(logs_dir: str, smtp: SMTPConfig, style: HTMLEmailStyle) -> list[Task]:
     dep = TaskDependency
     return [
         Task(

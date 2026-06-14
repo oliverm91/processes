@@ -58,8 +58,9 @@ class TestTimeout(BaseTest):
 
         assert "t_seq" in pr.failed_tasks
         assert "t_seq" in pr.errored_tasks
-        assert isinstance(pr.passed_tasks_results.get("t_seq", None) or
-                          pr.failed_tasks, set)  # task did not pass
+        assert isinstance(
+            pr.passed_tasks_results.get("t_seq", None) or pr.failed_tasks, set
+        )  # task did not pass
 
     def test_timeout_in_parallel_process(self) -> None:
         """Timeout propagates through Process.run(parallel=True)."""
@@ -275,13 +276,13 @@ class TestRetry(BaseTest):
 
     def test_retry_on_string_raises(self) -> None:
         with pytest.raises(TypeError, match="retry_on must be None or a tuple"):
-            Task("t", self._log("t.log"), lambda: None, retries=1,
-                 retry_on="ConnectionError")  # type: ignore[arg-type]
+            Task("t", self._log("t.log"), lambda: None, retries=1, retry_on="ConnectionError")  # type: ignore[arg-type]
 
     def test_retry_on_non_exception_raises(self) -> None:
         with pytest.raises(TypeError, match="retry_on must be None or a tuple"):
-            Task("t", self._log("t.log"), lambda: None, retries=1,
-                 retry_on=(int,))  # int is not an Exception subclass
+            Task(
+                "t", self._log("t.log"), lambda: None, retries=1, retry_on=(int,)
+            )  # int is not an Exception subclass
 
 
 class TestTimeoutWithRetry(BaseTest):

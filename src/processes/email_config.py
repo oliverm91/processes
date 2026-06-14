@@ -37,13 +37,7 @@ class SMTPConfig:
     fromaddr: str
     toaddrs: list[str]
     credentials: tuple[str, str] | None = None
-    secure: (
-        tuple[()]
-        | tuple[str]
-        | tuple[str, str]
-        | tuple[str, str, ssl.SSLContext]
-        | None
-    ) = None
+    secure: tuple[()] | tuple[str] | tuple[str, str] | tuple[str, str, ssl.SSLContext] | None = None
     timeout: int = 5
 
 
@@ -79,9 +73,7 @@ class HTMLEmailStyle:
 
     def __post_init__(self) -> None:
         if self.style not in _VALID_STYLES:
-            raise ValueError(
-                f"style must be one of {sorted(_VALID_STYLES)}, got {self.style!r}"
-            )
+            raise ValueError(f"style must be one of {sorted(_VALID_STYLES)}, got {self.style!r}")
         if self.palette not in _VALID_PALETTES:
             raise ValueError(
                 f"palette must be one of {sorted(_VALID_PALETTES)}, got {self.palette!r}"

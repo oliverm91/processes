@@ -77,15 +77,27 @@ class TestNormalRun(BaseTest):
             Task("task_1", log, task_1),
             Task("task_2", log, task_2),
             Task("task_3", log, task_3, args=(1,)),
-            Task("task_4", log, task_4,
-                 dependencies=[TaskDependency("task_2", use_result_as_additional_args=True)]),
-            Task("task_5", log, task_5,
-                 dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)]),
-            Task("task_6", log, task_6,
-                 dependencies=[
-                     TaskDependency("task_2", use_result_as_additional_args=True),
-                     TaskDependency("task_5", use_result_as_additional_args=True),
-                 ]),
+            Task(
+                "task_4",
+                log,
+                task_4,
+                dependencies=[TaskDependency("task_2", use_result_as_additional_args=True)],
+            ),
+            Task(
+                "task_5",
+                log,
+                task_5,
+                dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)],
+            ),
+            Task(
+                "task_6",
+                log,
+                task_6,
+                dependencies=[
+                    TaskDependency("task_2", use_result_as_additional_args=True),
+                    TaskDependency("task_5", use_result_as_additional_args=True),
+                ],
+            ),
         ]
 
     def test_run_dependent_tasks_sequential(self) -> None:

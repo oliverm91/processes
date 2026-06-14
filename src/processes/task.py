@@ -243,9 +243,7 @@ class Task:
                 raise ValueError(f"Duplicate dependency name: {dependency.task_name}")
             depedencies_names.append(dependency.task_name)
             if dependency.task_name == self.name:
-                raise CircularDependencyError(
-                    f"Task '{self.name}' lists itself as a dependency."
-                )
+                raise CircularDependencyError(f"Task '{self.name}' lists itself as a dependency.")
 
         logger = logging.getLogger(f"processes.{self.name}.{id(self)}")
         logger.setLevel(logging.DEBUG)
@@ -288,13 +286,9 @@ class Task:
             raise TypeError(f"kwargs must be dict. Got {type(self.kwargs)}")
 
         if smtp_config is not None and not isinstance(smtp_config, SMTPConfig):
-            raise TypeError(
-                f"smtp_config must be of type SMTPConfig. Got {type(smtp_config)}"
-            )
+            raise TypeError(f"smtp_config must be of type SMTPConfig. Got {type(smtp_config)}")
         if email_style is not None and not isinstance(email_style, HTMLEmailStyle):
-            raise TypeError(
-                f"email_style must be of type HTMLEmailStyle. Got {type(email_style)}"
-            )
+            raise TypeError(f"email_style must be of type HTMLEmailStyle. Got {type(email_style)}")
 
         if not isinstance(self.dependencies, list):
             raise TypeError(f"dependencies must be list. Got {type(self.dependencies)}")
@@ -308,20 +302,14 @@ class Task:
         if self.timeout is not None and (
             not isinstance(self.timeout, (int, float)) or self.timeout <= 0
         ):
-            raise TypeError(
-                f"timeout must be a positive number or None, got {self.timeout!r}"
-            )
+            raise TypeError(f"timeout must be a positive number or None, got {self.timeout!r}")
         if not isinstance(self.retries, int) or self.retries < 0:
-            raise TypeError(
-                f"retries must be a non-negative int, got {self.retries!r}"
-            )
+            raise TypeError(f"retries must be a non-negative int, got {self.retries!r}")
         if self.retry_on is not None and (
             not isinstance(self.retry_on, tuple)
             or not all(isinstance(e, type) and issubclass(e, Exception) for e in self.retry_on)
         ):
-            raise TypeError(
-                "retry_on must be None or a tuple of Exception subclasses"
-            )
+            raise TypeError("retry_on must be None or a tuple of Exception subclasses")
 
     def get_dependencies_names(self) -> set[str]:
         """
@@ -352,9 +340,7 @@ class Task:
         finally:
             executor.shutdown(wait=False)
 
-    def _resolve_args(
-        self, executing_process: Process | None
-    ) -> tuple[list[Any], dict[str, Any]]:
+    def _resolve_args(self, executing_process: Process | None) -> tuple[list[Any], dict[str, Any]]:
         """Inject upstream dependency results into args/kwargs."""
         final_args = list(self.args)
         final_kwargs = self.kwargs.copy()
@@ -373,7 +359,8 @@ class Task:
         """Build the structured failure payload passed to every log handler."""
         downstream_names: list[str] = (
             [d.name for d in executing_process.get_dependant_tasks(self.name)]
-            if executing_process is not None else []
+            if executing_process is not None
+            else []
         )
         exc_tb = exc.__traceback__
         return {

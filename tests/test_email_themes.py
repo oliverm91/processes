@@ -166,9 +166,7 @@ class TestEmailRendering(BaseTest):
                     formatter = _HTMLEmailFormatter(
                         HTMLEmailStyle(style=style, palette=palette, language=language)
                     )
-                    output = formatter.format(
-                        _make_record(f"task_{language}_{style}_{palette}")
-                    )
+                    output = formatter.format(_make_record(f"task_{language}_{style}_{palette}"))
 
                     for key in _LANG_CONTENT_KEYS:
                         placeholder = "{{" + key + "}}"
@@ -214,14 +212,16 @@ class TestEmailRendering(BaseTest):
         except Exception as exc:
             record = _make_record("filter_user")
             frame_filter = "test_email_themes"
-            record.task_context.update({
-                "exception": str(exc),
-                "traceback_str": _format_traceback(exc),
-                "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
-                "traced_vars_location": _build_traced_vars_location(
-                    exc.__traceback__, frame_filter
-                ),
-            })
+            record.task_context.update(
+                {
+                    "exception": str(exc),
+                    "traceback_str": _format_traceback(exc),
+                    "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
+                    "traced_vars_location": _build_traced_vars_location(
+                        exc.__traceback__, frame_filter
+                    ),
+                }
+            )
 
         formatter = _HTMLEmailFormatter(HTMLEmailStyle())
         body = formatter.format(record)
@@ -254,14 +254,16 @@ class TestEmailRendering(BaseTest):
         except Exception as exc:
             record = _make_record("filter_json")
             frame_filter = "json"
-            record.task_context.update({
-                "exception": str(exc),
-                "traceback_str": _format_traceback(exc),
-                "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
-                "traced_vars_location": _build_traced_vars_location(
-                    exc.__traceback__, frame_filter
-                ),
-            })
+            record.task_context.update(
+                {
+                    "exception": str(exc),
+                    "traceback_str": _format_traceback(exc),
+                    "traced_vars": _build_traced_vars_html(exc.__traceback__, frame_filter),
+                    "traced_vars_location": _build_traced_vars_location(
+                        exc.__traceback__, frame_filter
+                    ),
+                }
+            )
 
         formatter = _HTMLEmailFormatter(HTMLEmailStyle())
         body = formatter.format(record)
@@ -287,12 +289,14 @@ class TestEmailRendering(BaseTest):
             _inner()
         except Exception as exc:
             record = _make_record("traced_task")
-            record.task_context.update({
-                "exception": str(exc),
-                "traceback_str": _format_traceback(exc),
-                "traced_vars": _build_traced_vars_html(exc.__traceback__, None),
-                "traced_vars_location": _build_traced_vars_location(exc.__traceback__, None),
-            })
+            record.task_context.update(
+                {
+                    "exception": str(exc),
+                    "traceback_str": _format_traceback(exc),
+                    "traced_vars": _build_traced_vars_html(exc.__traceback__, None),
+                    "traced_vars_location": _build_traced_vars_location(exc.__traceback__, None),
+                }
+            )
 
         formatter = _HTMLEmailFormatter(
             HTMLEmailStyle(style="modern", palette="neutral", language="en")
@@ -393,9 +397,7 @@ class TestTaskEmailWiring(BaseTest):
         assert "Fallo en el pipeline: wired" in body, (
             "Rendered email body is missing the Spanish 'lang_failure_header'"
         )
-        assert "Función" in body, (
-            "Rendered email body is missing the Spanish 'lang_function_label'"
-        )
+        assert "Función" in body, "Rendered email body is missing the Spanish 'lang_function_label'"
         assert "planned end-to-end failure" in body
 
     def test_task_subject_carries_language_prefix(self) -> None:
@@ -477,18 +479,18 @@ class TestTaskEmailWiring(BaseTest):
         def boom() -> None:
             raise RuntimeError("boom")
 
-        task_a = Task(name="iso_task_a", log_path=self._log("iso_task_a.log"), func=boom,
-                      smtp_config=smtp_cfg)
-        task_b = Task(name="iso_task_b", log_path=self._log("iso_task_b.log"), func=boom,
-                      smtp_config=smtp_cfg)
+        task_a = Task(
+            name="iso_task_a", log_path=self._log("iso_task_a.log"), func=boom, smtp_config=smtp_cfg
+        )
+        task_b = Task(
+            name="iso_task_b", log_path=self._log("iso_task_b.log"), func=boom, smtp_config=smtp_cfg
+        )
         try:
             email_handlers_a = [
-                h for h in task_a.logger.handlers
-                if isinstance(h, logging.handlers.SMTPHandler)
+                h for h in task_a.logger.handlers if isinstance(h, logging.handlers.SMTPHandler)
             ]
             email_handlers_b = [
-                h for h in task_b.logger.handlers
-                if isinstance(h, logging.handlers.SMTPHandler)
+                h for h in task_b.logger.handlers if isinstance(h, logging.handlers.SMTPHandler)
             ]
 
             assert len(email_handlers_a) == 1, "Task A should have exactly one email handler"
@@ -519,8 +521,7 @@ class TestTaskEmailWiring(BaseTest):
         )
         try:
             email_handlers = [
-                h for h in task.logger.handlers
-                if isinstance(h, logging.handlers.SMTPHandler)
+                h for h in task.logger.handlers if isinstance(h, logging.handlers.SMTPHandler)
             ]
             assert len(email_handlers) == 0, (
                 f"No email handler should be attached when smtp_config is None, "

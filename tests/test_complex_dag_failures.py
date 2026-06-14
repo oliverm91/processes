@@ -152,8 +152,7 @@ class TestComplexDagFailures(BaseTest):
             f"got {result.errored_tasks}"
         )
         assert result.skipped_tasks == skipped_task_names, (
-            f"skipped_tasks should be the three cascade-skipped tasks, "
-            f"got {result.skipped_tasks}"
+            f"skipped_tasks should be the three cascade-skipped tasks, got {result.skipped_tasks}"
         )
         assert result.errored_tasks.isdisjoint(result.skipped_tasks), (
             "errored_tasks and skipped_tasks must be disjoint"
@@ -208,9 +207,7 @@ class TestComplexDagFailures(BaseTest):
             assert ctx["args"] == ()
             assert ctx["kwargs"] == {}
             assert isinstance(ctx["downstream_impact"], list)
-            expected_downstream = {
-                n for n in skipped_task_names if name in _ancestors_of(n, tasks)
-            }
+            expected_downstream = {n for n in skipped_task_names if name in _ancestors_of(n, tasks)}
             assert set(ctx["downstream_impact"]) == expected_downstream
 
             serialized = repr(ctx)
