@@ -26,9 +26,11 @@ class SMTPConfig:
         Recipient email addresses.
     credentials : tuple[str, str] | None
         ``(username, password)`` for SMTP authentication. Defaults to ``None``.
-    secure : tuple | None
-        Security configuration. Use ``()`` for STARTTLS, ``(certfile, keyfile)``
-        for explicit TLS, or ``None`` for no encryption. Defaults to ``None``.
+    secure : tuple[()] | tuple[str] | tuple[str, str] | tuple[str, str, ssl.SSLContext] | None
+        Security configuration. Use ``()`` for STARTTLS, ``(keyfile,)`` or
+        ``(keyfile, certfile)`` for explicit TLS context creation, or
+        ``(keyfile, certfile, ssl_context)`` to supply a pre-built
+        ``ssl.SSLContext``. ``None`` means no encryption. Defaults to ``None``.
     timeout : int
         Connection timeout in seconds. Defaults to ``5``.
     """
@@ -64,6 +66,14 @@ class HTMLEmailStyle:
         appear in the *Traced Variables* section. When ``None`` (default),
         the outermost user frame is used; when set, the outermost frame whose
         filename contains this substring is used instead.
+
+    Raises
+    ------
+    ValueError
+        If ``style``, ``palette``, or ``language`` is not one of the
+        supported values.
+    TypeError
+        If ``traced_vars_frame_filter`` is neither ``str`` nor ``None``.
     """
 
     style: str = _DEFAULT_STYLE

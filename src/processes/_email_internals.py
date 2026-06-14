@@ -22,7 +22,18 @@ _PALETTE_MARKER = "{{__palette_css__}}"
 
 
 def _load_language_strings(language: str) -> dict[str, str]:
-    """Load translatable strings for the given ISO 639-1 language code."""
+    """Load translatable strings for the given ISO 639-1 language code.
+
+    Parameters
+    ----------
+    language : str
+        ISO 639-1 language code, e.g. ``"en"``.
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of translation keys to localized strings.
+    """
     path = os.path.join(_LANGUAGES_DIR, f"{language}.json")
     with open(path, encoding="utf-8") as fh:
         return cast(dict[str, str], json.load(fh))
@@ -57,9 +68,20 @@ class _HTMLEmailFormatter(_ErrorContextFormatter):
     def _split_traceback_at_target(self, tb_str: str, location: str) -> tuple[str, str, str]:
         """Split *tb_str* around the frame line matching *location*.
 
-        Returns ``(before, highlight, after)`` where ``highlight`` is the
-        ``File "<filename>", line <lineno>, in <func>`` line for that frame.
-        Returns ``("", "", tb_str)`` if no match is found.
+        Parameters
+        ----------
+        tb_str : str
+            Full formatted traceback to split.
+        location : str
+            ``"filename:lineno"`` of the frame to highlight, as produced by
+            ``_build_traced_vars_location``.
+
+        Returns
+        -------
+        tuple[str, str, str]
+            ``(before, highlight, after)`` where ``highlight`` is the
+            ``File "<filename>", line <lineno>, in <func>`` line for that
+            frame. Returns ``("", "", tb_str)`` if no match is found.
         """
         if not tb_str or not location:
             return ("", "", tb_str)
@@ -83,7 +105,18 @@ class _HTMLEmailFormatter(_ErrorContextFormatter):
         return rendered
 
     def format(self, record: logging.LogRecord) -> str:
-        """Render a log record as a complete HTML email body."""
+        """Render a log record as a complete HTML email body.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            The record being formatted.
+
+        Returns
+        -------
+        str
+            The fully rendered HTML email body.
+        """
         error = self._error_data(record)
 
         tb_before, tb_highlight, tb_after = self._split_traceback_at_target(
@@ -159,7 +192,23 @@ def _build_task_email_handler(
     style: HTMLEmailStyle,
     task_name: str,
 ) -> _HTMLEmailHandler:
-    """Create a fully configured email handler bound to one task."""
+    """Create a fully configured email handler bound to one task.
+
+    Parameters
+    ----------
+    smtp_config : SMTPConfig
+        SMTP transport configuration for the handler.
+    style : HTMLEmailStyle
+        HTML presentation settings used by the handler's formatter.
+    task_name : str
+        Name of the task the handler is bound to, used in the email subject.
+
+    Returns
+    -------
+    _HTMLEmailHandler
+        A handler at ``logging.ERROR`` level, with its formatter and
+        localized subject configured.
+    """
     handler = _HTMLEmailHandler(smtp_config)
     handler.setFormatter(_HTMLEmailFormatter(style))
     handler.setLevel(logging.ERROR)

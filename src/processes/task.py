@@ -271,6 +271,13 @@ class Task:
         """
         Validates all input parameter types.
 
+        Parameters
+        ----------
+        smtp_config : SMTPConfig | None
+            SMTP transport configuration passed to the constructor, if any.
+        email_style : HTMLEmailStyle | None
+            HTML presentation settings passed to the constructor, if any.
+
         Raises
         ------
         TypeError

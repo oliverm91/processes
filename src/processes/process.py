@@ -298,6 +298,8 @@ class ProcessRunner:
         Results from successfully executed tasks.
     failed_tasks : set[str]
         Names of tasks that failed during execution.
+    skipped_tasks : set[str]
+        Names of tasks that were never run because an upstream dependency failed.
     submitted_tasks : set[str]
         Names of tasks that have been submitted for execution.
     """
@@ -310,7 +312,14 @@ class ProcessRunner:
         self.submitted_tasks: set[str] = set()
 
     def _is_done(self) -> bool:
-        """Whether every task has either passed or failed."""
+        """Check whether every task has either passed or failed.
+
+        Returns
+        -------
+        bool
+            True if every task has a recorded result (passed or failed),
+            False otherwise.
+        """
         return len(self.passed_results) + len(self.failed_tasks) >= len(self.process.tasks)
 
     def run(self, parallel: bool, max_workers: int) -> ProcessResult:

@@ -19,6 +19,19 @@ class _TaskLogfileFormatter(_ErrorContextFormatter):
         super().__init__(_LOG_FORMAT)
 
     def format(self, record: logging.LogRecord) -> str:
+        """Render a log record as plain text, appending failure context if present.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            The record being formatted.
+
+        Returns
+        -------
+        str
+            The formatted log line, with the failure context appended if
+            ``record.task_context`` is set.
+        """
         if not getattr(record, "task_context", None):
             return super().format(record)
 

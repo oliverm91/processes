@@ -184,6 +184,13 @@ in the source the listed values were captured, which is usually the
 fastest way to figure out *why* a complex task broke deep inside a
 wrapper.
 
+This default can be overridden with `HTMLEmailStyle.traced_vars_frame_filter`.
+Set it to a path substring (e.g. the name of one of your own packages or
+modules) to capture locals from the outermost frame whose filename contains
+that substring instead — useful for deep-debugging code that runs through
+several layers of internal libraries or wrappers, where the default
+outermost-user-frame would land too high up the call stack.
+
 ---
 
 ## 🛡️ Fault Tolerance & Logs

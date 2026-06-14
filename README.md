@@ -311,6 +311,20 @@ HTMLEmailStyle(
 
 All fields are optional — omit `HTMLEmailStyle` entirely to use the defaults.
 
+#### Traced Variables
+
+On failure, the email body includes the local variables of the **outermost
+user frame in the traceback** — i.e. the last frame that is not inside
+`site-packages` or your virtualenv. A `file:line` reference next to the
+section shows exactly where those values were captured.
+
+`traced_vars_frame_filter` lets you point this at a different frame: set it
+to a path substring (e.g. one of your own package or module names) to
+capture locals from the outermost frame whose filename contains that
+substring instead. This is useful for deep-debugging code that runs through
+several layers of internal libraries or wrappers, where the default
+outermost-user-frame would land too high up the call stack.
+
 </details>
 
 <details>
