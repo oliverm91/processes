@@ -11,8 +11,8 @@ class _TaskLogfileFormatter(_ErrorContextFormatter):
     """Plain-text formatter for task logfiles.
 
     On failure, appends the same failure context shown in the HTML email
-    (function, args, kwargs, downstream impact, traced-vars location,
-    traceback) as readable text.
+    (function, args, kwargs, downstream impact, traced variables and their
+    location, traceback) as readable text.
     """
 
     def __init__(self) -> None:
@@ -51,6 +51,9 @@ class _TaskLogfileFormatter(_ErrorContextFormatter):
             f"Downstream impact: {', '.join(error.downstream_impact) or '-'}",
             f"Traced vars location: {error.traced_vars_location or '-'}",
         ]
+        if error.traced_vars:
+            lines.append("Traced vars:")
+            lines.extend(f"  {name} = {value}" for name, value in error.traced_vars.items())
         if error.traceback_str:
             lines.append("")
             lines.append(error.traceback_str.rstrip("\n"))
