@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "processes"
 dynamic = ["version"]
-description = "A Python library for managing and executing dependent tasks in parallel or sequential order with automatic dependency resolution and topological sorting"
+description = "Orchestrate graphs of callables in Python with automatic dependency resolution, parallel execution, retries, timeouts, and HTML email alerts on failure — zero dependencies"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
 ]
 
 dependencies = []
@@ -45,10 +46,9 @@ packages = ["src/processes"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version_provider = "scm" 
+version_provider = "scm"
 tag_format = "v$version"
 update_map_description = true
-version_files = ["pyproject.toml:version"]
 update_changelog_on_bump = true
 
 [tool.mypy]
