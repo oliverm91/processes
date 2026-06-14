@@ -218,3 +218,40 @@ style = HTMLEmailStyle(
 
 t = Task("task_name", "logfile", func_to_run, smtp_config=smtp, email_style=style)
 ```
+
+## ⏱️ Retries & Timeouts
+
+Two `Task` constructor arguments make individual steps more resilient to
+transient failures, without any extra wiring:
+
+- **`timeout`** — seconds allowed for a single attempt. If `func` doesn't
+  return in time, a `TimeoutError` is raised for that attempt. `None`
+  (the default) means no limit. When a timeout fires, the underlying
+  thread is detached rather than killed — a Python threading limitation.
+- **`retries`** — additional attempts after the first failure. `0` or
+  `None` (the default) means a single attempt with no retry.
+- **`retry_on`** — tuple of exception types that trigger a retry. Only
+  evaluated when `retries >= 1`. When `None`, defaults at call time to
+  `(ConnectionError, TimeoutError)`.
+
+```python
+from processes import Task
+
+def call_flaky_api() -> dict:
+    """May raise ConnectionError on a bad network blip."""
+    ...
+
+t_fetch = Task(
+    "fetch_remote_data",
+    "logs/fetch.log",
+    call_flaky_api,
+    timeout=5,                              # give up an attempt after 5s
+    retries=3,                              # up to 3 extra attempts (4 total)
+    retry_on=(ConnectionError, TimeoutError),  # retry on these exceptions only
+)
+```
+
+If every attempt fails, the task is marked failed with the **last**
+exception raised — `retries` only controls how many times `func` is
+retried, not whether the failure is eventually reported. Combine with
+`smtp_config` to be paged only once all attempts are exhausted.

@@ -127,35 +127,47 @@ with Process(tasks) as process: # Context Manager ensures correct disposal of lo
 
 ## 📧 Customizing the HTML email
 
-When a task with an `HTMLSMTPHandler` raises, the alert is a **styled HTML
+When a task with an `smtp_config` raises, the alert is a **styled HTML
 email** built from a bundled template. The body includes the exception,
 the traceback (with the user-frame highlighted), the task context, the
 list of downstream tasks that were skipped because of the failure, and
 the local variables at the failing frame (see [Traced Variables](#traced-variables) below).
 
-Four keyword-only arguments on `HTMLSMTPHandler` control the look, the language, and which frame's locals appear in the email body:
+Email delivery and presentation are configured with two separate dataclasses:
 
-| Argument | Values | Default |
+- **`SMTPConfig`** — transport settings (host, credentials, sender/recipients, TLS).
+- **`HTMLEmailStyle`** — presentation settings, all optional:
+
+| Field | Values | Default |
 |---|---|---|
-| `email_style` | `classic`, `modern`, `compact` | `modern` |
-| `color_palette` | `neutral`, `catppuccin`, `neobones`, `slate` | `neutral` |
-| `email_language` | `en`, `es`, `pt`, `fr`, `de`, `it` | `en` |
-| `last_path_traced_vars` | any path substring, or `None` | `None` (outermost user frame) |
+| `style` | `classic`, `modern`, `compact` | `modern` |
+| `palette` | `neutral`, `catppuccin`, `neobones`, `slate` | `neutral` |
+| `language` | `en`, `es`, `pt`, `fr`, `de`, `it` | `en` |
+| `traced_vars_frame_filter` | any path substring, or `None` | `None` (outermost user frame) |
 
 ```python
-from processes import HTMLSMTPHandler
+from processes import SMTPConfig, HTMLEmailStyle, Task
 
-smtp = HTMLSMTPHandler(
+smtp = SMTPConfig(
     mailhost=("smtp.example.com", 587),
     fromaddr="alerts@example.com",
     toaddrs=["oncall@example.com"],
     credentials=("user", "pass"),
     secure=(),                          # () = STARTTLS; omit for no encryption
-    email_style="compact",              # classic | modern | compact
-    color_palette="catppuccin",         # neutral | catppuccin | neobones | slate
-    email_language="es",                # en | es | pt | fr | de | it
 )
+
+style = HTMLEmailStyle(
+    style="compact",                    # classic | modern | compact
+    palette="catppuccin",               # neutral | catppuccin | neobones | slate
+    language="es",                      # en | es | pt | fr | de | it
+)
+
+t = Task("task_name", "logfile", func_to_run, smtp_config=smtp, email_style=style)
 ```
+
+If `smtp_config` is set and `email_style` is omitted, `HTMLEmailStyle()` defaults
+(modern, neutral, English) are used. If `smtp_config` is `None`, `email_style` is ignored
+and no email handler is attached.
 
 All assets ship inside the wheel — the styles are Jinja-style HTML
 templates at `src/processes/themes/styles/` and the palettes are CSS
