@@ -293,9 +293,7 @@ class Task:
 
         for channel in self.channels:
             if not isinstance(channel, NotificationChannel):
-                raise TypeError(
-                    f"channel must be of type NotificationChannel. Got {type(channel)}"
-                )
+                raise TypeError(f"channel must be of type NotificationChannel. Got {type(channel)}")
 
         if self.timeout is not None and (
             not isinstance(self.timeout, (int, float)) or self.timeout <= 0
