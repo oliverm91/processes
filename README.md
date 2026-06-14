@@ -58,11 +58,11 @@ def enrich(users: list[dict]) -> list[dict]:
 
 
 tasks = [
-    Task("load", "run.log", load_users),
+    Task("load", load_users, "run.log"),
     Task(
         "enrich",
-        "run.log",
         enrich,
+        "run.log",
         dependencies=[TaskDependency("load", use_result_as_additional_args=True)],
     ),
 ]
@@ -144,19 +144,19 @@ smtp = SMTPConfig(
 )
 
 tasks = [
-    Task("fetch_orders",   LOG_DIR / "fetch_orders.log",   fetch_orders),
-    Task("fetch_inventory", LOG_DIR / "fetch_inventory.log", fetch_inventory),
+    Task("fetch_orders",   fetch_orders,   LOG_DIR / "fetch_orders.log"),
+    Task("fetch_inventory", fetch_inventory, LOG_DIR / "fetch_inventory.log"),
 
     Task(
         "compute_revenue",
-        LOG_DIR / "compute_revenue.log",
         total_revenue,
+        LOG_DIR / "compute_revenue.log",
         dependencies=[TaskDependency("fetch_orders", use_result_as_additional_args=True)],
     ),
     Task(
         "compute_stock",
-        LOG_DIR / "compute_stock.log",
         stock_value,
+        LOG_DIR / "compute_stock.log",
         kwargs={"price_per_unit": 7.25},
         dependencies=[
             TaskDependency(
@@ -169,8 +169,8 @@ tasks = [
 
     Task(
         "build_report",
-        LOG_DIR / "build_report.log",
         build_report,
+        LOG_DIR / "build_report.log",
         dependencies=[
             TaskDependency("compute_revenue", use_result_as_additional_kwargs=True,
                            additional_kwarg_name="revenue"),
@@ -185,15 +185,15 @@ tasks = [
     # the workflow is not blackholed by one broken step.
     Task(
         "notify_slack",
-        LOG_DIR / "notify_slack.log",
         notify_slack,
+        LOG_DIR / "notify_slack.log",
         dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
         channels=[EmailChannel(smtp)],
     ),
     Task(
         "archive_report",
-        LOG_DIR / "archive_report.log",
         archive_report,
+        LOG_DIR / "archive_report.log",
         dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
     ),
 ]
@@ -225,8 +225,8 @@ The failing `notify_slack` task does **not** abort the run. `archive_report` is 
 ```python
 Task(
     name: str,
-    log_path: str | os.PathLike,
     func: Callable[..., Any],
+    log_path: str | None = None,
     args: tuple = (),
     kwargs: dict | None = None,
     dependencies: list[TaskDependency] | None = None,
@@ -238,7 +238,7 @@ Task(
 ```
 
 - `name` — unique within the `Process`; no spaces.
-- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`); wired internally into a file `NotificationChannel`.
+- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`); wired internally into a file `NotificationChannel`. `None` (the default) means no file logging; if no other `channels` are configured either, a `NullHandler` is attached.
 - `func` — the callable; receives `func(*args, **kwargs)` after result-injection.
 - `channels` — additional `NotificationChannel`s attached to the task's logger. Use `EmailChannel(smtp_config, style=None)` to fire an HTML email on `logging.ERROR`; body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`. `style` defaults to `HTMLEmailStyle()` (modern, neutral, English).
 - `timeout` — seconds allowed per attempt; `None` means no limit. When the timeout fires the underlying thread is detached (Python threading limitation).
@@ -313,7 +313,7 @@ HTMLEmailStyle(
 NotificationChannel  # ABC: subclass and implement build_handler(task_name) -> logging.Handler
 ```
 
-Every `Task` always attaches an internal file channel built from `log_path`. Extra channels passed via `channels` are attached on top of it.
+If `log_path` is set, every `Task` attaches an internal file channel built from it. Extra channels passed via `channels` are attached on top of it. If neither `log_path` nor `channels` is set, the task's logger gets a `NullHandler`.
 
 ### `EmailChannel`
 
@@ -357,6 +357,7 @@ WebhookConfig(
     timeout: int = 5,
     secret: str | None = None,  # HMAC-SHA256 signs the body when set
     extra_payload: dict[str, Any] = {},  # extra top-level keys merged into the JSON body
+    nest_under: str | None = None,  # nest the generic fields under this key, e.g. "data"
 )
 ```
 
@@ -370,6 +371,12 @@ to any specific service (Slack, Discord, etc.); subclass and override
 the generic fields on collision — useful for service-specific routing data
 (e.g. a Telegram `chat_id` or a Slack `channel`/`username` override) without
 subclassing.
+
+`nest_under` nests the generic fields under a single key instead of leaving
+them top-level, e.g. `nest_under="data"` produces
+`{"data": {"task_name": ..., ...}, "chat_id": "..."}`. `extra_payload` keys
+always stay top-level and still take precedence on collision. `None`
+(the default) keeps the flat payload shape.
 
 If `secret` is set, the request carries an `X-Signature-SHA256` header with
 the hex-encoded `hmac.new(secret, body, hashlib.sha256)` digest of the JSON

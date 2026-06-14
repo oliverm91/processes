@@ -56,13 +56,13 @@ Each task needs:
 - **dependencies** (optional): TaskDependency objects for dependent tasks
 
 ```python
-t1 = Task("fetch_users", "logs/fetch_users.log", fetch_user_count)
-t2 = Task("fetch_products", "logs/fetch_products.log", fetch_product_count)
-t3 = Task("fetch_orders", "logs/fetch_orders.log", fetch_order_count)
+t1 = Task("fetch_users", fetch_user_count, "logs/fetch_users.log")
+t2 = Task("fetch_products", fetch_product_count, "logs/fetch_products.log")
+t3 = Task("fetch_orders", fetch_order_count, "logs/fetch_orders.log")
 t4 = Task(
     "calculate_metrics",
-    "logs/calculate_metrics.log",
     calculate_metrics,
+    "logs/calculate_metrics.log",
     dependencies=[
         TaskDependency("fetch_users", use_result_as_additional_args=True),
         TaskDependency("fetch_products", use_result_as_additional_args=True),
@@ -129,8 +129,8 @@ def fetch_count(table_name: str) -> int:
 
 task = Task(
     "fetch_users",
-    "logs/fetch.log",
     fetch_count,
+    "logs/fetch.log",
     args=("users",)  # Pass arguments
 )
 ```
@@ -143,8 +143,8 @@ def fetch_with_filter(table: str, status: str = "active") -> int:
 
 task = Task(
     "fetch_active",
-    "logs/fetch.log",
     fetch_with_filter,
+    "logs/fetch.log",
     args=("users",),
     kwargs={"status": "active"}
 )
@@ -154,10 +154,10 @@ task = Task(
 
 ```python
 # Separate logs per task
-t1 = Task("task1", "logs/task1.log", func1)
-t2 = Task("task2", "logs/task2.log", func2)
+t1 = Task("task1", func1, "logs/task1.log")
+t2 = Task("task2", func2, "logs/task2.log")
 
 # Shared log file
-t1 = Task("task1", "logs/all.log", func1)
-t2 = Task("task2", "logs/all.log", func2)
+t1 = Task("task1", func1, "logs/all.log")
+t2 = Task("task2", func2, "logs/all.log")
 ```

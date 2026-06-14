@@ -109,13 +109,13 @@ def main():
     os.makedirs(log_dir, exist_ok=True)
 
     # Task 1: Fetch data (no dependencies)
-    t_fetch = Task("fetch_data", f"{log_dir}/fetch.log", fetch_user_data)
+    t_fetch = Task("fetch_data", fetch_user_data, f"{log_dir}/fetch.log")
 
     # Task 2: Validate (depends on fetch)
     t_validate = Task(
         "validate",
-        f"{log_dir}/validate.log",
         validate_data,
+        f"{log_dir}/validate.log",
         dependencies=[
             TaskDependency(
                 "fetch_data",
@@ -127,8 +127,8 @@ def main():
     # Task 3: Calculate stats (depends on fetch)
     t_stats = Task(
         "calculate_stats",
-        f"{log_dir}/stats.log",
         calculate_statistics,
+        f"{log_dir}/stats.log",
         dependencies=[
             TaskDependency(
                 "fetch_data",
@@ -140,8 +140,8 @@ def main():
     # Task 4: Prepare (depends on both validate and stats)
     t_prepare = Task(
         "prepare_storage",
-        f"{log_dir}/prepare.log",
         prepare_for_storage,
+        f"{log_dir}/prepare.log",
         dependencies=[
             TaskDependency(
                 "validate",
@@ -158,8 +158,8 @@ def main():
     output_file = os.path.join(log_dir, "data_output.json")
     t_save = Task(
         "save_data",
-        f"{log_dir}/save.log",
         save_to_database,
+        f"{log_dir}/save.log",
         args=(),
         kwargs={"output_file": output_file},
         dependencies=[TaskDependency("prepare_storage", use_result_as_additional_args=True)],
@@ -168,8 +168,8 @@ def main():
     # Task 6: Report (depends on save and stats)
     t_report = Task(
         "generate_report",
-        f"{log_dir}/report.log",
         generate_report,
+        f"{log_dir}/report.log",
         dependencies=[
             TaskDependency(
                 "save_data",

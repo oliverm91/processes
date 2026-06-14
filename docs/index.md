@@ -99,15 +99,15 @@ def sum_data_from_csv_and_x(x, a=1, b=2):
 
 # 3. Create the Task Graph (order is irrelevant, that is handled by Process)
 tasks = [
-    Task("t-1", "etl.log", get_previous_working_day),
-    Task("intependent", "indep.log", indep_task, channels=[EmailChannel(smtp_config, email_style)]),  # This task will send email on failure
-    Task("sum_csv", "etl.log", search_and_sum_csv,
+    Task("t-1", get_previous_working_day, "etl.log"),
+    Task("intependent", indep_task, "indep.log", channels=[EmailChannel(smtp_config, email_style)]),  # This task will send email on failure
+    Task("sum_csv", search_and_sum_csv, "etl.log",
             dependencies= [
                 TaskDependency("t-1",
                 use_result_as_additional_args=True)  # Adds result of t-1 task to search_and_sum_csv function as aditional args
             ]
         ),
-    Task("sum_x_and_csv", "etl.log", sum_data_from_csv_and_x,
+    Task("sum_x_and_csv", sum_data_from_csv_and_x, "etl.log",
             args = (10,), kwargs = {"b": 100},
             dependencies=[
                 TaskDependency("sum_csv",
@@ -162,7 +162,7 @@ style = HTMLEmailStyle(
     language="es",                      # en | es | pt | fr | de | it
 )
 
-t = Task("task_name", "logfile", func_to_run, channels=[EmailChannel(smtp, style)])
+t = Task("task_name", func_to_run, "logfile", channels=[EmailChannel(smtp, style)])
 ```
 
 If `style` is omitted, `EmailChannel` defaults to `HTMLEmailStyle()`

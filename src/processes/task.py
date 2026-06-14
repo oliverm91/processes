@@ -122,8 +122,9 @@ class Task:
     ----------
     name : str
         Unique name for the task (cannot contain spaces).
-    log_path : str
-        File path where task logs will be written.
+    log_path : str | None
+        File path where task logs will be written. ``None`` if no file
+        logging is configured.
     func : Callable
         The function to execute when the task runs.
     args : tuple
@@ -153,12 +154,15 @@ class Task:
     ----------
     name : str
         Unique task name; must not contain spaces.
-    log_path : str
-        File path the task's log records are written to (one ``FileHandler``
-        at ``INFO`` level, format
-        ``"%(asctime)s - %(name)s - %(levelname)s - %(message)s"``).
     func : Callable[..., Any]
         The callable executed when the task runs.
+    log_path : str | None
+        File path the task's log records are written to (one ``FileHandler``
+        at ``INFO`` level, format
+        ``"%(asctime)s - %(name)s - %(levelname)s - %(message)s"``). ``None``
+        means no file logging is configured. If this leaves the task with no
+        notification channels at all, a ``NullHandler`` is attached instead.
+        Defaults to ``None``.
     args : tuple[Any, ...]
         Positional arguments forwarded to ``func``. Defaults to ``()``.
     kwargs : dict[str, Any] | None
@@ -205,8 +209,8 @@ class Task:
     def __init__(
         self,
         name: str,
-        log_path: str,
         func: Callable[..., Any],
+        log_path: str | None = None,
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
         dependencies: list[TaskDependency] | None = None,
@@ -251,10 +255,16 @@ class Task:
         logger = logging.getLogger(f"processes.{self.name}.{id(self)}")
         logger.setLevel(logging.DEBUG)
 
-        all_channels: list[NotificationChannel] = [_FileChannel(self.log_path), *self.channels]
+        file_channels: list[NotificationChannel] = (
+            [_FileChannel(self.log_path)] if self.log_path is not None else []
+        )
+        all_channels: list[NotificationChannel] = [*file_channels, *self.channels]
 
-        for channel in all_channels:
-            logger.addHandler(channel.build_handler(self.name))
+        if all_channels:
+            for channel in all_channels:
+                logger.addHandler(channel.build_handler(self.name))
+        else:
+            logger.addHandler(logging.NullHandler())
 
         self._frame_filter: str | None = next(
             (c.frame_filter for c in all_channels if c.frame_filter is not None), None

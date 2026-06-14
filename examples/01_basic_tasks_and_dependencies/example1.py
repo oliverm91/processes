@@ -55,13 +55,13 @@ def main():
     os.makedirs(log_dir, exist_ok=True)
 
     # Step 2: Create Task objects
-    t1 = Task("fetch_users", f"{log_dir}/fetch_users.log", fetch_user_count)
-    t2 = Task("fetch_products", f"{log_dir}/fetch_products.log", fetch_product_count)
-    t3 = Task("fetch_orders", f"{log_dir}/fetch_orders.log", fetch_order_count)
+    t1 = Task("fetch_users", fetch_user_count, f"{log_dir}/fetch_users.log")
+    t2 = Task("fetch_products", fetch_product_count, f"{log_dir}/fetch_products.log")
+    t3 = Task("fetch_orders", fetch_order_count, f"{log_dir}/fetch_orders.log")
     t4 = Task(
         "calculate_metrics",
-        f"{log_dir}/calculate_metrics.log",
         calculate_metrics,
+        f"{log_dir}/calculate_metrics.log",
         dependencies=[
             TaskDependency("fetch_users", use_result_as_additional_args=True),
             TaskDependency("fetch_products", use_result_as_additional_args=True),

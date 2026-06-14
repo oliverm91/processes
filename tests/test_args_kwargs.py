@@ -10,8 +10,8 @@ class TestArgsKwargs(BaseTest):
         def div10(a: int) -> int:
             return 10 / a
 
-        t1 = Task("task_1", self._log("logfile_12.log"), div10, args=(2,))
-        t2 = Task("task_2", self._log("logfile_12.log"), div10, args=(0,))
+        t1 = Task("task_1", div10, self._log("logfile_12.log"), args=(2,))
+        t2 = Task("task_2", div10, self._log("logfile_12.log"), args=(0,))
         try:
             tr1 = t1.run()
             tr2 = t2.run()
@@ -32,9 +32,9 @@ class TestArgsKwargs(BaseTest):
         def div(a: int, b: int = 2) -> int:
             return a / b
 
-        t1 = Task("task_1", self._log("logfile_123.log"), div, args=(10,))
-        t2 = Task("task_2", self._log("logfile_123.log"), div, args=(10,), kwargs={"b": 5})
-        t3 = Task("task_3", self._log("logfile_123.log"), div, args=(10,), kwargs={"b": 0})
+        t1 = Task("task_1", div, self._log("logfile_123.log"), args=(10,))
+        t2 = Task("task_2", div, self._log("logfile_123.log"), args=(10,), kwargs={"b": 5})
+        t3 = Task("task_3", div, self._log("logfile_123.log"), args=(10,), kwargs={"b": 0})
         try:
             tr1 = t1.run()
             tr2 = t2.run()
@@ -63,11 +63,11 @@ class TestArgsKwargs(BaseTest):
         def div(a: int, b: int) -> int:
             return a / b
 
-        t1 = Task("task_1", self._log("logfile_12.log"), t1_func)
+        t1 = Task("task_1", t1_func, self._log("logfile_12.log"))
         t2 = Task(
             "task_2",
-            self._log("logfile_12.log"),
             div,
+            self._log("logfile_12.log"),
             args=(10,),
             dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)],
         )
@@ -95,18 +95,18 @@ class TestArgsKwargs(BaseTest):
         def div(a: int, b: int, c: int = 5) -> int:
             return (a + b) / c
 
-        t0 = Task("task_0", self._log("logfile_0.log"), random_routine_to_do_first)
-        t1 = Task("task_1", self._log("logfile_12.log"), get_b)
+        t0 = Task("task_0", random_routine_to_do_first, self._log("logfile_0.log"))
+        t1 = Task("task_1", get_b, self._log("logfile_12.log"))
         t2 = Task(
             "task_2",
-            self._log("logfile_12.log"),
             get_c,
+            self._log("logfile_12.log"),
             dependencies=[TaskDependency("task_1")],
         )
         t3 = Task(
             "task_3",
-            self._log("logfile_3.log"),
             div,
+            self._log("logfile_3.log"),
             args=(10,),
             dependencies=[
                 TaskDependency("task_1", use_result_as_additional_args=True),

@@ -26,19 +26,19 @@ class TestDependencies(BaseTest):
 
         tasks: list[Task] = []
         try:
-            t1 = Task("task_1", self._log("logfile_12.log"), task_1)
+            t1 = Task("task_1", task_1, self._log("logfile_12.log"))
             tasks.append(t1)
             t2 = Task(
                 "task_2",
-                self._log("logfile_12.log"),
                 task_2,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_1")],
             )
             tasks.append(t2)
             t3 = Task(
                 "task_3",
-                self._log("logfile_3.log"),
                 task_3,
+                self._log("logfile_3.log"),
                 args=(1,),
                 dependencies=[TaskDependency("task_1"), TaskDependency("task_4")],
             )
@@ -69,8 +69,8 @@ class TestDependencies(BaseTest):
         with pytest.raises(ValueError, match="Duplicate dependency name: task_1"):
             Task(
                 "task_3",
-                self._log("logfile_3.log"),
                 task_3,
+                self._log("logfile_3.log"),
                 args=(1,),
                 dependencies=[TaskDependency("task_1"), TaskDependency("task_1")],
             )
@@ -87,8 +87,8 @@ class TestDependencies(BaseTest):
         ):
             Task(
                 "task_3",
-                self._log("logfile_3.log"),
                 task_3,
+                self._log("logfile_3.log"),
                 args=(1,),
                 dependencies=[TaskDependency("task_1"), TaskDependency("task_3")],
             )
@@ -106,15 +106,15 @@ class TestDependencies(BaseTest):
         try:
             t1 = Task(
                 "task_1",
-                self._log("logfile_12.log"),
                 task_1,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_2")],
             )
             tasks.append(t1)
             t2 = Task(
                 "task_2",
-                self._log("logfile_12.log"),
                 task_2,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_1")],
             )
             tasks.append(t2)
@@ -144,22 +144,22 @@ class TestDependencies(BaseTest):
         try:
             t1 = Task(
                 "task_1",
-                self._log("logfile_12.log"),
                 task_1,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_2")],
             )
             tasks.append(t1)
             t2 = Task(
                 "task_2",
-                self._log("logfile_12.log"),
                 task_2,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_3")],
             )
             tasks.append(t2)
             t3 = Task(
                 "task_3",
-                self._log("logfile_3.log"),
                 task_3,
+                self._log("logfile_3.log"),
                 args=(1,),
                 dependencies=[TaskDependency("task_1")],
             )
@@ -193,30 +193,30 @@ class TestDependencies(BaseTest):
         try:
             t1 = Task(
                 "task_1",
-                self._log("logfile_12.log"),
                 task_1,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_3")],
             )
             tasks.append(t1)
             t2 = Task(
                 "task_2",
-                self._log("logfile_12.log"),
                 task_2,
+                self._log("logfile_12.log"),
                 dependencies=[TaskDependency("task_1")],
             )
             tasks.append(t2)
             t3 = Task(
                 "task_3",
-                self._log("logfile_3.log"),
                 task_3,
+                self._log("logfile_3.log"),
                 args=(1,),
                 dependencies=[TaskDependency("task_4")],
             )
             tasks.append(t3)
             t4 = Task(
                 "task_4",
-                self._log("logfile_4.log"),
                 task_4,
+                self._log("logfile_4.log"),
                 args=(1,),
                 dependencies=[TaskDependency("task_1")],
             )

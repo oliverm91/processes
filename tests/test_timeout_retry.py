@@ -19,7 +19,7 @@ class TestTimeout(BaseTest):
             time.sleep(0.3)
             return "done"
 
-        task = Task("t_slow", self._log("slow.log"), slow, timeout=0.05)
+        task = Task("t_slow", slow, self._log("slow.log"), timeout=0.05)
         try:
             result = task.run()
         finally:
@@ -35,7 +35,7 @@ class TestTimeout(BaseTest):
         def fast() -> int:
             return 42
 
-        task = Task("t_fast", self._log("fast.log"), fast, timeout=5.0)
+        task = Task("t_fast", fast, self._log("fast.log"), timeout=5.0)
         try:
             result = task.run()
         finally:
@@ -52,7 +52,7 @@ class TestTimeout(BaseTest):
             time.sleep(0.3)
             return "done"
 
-        task = Task("t_seq", self._log("seq.log"), slow, timeout=0.05)
+        task = Task("t_seq", slow, self._log("seq.log"), timeout=0.05)
         with Process([task]) as process:
             pr = process.run(parallel=False)
 
@@ -69,7 +69,7 @@ class TestTimeout(BaseTest):
             time.sleep(0.3)
             return "done"
 
-        task = Task("t_par", self._log("par.log"), slow, timeout=0.05)
+        task = Task("t_par", slow, self._log("par.log"), timeout=0.05)
         with Process([task]) as process:
             pr = process.run(parallel=True)
 
@@ -86,11 +86,11 @@ class TestTimeout(BaseTest):
         def child(x: str) -> str:
             return x.upper()
 
-        t_root = Task("root", self._log("root.log"), slow, timeout=0.05)
+        t_root = Task("root", slow, self._log("root.log"), timeout=0.05)
         t_child = Task(
             "child",
-            self._log("child.log"),
             child,
+            self._log("child.log"),
             dependencies=[TaskDependency("root", use_result_as_additional_args=True)],
         )
         with Process([t_root, t_child]) as process:
@@ -104,15 +104,15 @@ class TestTimeout(BaseTest):
 
     def test_timeout_zero_raises(self) -> None:
         with pytest.raises(TypeError, match="timeout must be a positive number"):
-            Task("t", self._log("t.log"), lambda: None, timeout=0)
+            Task("t", lambda: None, self._log("t.log"), timeout=0)
 
     def test_timeout_negative_raises(self) -> None:
         with pytest.raises(TypeError, match="timeout must be a positive number"):
-            Task("t", self._log("t.log"), lambda: None, timeout=-1.0)
+            Task("t", lambda: None, self._log("t.log"), timeout=-1.0)
 
     def test_timeout_wrong_type_raises(self) -> None:
         with pytest.raises(TypeError, match="timeout must be a positive number"):
-            Task("t", self._log("t.log"), lambda: None, timeout="30")  # type: ignore[arg-type]
+            Task("t", lambda: None, self._log("t.log"), timeout="30")  # type: ignore[arg-type]
 
 
 class TestRetry(BaseTest):
@@ -126,7 +126,7 @@ class TestRetry(BaseTest):
                 raise ConnectionError("transient")
             return "ok"
 
-        task = Task("flaky", self._log("flaky.log"), flaky, retries=1)
+        task = Task("flaky", flaky, self._log("flaky.log"), retries=1)
         try:
             result = task.run()
         finally:
@@ -144,7 +144,7 @@ class TestRetry(BaseTest):
             calls.append(1)
             raise ConnectionError("permanent")
 
-        task = Task("perm", self._log("perm.log"), always_fails, retries=2)
+        task = Task("perm", always_fails, self._log("perm.log"), retries=2)
         try:
             result = task.run()
         finally:
@@ -162,7 +162,7 @@ class TestRetry(BaseTest):
             calls.append(1)
             raise ConnectionError("boom")
 
-        task = Task("no_retry", self._log("nr.log"), fail_once, retries=0)
+        task = Task("no_retry", fail_once, self._log("nr.log"), retries=0)
         try:
             result = task.run()
         finally:
@@ -179,7 +179,7 @@ class TestRetry(BaseTest):
             calls.append(1)
             raise ConnectionError("boom")
 
-        task = Task("none_retry", self._log("nr2.log"), fail_once, retries=None)
+        task = Task("none_retry", fail_once, self._log("nr2.log"), retries=None)
         try:
             result = task.run()
         finally:
@@ -196,7 +196,7 @@ class TestRetry(BaseTest):
             calls.append(1)
             raise ValueError("bad input")
 
-        task = Task("le", self._log("le.log"), logic_error, retries=3)
+        task = Task("le", logic_error, self._log("le.log"), retries=3)
         try:
             result = task.run()
         finally:
@@ -218,8 +218,8 @@ class TestRetry(BaseTest):
 
         task = Task(
             "custom",
-            self._log("custom.log"),
             flaky,
+            self._log("custom.log"),
             retries=3,
             retry_on=(RuntimeError,),
         )
@@ -241,7 +241,7 @@ class TestRetry(BaseTest):
                 raise ConnectionError("refused")
             return "connected"
 
-        task = Task("conn", self._log("conn.log"), flaky, retries=1, retry_on=None)
+        task = Task("conn", flaky, self._log("conn.log"), retries=1, retry_on=None)
         try:
             result = task.run()
         finally:
@@ -260,7 +260,7 @@ class TestRetry(BaseTest):
                 raise ConnectionError("transient")
             return "ok"
 
-        task = Task("proc_retry", self._log("pr.log"), flaky, retries=1)
+        task = Task("proc_retry", flaky, self._log("pr.log"), retries=1)
         with Process([task]) as process:
             pr = process.run(parallel=False)
 
@@ -272,16 +272,16 @@ class TestRetry(BaseTest):
 
     def test_retries_negative_raises(self) -> None:
         with pytest.raises(TypeError, match="retries must be a non-negative int"):
-            Task("t", self._log("t.log"), lambda: None, retries=-1)
+            Task("t", lambda: None, self._log("t.log"), retries=-1)
 
     def test_retry_on_string_raises(self) -> None:
         with pytest.raises(TypeError, match="retry_on must be None or a tuple"):
-            Task("t", self._log("t.log"), lambda: None, retries=1, retry_on="ConnectionError")  # type: ignore[arg-type]
+            Task("t", lambda: None, self._log("t.log"), retries=1, retry_on="ConnectionError")  # type: ignore[arg-type]
 
     def test_retry_on_non_exception_raises(self) -> None:
         with pytest.raises(TypeError, match="retry_on must be None or a tuple"):
             Task(
-                "t", self._log("t.log"), lambda: None, retries=1, retry_on=(int,)
+                "t", lambda: None, self._log("t.log"), retries=1, retry_on=(int,)
             )  # int is not an Exception subclass
 
 
@@ -298,8 +298,8 @@ class TestTimeoutWithRetry(BaseTest):
 
         task = Task(
             "t_retry_timeout",
-            self._log("trt.log"),
             eventually_fast,
+            self._log("trt.log"),
             timeout=0.05,
             retries=1,
         )
@@ -323,8 +323,8 @@ class TestTimeoutWithRetry(BaseTest):
 
         task = Task(
             "t_all_timeout",
-            self._log("tat.log"),
             always_slow,
+            self._log("tat.log"),
             timeout=0.05,
             retries=2,
         )

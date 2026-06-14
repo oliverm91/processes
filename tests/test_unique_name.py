@@ -18,11 +18,11 @@ class TestUniqueName(BaseTest):
 
         tasks: list[Task] = []
         try:
-            t1 = Task("task_1", self._log("logfile_12.log"), task_1)
+            t1 = Task("task_1", task_1, self._log("logfile_12.log"))
             tasks.append(t1)
-            t2 = Task("task_2", self._log("logfile_12.log"), task_2)
+            t2 = Task("task_2", task_2, self._log("logfile_12.log"))
             tasks.append(t2)
-            t3 = Task("task_2", self._log("logfile_3.log"), task_3, args=(1,))
+            t3 = Task("task_2", task_3, self._log("logfile_3.log"), args=(1,))
             tasks.append(t3)
         except Exception as e:
             self._close_handlers(*tasks)

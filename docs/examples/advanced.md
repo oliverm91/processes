@@ -41,13 +41,13 @@ See how Task objects receive a list with their dependencies. Each `TaskDependenc
 
 ```python
 # Task 1: Fetch data (no dependencies)
-t_fetch = Task("fetch_data", f"{log_dir}/fetch.log", fetch_user_data)
+t_fetch = Task("fetch_data", fetch_user_data, f"{log_dir}/fetch.log")
 
 # Task 2: Validate (depends on fetch)
 t_validate = Task(
     "validate",
-    f"{log_dir}/validate.log",
     validate_data,
+    f"{log_dir}/validate.log",
     dependencies=[
         TaskDependency(
             "fetch_data",
@@ -59,8 +59,8 @@ t_validate = Task(
 # Task 3: Calculate stats (depends on fetch, but also checks validate completion)
 t_stats = Task(
     "calculate_stats",
-    f"{log_dir}/stats.log",
     calculate_statistics,
+    f"{log_dir}/stats.log",
     dependencies=[
         TaskDependency(
             "fetch_data",
@@ -72,8 +72,8 @@ t_stats = Task(
 # Task 4: Prepare (depends on both validate and stats, passing both results)
 t_prepare = Task(
     "prepare_storage",
-    f"{log_dir}/prepare.log",
     prepare_for_storage,
+    f"{log_dir}/prepare.log",
     dependencies=[
         TaskDependency(
             "validate",
@@ -102,8 +102,8 @@ def generate_report(save_result: str, stats: dict | None = None) -> str:
 
 t_report = Task(
     "generate_report",
-    "logs/report.log",
     generate_report,
+    "logs/report.log",
     dependencies=[
         TaskDependency(
             "save_data",
@@ -145,8 +145,8 @@ def func(a, b, c):  # Original signature
 # With dependency passing a result
 t = Task(
     "task",
-    "log.log",
     func,
+    "log.log",
     args=(1, 2),  # Original args
     dependencies=[TaskDependency("source", use_result_as_additional_args=True)]
 )
@@ -164,8 +164,8 @@ def func(a, b=None):
 
 t = Task(
     "task",
-    "log.log",
     func,
+    "log.log",
     args=(1,),
     kwargs={"b": "default"},
     dependencies=[TaskDependency("source", use_result_as_additional_kwargs=True, additional_kwarg_name="b")]
@@ -216,7 +216,7 @@ style = HTMLEmailStyle(
     language='en',                   # en | es | pt | fr | de | it
 )
 
-t = Task("task_name", "logfile", func_to_run, channels=[EmailChannel(smtp, style)])
+t = Task("task_name", func_to_run, "logfile", channels=[EmailChannel(smtp, style)])
 ```
 
 ## ⏱️ Retries & Timeouts
@@ -243,8 +243,8 @@ def call_flaky_api() -> dict:
 
 t_fetch = Task(
     "fetch_remote_data",
-    "logs/fetch.log",
     call_flaky_api,
+    "logs/fetch.log",
     timeout=5,                              # give up an attempt after 5s
     retries=3,                              # up to 3 extra attempts (4 total)
     retry_on=(ConnectionError, TimeoutError),  # retry on these exceptions only

@@ -11,7 +11,7 @@ class TestLogFiles(BaseTest):
             return 1
 
         log_path = self._log("logfile_1.log")
-        with Process([Task("task_1", log_path, task_1)]) as process:
+        with Process([Task("task_1", task_1, log_path)]) as process:
             process.run()
 
         with open(log_path) as f:
@@ -27,7 +27,7 @@ class TestLogFiles(BaseTest):
             return 1
 
         log_path = self._log("logfile_1.log")
-        tasks = [Task("task_1", log_path, task_1), Task("task_2", log_path, task_1)]
+        tasks = [Task("task_1", task_1, log_path), Task("task_2", task_1, log_path)]
         with Process(tasks) as process:
             process.run()
 
@@ -50,7 +50,7 @@ class TestLogFiles(BaseTest):
 
         log_path1 = self._log("logfile_1.log")
         log_path2 = self._log("logfile_2.log")
-        tasks = [Task("task_1", log_path1, task_1), Task("task_2", log_path2, task_2)]
+        tasks = [Task("task_1", task_1, log_path1), Task("task_2", task_2, log_path2)]
         with Process(tasks) as process:
             process.run()
 
@@ -73,7 +73,7 @@ class TestLogFiles(BaseTest):
             return 1 / 0
 
         log_path = self._log("logfile_1.log")
-        with Process([Task("task_1", log_path, task_1)]) as process:
+        with Process([Task("task_1", task_1, log_path)]) as process:
             process.run()
 
         with open(log_path) as f:

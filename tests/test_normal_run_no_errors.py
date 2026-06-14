@@ -45,27 +45,27 @@ def fast_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
 
 class TestNormalRun(BaseTest):
     def test_run_single_task_sequential(self, fast_sleep: None) -> None:
-        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
+        t1 = Task("task_1", task_1, self._log("logfile_1.log"))
         with Process([t1]) as process:
             process.run(parallel=False)
         assert True
 
     def test_run_single_task_parallel(self, fast_sleep: None) -> None:
-        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
+        t1 = Task("task_1", task_1, self._log("logfile_1.log"))
         with Process([t1]) as process:
             process.run(parallel=True)
         assert True
 
     def test_run_independent_tasks_sequential(self, fast_sleep: None) -> None:
-        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
-        t2 = Task("task_2", self._log("logfile_1.log"), task_2)
+        t1 = Task("task_1", task_1, self._log("logfile_1.log"))
+        t2 = Task("task_2", task_2, self._log("logfile_1.log"))
         with Process([t1, t2]) as process:
             process.run(parallel=False)
         assert True
 
     def test_run_independent_tasks_parallel(self, fast_sleep: None) -> None:
-        t1 = Task("task_1", self._log("logfile_1.log"), task_1)
-        t2 = Task("task_2", self._log("logfile_1.log"), task_2)
+        t1 = Task("task_1", task_1, self._log("logfile_1.log"))
+        t2 = Task("task_2", task_2, self._log("logfile_1.log"))
         with Process([t1, t2]) as process:
             process.run(parallel=True)
         assert True
@@ -74,25 +74,25 @@ class TestNormalRun(BaseTest):
         """Six-task graph: t1, t2 independent → t4(t2), t5(t1) → t6(t2,t5); t3 standalone."""
         log = self._log("logfile_1.log")
         return [
-            Task("task_1", log, task_1),
-            Task("task_2", log, task_2),
-            Task("task_3", log, task_3, args=(1,)),
+            Task("task_1", task_1, log),
+            Task("task_2", task_2, log),
+            Task("task_3", task_3, log, args=(1,)),
             Task(
                 "task_4",
-                log,
                 task_4,
+                log,
                 dependencies=[TaskDependency("task_2", use_result_as_additional_args=True)],
             ),
             Task(
                 "task_5",
-                log,
                 task_5,
+                log,
                 dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)],
             ),
             Task(
                 "task_6",
-                log,
                 task_6,
+                log,
                 dependencies=[
                     TaskDependency("task_2", use_result_as_additional_args=True),
                     TaskDependency("task_5", use_result_as_additional_args=True),
