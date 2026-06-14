@@ -4,7 +4,7 @@
 
 # Processes: Smart Task Orchestration
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 ![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://oliverm91.github.io/processes/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -16,7 +16,7 @@
 
 ---
 
-**Run a list of Python callables that depend on each other — in parallel when possible, with per-task log files and optional HTML email notification on failure. Zero dependencies. Pure Python 3.10+.**
+**Run a list of Python callables that depend on each other — in parallel when possible, with per-task log files and optional HTML email notification on failure. Zero dependencies. Pure Python 3.11+.**
 
 ---
 
@@ -27,7 +27,7 @@
 - 🛡️ **One failure doesn't stop the rest** — a failed task skips only the jobs that depend on it, and **every other part of the workflow keeps running**.
 - 📝 **One log file per task** — share a single log across the whole run, or keep them separate for easier debugging.
 - 📧 **Email alerts when something breaks** — pass an `SMTPConfig` to a task and get a styled HTML email (with traceback, task context, and the list of jobs that were skipped) the instant it raises.
-- 🧰 **Modern, strictly-typed Python 3.10+** — `from __future__ import annotations`, full `mypy --strict` clean, `dict[str, TaskResult]`, `set[str]`, `|` unions.
+- 🧰 **Modern, strictly-typed Python 3.11+** — `from __future__ import annotations`, full `mypy --strict` clean, `dict[str, TaskResult]`, `set[str]`, `|` unions.
 
 ---
 
@@ -403,7 +403,7 @@ Or straight from the repository (pure Python, no build step):
 pip install git+https://github.com/oliverm91/processes.git
 ```
 
-Requires **Python 3.10+**.
+Requires **Python 3.11+**.
 
 ---
 

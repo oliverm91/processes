@@ -4,7 +4,7 @@
 
 # 🚀 Processes: Robust Routines Management
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 ![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)
 
 
