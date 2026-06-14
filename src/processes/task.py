@@ -332,7 +332,7 @@ class Task:
         """
         return {dependency.task_name for dependency in self.dependencies}
 
-    def _call_with_timeout(self, args: list, kwargs: dict) -> Any:
+    def _call_with_timeout(self, args: list[Any], kwargs: dict[Any, Any]) -> Any:
         """Call ``self.func(*args, **kwargs)``, raising ``TimeoutError`` if
         ``self.timeout`` seconds elapse before the function returns.
 

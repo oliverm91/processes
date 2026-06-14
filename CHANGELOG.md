@@ -1,3 +1,18 @@
+## v3.0.0 (2026-06-13)
+
+### BREAKING CHANGE
+
+- html_mail_handler parameter removed from Task; use
+smtp_config and email_style instead. HTMLSMTPHandler removed from public API.
+
+### Feat
+
+- **html_logging**: expose last_path_traced_vars on HTMLSMTPHandler
+
+### Refactor
+
+- **email**: replace HTMLSMTPHandler with SMTPConfig/HTMLEmailStyle
+
 ## v2.0.1 (2026-06-12)
 
 ### Fix
