@@ -68,7 +68,14 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from processes import HTMLEmailStyle, Process, SMTPConfig, Task, TaskDependency  # noqa: E402
+from processes import (  # noqa: E402
+    EmailChannel,
+    HTMLEmailStyle,
+    Process,
+    SMTPConfig,
+    Task,
+    TaskDependency,
+)
 
 # --------------------------------------------------------------------------- #
 # Constants                                                                   #
@@ -169,24 +176,21 @@ def build_tasks(logs_dir: str, smtp: SMTPConfig, style: HTMLEmailStyle) -> list[
                 "timeout_seconds": 15,
                 "dry_run": True,
             },
-            smtp_config=smtp,
-            email_style=style,
+            channels=[EmailChannel(smtp, style)],
         ),
         Task(
             name="child_a",
             log_path=_log_path(logs_dir, "child_a"),
             func=child_a,
             dependencies=[dep("risky_step")],
-            smtp_config=smtp,
-            email_style=style,
+            channels=[EmailChannel(smtp, style)],
         ),
         Task(
             name="child_b",
             log_path=_log_path(logs_dir, "child_b"),
             func=child_b,
             dependencies=[dep("risky_step")],
-            smtp_config=smtp,
-            email_style=style,
+            channels=[EmailChannel(smtp, style)],
         ),
     ]
 

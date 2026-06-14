@@ -197,9 +197,9 @@ If a task fails it can notify via email:
 - The traceback of the error
 - The tasks that could not be executed in the process due to this failure.
 
-To set this up, pass an `SMTPConfig` to the Task constructor:
+To set this up, pass an `EmailChannel` to the Task constructor via `channels`:
 ```python
-from processes import SMTPConfig, HTMLEmailStyle, Task
+from processes import SMTPConfig, HTMLEmailStyle, EmailChannel, Task
 
 smtp = SMTPConfig(
     mailhost=('smtp_server', 587),
@@ -216,7 +216,7 @@ style = HTMLEmailStyle(
     language='en',                   # en | es | pt | fr | de | it
 )
 
-t = Task("task_name", "logfile", func_to_run, smtp_config=smtp, email_style=style)
+t = Task("task_name", "logfile", func_to_run, channels=[EmailChannel(smtp, style)])
 ```
 
 ## ⏱️ Retries & Timeouts
@@ -254,4 +254,4 @@ t_fetch = Task(
 If every attempt fails, the task is marked failed with the **last**
 exception raised — `retries` only controls how many times `func` is
 retried, not whether the failure is eventually reported. Combine with
-`smtp_config` to be paged only once all attempts are exhausted.
+an `EmailChannel` to be paged only once all attempts are exhausted.

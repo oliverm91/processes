@@ -79,7 +79,7 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from processes import Process, SMTPConfig, Task, TaskDependency  # noqa: E402
+from processes import EmailChannel, Process, SMTPConfig, Task, TaskDependency  # noqa: E402
 
 # --------------------------------------------------------------------------- #
 # Maildev wiring                                                              #
@@ -268,7 +268,7 @@ def build_tasks(logs_dir: str, smtp: SMTPConfig) -> list[Task]:
             args=args,
             kwargs=kwargs or {},
             dependencies=deps or [],
-            smtp_config=smtp,
+            channels=[EmailChannel(smtp)],
         )
 
     return [

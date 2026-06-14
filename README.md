@@ -4,7 +4,7 @@
 
 # Processes: Smart Task Orchestration
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 ![Fast & Lightweight](https://img.shields.io/badge/Library-Pure%20Python-green.svg)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://oliverm91.github.io/processes/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -16,7 +16,7 @@
 
 ---
 
-**Run a list of Python callables that depend on each other — in parallel when possible, with per-task log files and optional HTML email notification on failure. Zero dependencies. Pure Python 3.10+.**
+**Run a list of Python callables that depend on each other — in parallel when possible, with per-task log files and optional HTML email notification on failure. Zero dependencies. Pure Python 3.11+.**
 
 ---
 
@@ -27,7 +27,7 @@
 - 🛡️ **One failure doesn't stop the rest** — a failed task skips only the jobs that depend on it, and **every other part of the workflow keeps running**.
 - 📝 **One log file per task** — share a single log across the whole run, or keep them separate for easier debugging.
 - 📧 **Email alerts when something breaks** — pass an `SMTPConfig` to a task and get a styled HTML email (with traceback, task context, and the list of jobs that were skipped) the instant it raises.
-- 🧰 **Modern, strictly-typed Python 3.10+** — `from __future__ import annotations`, full `mypy --strict` clean, `dict[str, TaskResult]`, `set[str]`, `|` unions.
+- 🧰 **Modern, strictly-typed Python 3.11+** — `from __future__ import annotations`, full `mypy --strict` clean, `dict[str, TaskResult]`, `set[str]`, `|` unions.
 
 ---
 
@@ -87,7 +87,7 @@ A realistic mini-pipeline: fetch two sources **in parallel**, transform them, ag
 import logging
 from pathlib import Path
 
-from processes import HTMLEmailStyle, Process, SMTPConfig, Task, TaskDependency
+from processes import EmailChannel, HTMLEmailStyle, Process, SMTPConfig, Task, TaskDependency
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
@@ -188,7 +188,7 @@ tasks = [
         LOG_DIR / "notify_slack.log",
         notify_slack,
         dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
-        smtp_config=smtp,
+        channels=[EmailChannel(smtp)],
     ),
     Task(
         "archive_report",
@@ -230,8 +230,7 @@ Task(
     args: tuple = (),
     kwargs: dict | None = None,
     dependencies: list[TaskDependency] | None = None,
-    smtp_config: SMTPConfig | None = None,
-    email_style: HTMLEmailStyle | None = None,
+    channels: list[NotificationChannel] | None = None,
     timeout: float | None = None,
     retries: int | None = 0,
     retry_on: tuple[type[Exception], ...] | None = None,
@@ -239,10 +238,9 @@ Task(
 ```
 
 - `name` — unique within the `Process`; no spaces.
-- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`).
+- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`); wired internally into a file `NotificationChannel`.
 - `func` — the callable; receives `func(*args, **kwargs)` after result-injection.
-- `smtp_config` — when set, fires an HTML email on `logging.ERROR`; body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`.
-- `email_style` — optional presentation override; defaults to `HTMLEmailStyle()` (modern, neutral, English) when `smtp_config` is set.
+- `channels` — additional `NotificationChannel`s attached to the task's logger. Use `EmailChannel(smtp_config, style=None)` to fire an HTML email on `logging.ERROR`; body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`. `style` defaults to `HTMLEmailStyle()` (modern, neutral, English).
 - `timeout` — seconds allowed per attempt; `None` means no limit. When the timeout fires the underlying thread is detached (Python threading limitation).
 - `retries` — additional attempts after the first failure; `0` or `None` means a single attempt. Defaults to `0`.
 - `retry_on` — tuple of exception types that trigger a retry. When `retries >= 1` and `retry_on` is `None`, defaults to `(ConnectionError, TimeoutError)` at call time.
@@ -308,6 +306,25 @@ HTMLEmailStyle(
     traced_vars_frame_filter=None, # substring to pick the traced frame | None
 )
 ```
+
+### `NotificationChannel`
+
+```python
+NotificationChannel  # ABC: subclass and implement build_handler(task_name) -> logging.Handler
+```
+
+Every `Task` always attaches an internal file channel built from `log_path`. Extra channels passed via `channels` are attached on top of it.
+
+### `EmailChannel`
+
+```python
+EmailChannel(
+    smtp_config: SMTPConfig,
+    style: HTMLEmailStyle | None = None,  # defaults to HTMLEmailStyle()
+)
+```
+
+Fires a styled HTML email on `logging.ERROR` and above.
 
 All fields are optional — omit `HTMLEmailStyle` entirely to use the defaults.
 
@@ -386,7 +403,7 @@ Or straight from the repository (pure Python, no build step):
 pip install git+https://github.com/oliverm91/processes.git
 ```
 
-Requires **Python 3.10+**.
+Requires **Python 3.11+**.
 
 ---
 

@@ -112,9 +112,8 @@ class TestNormalRun(BaseTest):
         assert len(process_result.failed_tasks) == 0, (
             f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
         )
-        assert int(round(t_end - t_start, 0)) == 4, (
-            f"Sequential run took {t_end - t_start} seconds. Expected 4 seconds."
-        )
+        elapsed = t_end - t_start
+        assert 4.0 <= elapsed < 4.8, f"Sequential run took {elapsed} seconds. Expected ~4 seconds."
 
     def test_run_dependent_tasks_parallel(self) -> None:
         import os
