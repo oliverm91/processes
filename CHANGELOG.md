@@ -1,3 +1,29 @@
+## v6.0.0 (2026-06-15)
+
+### BREAKING CHANGE
+
+- Process.run() returns ProcessExecutionReport instead of
+ProcessResult. Use report.successes / report.errored / report.skipped
+instead of passed_tasks_results / errored_tasks / skipped_tasks, and
+report.entries[name].result / .error instead of
+passed_tasks_results[name] / failed_tasks_results[name].
+
+### Feat
+
+- remove ProcessResult, have Process.run() return ProcessExecutionReport
+- expand TaskStatus with PENDING and add status field to TaskResult
+- add ProcessExecutionReport for per-task execution summaries
+- track failed task results in ProcessRunner and ProcessResult
+- promote ErrorData to public API and add timing/attempts to TaskResult
+
+### Fix
+
+- make Task.run never propagate dependency-resolution failures
+
+### Refactor
+
+- drop _is_unrunnable side effect and reuse TaskResult helpers
+
 ## v5.0.0 (2026-06-14)
 
 ### BREAKING CHANGE
