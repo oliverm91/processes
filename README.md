@@ -37,7 +37,7 @@ A `Process` holds a list of `Task`s. At construction it validates names, types, 
 
 When you call `process.run()`, tasks are topologically sorted and scheduled: dependencies first, independent tasks in parallel.
 
-A `TaskDependency` can forward an upstream result directly into a downstream function, as a positional or keyword argument. The result is a `ProcessResult` with `passed_tasks_results` and `failed_tasks` for inspection.
+A `TaskDependency` can forward an upstream result directly into a downstream function, as a positional or keyword argument. The result is a `ProcessExecutionReport` with `successes`, `errored`, and `skipped` for inspection.
 
 ---
 
@@ -70,7 +70,7 @@ tasks = [
 with Process(tasks) as p:
     result = p.run(parallel=True)
 
-print(result.passed_tasks_results["enrich"].result)
+print(result.successes["enrich"].result)
 # [{'id': 1, 'name': 'user-1'}, {'id': 2, 'name': 'user-2'}, {'id': 3, 'name': 'user-3'}]
 ```
 
@@ -201,11 +201,11 @@ tasks = [
 with Process(tasks) as process:
     result = process.run(parallel=True)
 
-print("passed:", sorted(result.passed_tasks_results))
+print("passed:", sorted(result.successes))
 # archive_report, build_report, compute_revenue, compute_stock, fetch_inventory, fetch_orders
-print("failed:", sorted(result.failed_tasks))
+print("failed:", sorted(set(result.errored) | set(result.skipped)))
 # notify_slack
-print("report:", result.passed_tasks_results["build_report"].result)
+print("report:", result.successes["build_report"].result)
 # daily-report | revenue=59.50 stock=262.50
 ```
 
@@ -265,24 +265,18 @@ TaskDependency(
 ```python
 Process(tasks: list[Task])  # validates types, names, deps, cycles
 
-process.run(parallel: bool | None = None, max_workers: int = 4) -> ProcessResult
+process.run(parallel: bool | None = None, max_workers: int = 4) -> ProcessExecutionReport
 ```
 
 - Raises `DependencyNotFoundError`, `CircularDependencyError`, `TypeError`, `ValueError` on construction if the workflow is malformed.
 - `parallel=None` auto-parallelises when `len(tasks) >= 10`; `max_workers=1` is always sequential.
 - Use as a context manager — it cleans up `FileHandler`s on exit.
 
-### `ProcessResult`
+### `TaskResult`
 
 ```python
-result.passed_tasks_results  # dict[str, TaskResult] — name → TaskResult for every task that succeeded
-result.failed_tasks          # set[str] — all tasks that did not produce a result (errored + skipped)
-result.failed_tasks_results  # dict[str, TaskResult] — name → TaskResult for every task that errored
-result.errored_tasks         # set[str] — tasks whose function actually raised
-result.skipped_tasks         # set[str] — tasks skipped because an upstream dependency failed
-
 TaskResult(
-    worked: bool,
+    status: TaskStatus,
     result: Any,
     exception: Exception | None,
     error_data: ErrorData | None = None,
@@ -291,11 +285,12 @@ TaskResult(
 )
 ```
 
+- `status` — `TaskStatus.PENDING | SUCCESS | ERRORED | SKIPPED`.
+- `worked` — `True` if `status == TaskStatus.SUCCESS`.
+
 ### `ProcessExecutionReport`
 
 ```python
-ProcessExecutionReport.from_result(process: Process, result: ProcessResult) -> ProcessExecutionReport
-
 report.entries    # dict[str, TaskReportEntry] — one entry per task, in topological order
 report.successes  # dict[str, TaskReportEntry] — entries with status == TaskStatus.SUCCESS
 report.errored    # dict[str, TaskReportEntry] — entries with status == TaskStatus.ERRORED
@@ -309,9 +304,8 @@ plus `result` (set when `SUCCESS`) and `error: ErrorData | None` (set when
 
 ```python
 with Process([load_task, apply_task, notify_task]) as process:
-    result = process.run()
+    report = process.run()
 
-report = ProcessExecutionReport.from_result(process, result)
 for name, entry in report.entries.items():
     if entry.status is TaskStatus.ERRORED:
         print(f"{name} failed after {entry.attempts} attempt(s): {entry.error.exception}")
@@ -442,10 +436,10 @@ body, so receivers can verify the payload wasn't tampered with.
 
 When a task raises:
 
-1. The exception is caught and stored in `TaskResult.exception`; the task name goes into `failed_tasks` and `errored_tasks`.
-2. **Every task that depends on it (directly or indirectly) is skipped** — added to `failed_tasks` and `skipped_tasks` without running.
+1. The exception is caught and stored in `TaskResult.exception`; the task's entry in the report gets `status == TaskStatus.ERRORED`.
+2. **Every task that depends on it (directly or indirectly) is skipped** — its entry gets `status == TaskStatus.SKIPPED` without running.
 3. **Every other independent part of the workflow keeps running.** With `parallel=True` they keep running concurrently on the worker pool.
-4. After `run()` returns, `ProcessResult.errored_tasks` and `ProcessResult.skipped_tasks` let you distinguish root failures from cascade skips for triage or alerting.
+4. After `run()` returns, `ProcessExecutionReport.errored` and `ProcessExecutionReport.skipped` let you distinguish root failures from cascade skips for triage or alerting.
 
 When a task has `retries >= 1`, a failure matching `retry_on` triggers another attempt before the task is declared failed and its dependants are skipped. This gives transient errors (network blips, connection resets) a chance to resolve without aborting downstream work.
 
@@ -475,7 +469,7 @@ This makes the library a good fit for fan-out / fan-in pipelines, "best-effort" 
 
 - **Shared log file** — pass the same `log_path` to every `Task` for a single combined run.log; pass distinct paths for per-task isolation.
 - **Auto-parallel** — `Process.run()` with no argument runs sequentially for small workflows and switches to parallel for `len(tasks) >= 10`. Pass `parallel=True` or `parallel=False` to force the mode.
-- **Result inspection** — iterate `result.passed_tasks_results.items()` to log or post-process every successful task; iterate `result.failed_tasks` for triage.
+- **Result inspection** — iterate `report.successes.items()` to log or post-process every successful task; iterate `set(report.errored) | set(report.skipped)` for triage.
 - **Re-raising** — wrap `process.run()` in `try/except` if you need a non-zero exit code on any failure; the library itself does not raise on partial failure.
 
 </details>

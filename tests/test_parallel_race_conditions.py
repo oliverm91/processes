@@ -2,7 +2,7 @@
 Parallel-execution race-condition stress tests.
 
 Two scenarios designed to maximise contention on ``ProcessRunner``'s
-shared state (``passed_results``, ``failed_tasks``, ``submitted_tasks``):
+shared state (``results``, ``submitted_tasks``):
 
 1. ``test_diamond_fan_in_race`` — wide fan-in diamond. Many sibling
    tasks gate on a ``threading.Barrier`` and release simultaneously,
