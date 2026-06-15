@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass, field, fields, is_dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from ._error_data import ErrorData
@@ -8,6 +10,27 @@ from .task import TaskResult, TaskStatus
 
 if TYPE_CHECKING:
     from .process import Process
+
+
+def _json_default(obj: Any) -> Any:
+    """``json.dumps`` fallback that keeps :meth:`ProcessExecutionReport.to_json` lossless.
+
+    Called only for values JSON cannot serialize natively. Dataclasses become
+    field dicts, enums their ``value``, sets/bytes a JSON-native form, and any
+    other object its ``repr()`` — so no field is dropped and serialization never
+    raises on exotic ``args``/``kwargs``/``result`` values. The trade-off is that
+    such ``repr``-rendered values are textual and not round-trippable back into
+    live Python objects.
+    """
+    if is_dataclass(obj) and not isinstance(obj, type):
+        return {f.name: getattr(obj, f.name) for f in fields(obj)}
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, (set, frozenset)):
+        return list(obj)
+    if isinstance(obj, (bytes, bytearray)):
+        return bytes(obj).decode("utf-8", errors="replace")
+    return repr(obj)
 
 
 @dataclass(frozen=True)
@@ -114,3 +137,31 @@ class ProcessExecutionReport:
                 error=res.error_data if res.status == TaskStatus.ERRORED else None,
             )
         return cls(entries)
+
+    def to_json(self, *, indent: int | None = None, **dumps_kwargs: Any) -> str:
+        """Serialize the whole report to a JSON string without dropping any field.
+
+        Every entry and every field is included. Values that are not natively
+        JSON-serializable are rendered faithfully rather than omitted:
+        ``TaskStatus`` as its string value, the nested ``ErrorData`` as an
+        object, and any arbitrary object appearing in ``args``, ``kwargs`` or
+        ``result`` via ``repr()``. The content is therefore lossless, though
+        ``repr``-rendered objects are not round-trippable into live objects.
+
+        Parameters
+        ----------
+        indent : int, optional
+            Forwarded to ``json.dumps`` for pretty-printing. ``None`` (default)
+            produces a compact single line.
+        **dumps_kwargs : Any
+            Forwarded to ``json.dumps`` (e.g. ``sort_keys=True``). Any
+            ``default`` is ignored so the lossless fallback always applies.
+
+        Returns
+        -------
+        str
+            A JSON object ``{"entries": {<name>: {...}, ...}}`` with entries in
+            topological order.
+        """
+        dumps_kwargs.pop("default", None)
+        return json.dumps(self, default=_json_default, indent=indent, **dumps_kwargs)
