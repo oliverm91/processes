@@ -270,7 +270,7 @@ class ProcessRunner:
     def __init__(self, process_ref: Process):
         self.process = process_ref
         self.results: dict[str, TaskResult] = {
-            task.name: TaskResult(TaskStatus.PENDING, None, None) for task in process_ref.tasks
+            task.name: TaskResult.pending() for task in process_ref.tasks
         }
         self.submitted_tasks: set[str] = set()
 
@@ -305,8 +305,11 @@ class ProcessRunner:
             self._run_sequential()
         return ProcessExecutionReport.from_results(self.process, self.results)
 
-    def _is_unrunnable(self, task: Task) -> bool:
-        """Check if a task cannot be run due to failed or skipped dependencies.
+    def _has_failed_dep(self, task: Task) -> bool:
+        """Return whether any dependency errored or was skipped.
+
+        Pure query with no side effects: it does not record the task as
+        ``SKIPPED``. Callers decide when to mark the cascade-skip.
 
         Parameters
         ----------
@@ -317,16 +320,12 @@ class ProcessRunner:
         -------
         bool
             True if any of the task's dependencies errored or were skipped,
-            False otherwise. If True, the task is recorded as ``SKIPPED``
-            (cascade-skip).
+            False otherwise.
         """
-        if any(
+        return any(
             self.results[d.task_name].status in (TaskStatus.ERRORED, TaskStatus.SKIPPED)
             for d in task.dependencies
-        ):
-            self.results[task.name] = TaskResult(TaskStatus.SKIPPED, None, None)
-            return True
-        return False
+        )
 
     def _all_deps_met(self, task: Task) -> bool:
         """Check if all dependencies of a task have been successfully executed.
@@ -341,14 +340,13 @@ class ProcessRunner:
         bool
             True if all dependencies succeeded, False otherwise.
         """
-        return all(
-            self.results[d.task_name].status == TaskStatus.SUCCESS for d in task.dependencies
-        )
+        return all(self.results[d.task_name].worked for d in task.dependencies)
 
     def _run_sequential(self) -> None:
         """Execute all tasks sequentially in dependency order."""
         for task in self.process.tasks:
-            if self._is_unrunnable(task):
+            if self._has_failed_dep(task):
+                self.results[task.name] = TaskResult.skipped()
                 continue
             if self._all_deps_met(task):
                 self.results[task.name] = task.run(self.process)
@@ -369,13 +367,21 @@ class ProcessRunner:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             fut_to_name = {}
             while not self._is_done():
-                # Look for candidates to execute now
+                # Record cascade-skips first (a dependency errored or was
+                # skipped), then look for candidates whose deps all succeeded.
+                for t in self.process.tasks:
+                    if (
+                        t.name not in self.submitted_tasks
+                        and self.results[t.name].status == TaskStatus.PENDING
+                        and self._has_failed_dep(t)
+                    ):
+                        self.results[t.name] = TaskResult.skipped()
+
                 candidates = [
                     t
                     for t in self.process.tasks
                     if t.name not in self.submitted_tasks
                     and self.results[t.name].status == TaskStatus.PENDING
-                    and not self._is_unrunnable(t)
                     and self._all_deps_met(t)
                 ]
 
@@ -396,11 +402,8 @@ class ProcessRunner:
                         try:
                             self.results[name] = fut.result()
                         except Exception as e:
-                            self.results[name] = TaskResult(
-                                TaskStatus.ERRORED,
-                                None,
-                                e,
-                                error_data=ErrorData(task_name=name, exception=str(e)),
+                            self.results[name] = TaskResult.errored(
+                                e, error_data=ErrorData(task_name=name, exception=str(e))
                             )
                 else:
                     # No running tasks and no new candidates. The

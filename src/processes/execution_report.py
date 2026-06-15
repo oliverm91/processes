@@ -110,7 +110,7 @@ class ProcessExecutionReport:
                 status=res.status,
                 elapsed_seconds=res.elapsed_seconds,
                 attempts=res.attempts,
-                result=res.result if res.status == TaskStatus.SUCCESS else None,
+                result=res.result if res.worked else None,
                 error=res.error_data if res.status == TaskStatus.ERRORED else None,
             )
         return cls(entries)
