@@ -3,6 +3,7 @@ from collections import deque
 from types import TracebackType
 from typing import Literal, Self
 
+from ._error_data import ErrorData
 from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
 from .task import Task, TaskResult
 
@@ -29,6 +30,9 @@ class ProcessResult:
     errored_tasks : set[str]
         Subset of ``failed_tasks``: tasks whose function actually raised an exception
         (``failed_tasks - skipped_tasks``).
+    failed_tasks_results : dict[str, TaskResult]
+        Mapping of errored task names (``errored_tasks``) to the TaskResult
+        produced by their failed run. Cascade-skipped tasks have no entry here.
     """
 
     def __init__(
@@ -36,11 +40,13 @@ class ProcessResult:
         passed_tasks_results: dict[str, TaskResult],
         failed_tasks: set[str],
         skipped_tasks: set[str],
+        failed_tasks_results: dict[str, TaskResult] | None = None,
     ):
         self.passed_tasks_results = passed_tasks_results
         self.failed_tasks = failed_tasks
         self.skipped_tasks = skipped_tasks
         self.errored_tasks: set[str] = failed_tasks - skipped_tasks
+        self.failed_tasks_results: dict[str, TaskResult] = failed_tasks_results or {}
 
 
 class Process:
@@ -298,6 +304,9 @@ class ProcessRunner:
         Results from successfully executed tasks.
     failed_tasks : set[str]
         Names of tasks that failed during execution.
+    failed_results : dict[str, TaskResult]
+        Results from tasks whose function raised an exception, keyed by task
+        name. Cascade-skipped tasks have no entry here.
     skipped_tasks : set[str]
         Names of tasks that were never run because an upstream dependency failed.
     submitted_tasks : set[str]
@@ -308,6 +317,7 @@ class ProcessRunner:
         self.process = process_ref
         self.passed_results: dict[str, TaskResult] = {}
         self.failed_tasks: set[str] = set()
+        self.failed_results: dict[str, TaskResult] = {}
         self.skipped_tasks: set[str] = set()
         self.submitted_tasks: set[str] = set()
 
@@ -341,7 +351,9 @@ class ProcessRunner:
             self._run_parallel(max_workers)
         else:
             self._run_sequential()
-        return ProcessResult(self.passed_results, self.failed_tasks, self.skipped_tasks)
+        return ProcessResult(
+            self.passed_results, self.failed_tasks, self.skipped_tasks, self.failed_results
+        )
 
     def _is_unrunnable(self, task: Task) -> bool:
         """Check if a task cannot be run due to failed dependencies.
@@ -390,6 +402,7 @@ class ProcessRunner:
                     self.passed_results[task.name] = res
                 else:
                     self.failed_tasks.add(task.name)
+                    self.failed_results[task.name] = res
 
     def _run_parallel(self, max_workers: int) -> None:
         """Execute tasks in parallel using a thread pool while respecting dependencies.
@@ -437,8 +450,15 @@ class ProcessRunner:
                                 self.passed_results[name] = res
                             else:
                                 self.failed_tasks.add(name)
-                        except Exception:
+                                self.failed_results[name] = res
+                        except Exception as e:
                             self.failed_tasks.add(name)
+                            self.failed_results[name] = TaskResult(
+                                False,
+                                None,
+                                e,
+                                error_data=ErrorData(task_name=name, exception=str(e)),
+                            )
                 else:
                     # No running tasks and no new candidates. The
                     # ``_is_unrunnable`` side effect above may have
