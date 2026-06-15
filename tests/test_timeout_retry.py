@@ -44,6 +44,8 @@ class TestTimeout(BaseTest):
         assert result.worked
         assert result.result == 42
         assert result.exception is None
+        assert result.attempts == 1
+        assert result.elapsed_seconds >= 0.0
 
     def test_timeout_in_sequential_process(self) -> None:
         """Timeout propagates through Process.run(parallel=False)."""
@@ -135,6 +137,7 @@ class TestRetry(BaseTest):
         assert result.worked
         assert result.result == "ok"
         assert len(calls) == 2
+        assert result.attempts == 2
 
     def test_retry_exhausted_returns_failed(self) -> None:
         """A task that fails all attempts returns TaskResult(False, ...)."""
@@ -153,6 +156,8 @@ class TestRetry(BaseTest):
         assert not result.worked
         assert isinstance(result.exception, ConnectionError)
         assert len(calls) == 3  # 1 original + 2 retries
+        assert result.attempts == 3
+        assert result.elapsed_seconds >= 0.0
 
     def test_retry_zero_means_no_retry(self) -> None:
         """retries=0 (default) never retries, even for a retryable exception."""

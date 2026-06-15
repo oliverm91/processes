@@ -13,6 +13,9 @@ from .exceptions import (
 from .exceptions import (
     TaskNotFoundError as TaskNotFoundError,
 )
+from .execution_report import ProcessExecutionReport as ProcessExecutionReport
+from .execution_report import TaskReportEntry as TaskReportEntry
+from .execution_report import TaskStatus as TaskStatus
 from .notification_channels import EmailChannel as EmailChannel
 from .notification_channels import NotificationChannel as NotificationChannel
 from .notification_channels import WebhookChannel as WebhookChannel
