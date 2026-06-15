@@ -6,7 +6,7 @@ from typing import Literal, Self
 from ._error_data import ErrorData
 from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
 from .execution_report import ProcessExecutionReport
-from .task import Task, TaskResult, TaskStatus
+from .task import Task, TaskDependency, TaskResult, TaskStatus
 
 __all__ = ["CircularDependencyError", "DependencyNotFoundError", "TaskNotFoundError"]
 
@@ -51,14 +51,24 @@ class Process:
         self.tasks = tasks
 
         try:
-            self._check_input_types()
-            self._check_duplicate_names()
-            self._check_dependencies_exist()
-            self._topological_sort()
+            self._validate_and_sort()
         except Exception:
             self.close_loggers()
             raise
         self.runner = ProcessRunner(self)
+
+    def _validate_and_sort(self) -> None:
+        """Run the full validation pipeline and (re)build the topological order.
+
+        Raises the same errors as construction when ``self.tasks`` is not a
+        valid graph. ``_topological_sort`` validates before it reassigns
+        ``self.tasks`` and the cached maps, so on failure those are left
+        untouched and the caller can roll back ``self.tasks`` safely.
+        """
+        self._check_input_types()
+        self._check_duplicate_names()
+        self._check_dependencies_exist()
+        self._topological_sort()
 
     def __enter__(self) -> Self:
         """Called when entering the 'with' block."""
@@ -178,6 +188,126 @@ class Process:
             return self._task_map[task_name]
         except KeyError as err:
             raise TaskNotFoundError(task_name) from err
+
+    def _commit_or_rollback(self, snapshot: list[Task]) -> None:
+        """Re-validate after a mutation, restoring ``snapshot`` and re-raising on failure.
+
+        On success a fresh ``ProcessRunner`` is built, discarding any previous
+        run state.
+        """
+        try:
+            self._validate_and_sort()
+        except Exception:
+            self.tasks = snapshot
+            raise
+        self.runner = ProcessRunner(self)
+
+    def add_task(self, task: Task) -> None:
+        """Add a task to the process and re-resolve the graph.
+
+        The graph is re-validated and re-sorted, and any pending run state is
+        reset (a fresh runner is built). If the new task makes the graph
+        invalid, the process is left unchanged and the original error is raised.
+
+        Parameters
+        ----------
+        task : Task
+            The task to add.
+
+        Raises
+        ------
+        TypeError
+            If ``task`` is not a ``Task``.
+        ValueError
+            If a task with the same name already exists.
+        DependencyNotFoundError
+            If ``task`` depends on a task not present in the process.
+        CircularDependencyError
+            If adding ``task`` introduces a cycle.
+        """
+        snapshot = list(self.tasks)
+        self.tasks.append(task)
+        self._commit_or_rollback(snapshot)
+
+    def remove_task(self, task_name: str) -> None:
+        """Remove a task from the process and re-resolve the graph.
+
+        Rejected if any other task still depends on ``task_name`` — remove the
+        dependents first. On success the removed task's logger handlers are
+        closed (the process no longer owns them) and a fresh runner is built.
+
+        Note: if the same ``Task`` instance is shared with another ``Process``,
+        closing its handlers here affects that process too.
+
+        Parameters
+        ----------
+        task_name : str
+            Name of the task to remove.
+
+        Raises
+        ------
+        TaskNotFoundError
+            If no task with that name exists.
+        ValueError
+            If other tasks depend on it.
+        """
+        task = self.get_task(task_name)
+        dependents = self.get_dependant_tasks(task_name)
+        if dependents:
+            blocking = ", ".join(sorted(d.name for d in dependents))
+            raise ValueError(
+                f"Cannot remove task '{task_name}': still required by {blocking}. "
+                "Remove the dependent task(s) first."
+            )
+
+        snapshot = list(self.tasks)
+        self.tasks = [t for t in self.tasks if t.name != task_name]
+        self._commit_or_rollback(snapshot)
+
+        for handler in list(task.logger.handlers):
+            handler.close()
+            task.logger.removeHandler(handler)
+
+    def add_task_dependency(self, task_name: str, dependency: TaskDependency) -> None:
+        """Add a dependency to an existing task and re-resolve the graph.
+
+        Note: this mutates the ``Task`` instance's ``dependencies`` list; if the
+        task is shared with another ``Process``, that process sees the change too.
+
+        Parameters
+        ----------
+        task_name : str
+            Name of the (dependent) task that gains the dependency.
+        dependency : TaskDependency
+            The dependency to add. Its ``task_name`` must refer to an existing
+            task and must not already be a dependency of ``task_name``.
+
+        Raises
+        ------
+        TypeError
+            If ``dependency`` is not a ``TaskDependency``.
+        TaskNotFoundError
+            If ``task_name`` does not exist.
+        ValueError
+            If ``task_name`` already depends on ``dependency.task_name``.
+        DependencyNotFoundError
+            If ``dependency.task_name`` does not exist in the process.
+        CircularDependencyError
+            If the dependency introduces a cycle (including a self-dependency).
+        """
+        if not isinstance(dependency, TaskDependency):
+            raise TypeError(f"dependency must be of type TaskDependency. Got {type(dependency)}")
+        task = self.get_task(task_name)
+        if dependency.task_name in task.get_dependencies_names():
+            raise ValueError(f"Task '{task_name}' already depends on '{dependency.task_name}'.")
+
+        task.dependencies.append(dependency)
+        try:
+            self._validate_and_sort()
+        except Exception:
+            task.dependencies.pop()
+            raise
+        self.runner = ProcessRunner(self)
 
     def run(self, parallel: bool | None = None, max_workers: int = 4) -> ProcessExecutionReport:
         """Execute all tasks in the process.
