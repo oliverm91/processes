@@ -103,14 +103,12 @@ class TestNormalRun(BaseTest):
     def test_run_dependent_tasks_sequential(self) -> None:
         with Process(self._build_dependent_task_graph()) as process:
             t_start = time.time()
-            process_result = process.run(parallel=False)
+            report = process.run(parallel=False)
             t_end = time.time()
 
-        assert len(process_result.passed_tasks_results) == 6, (
-            f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
-        )
-        assert len(process_result.failed_tasks) == 0, (
-            f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
+        assert len(report.successes) == 6, f"Expected 6 passed tasks. Got {len(report.successes)}"
+        assert len(report.errored) + len(report.skipped) == 0, (
+            f"Expected 0 failed tasks. Got {len(report.errored) + len(report.skipped)}"
         )
         elapsed = t_end - t_start
         assert 4.0 <= elapsed < 4.8, f"Sequential run took {elapsed} seconds. Expected ~4 seconds."
@@ -121,14 +119,12 @@ class TestNormalRun(BaseTest):
         n_workers = os.cpu_count()
         with Process(self._build_dependent_task_graph()) as process:
             t_start = time.time()
-            process_result = process.run(parallel=True, max_workers=n_workers)
+            report = process.run(parallel=True, max_workers=n_workers)
             t_end = time.time()
 
-        assert len(process_result.passed_tasks_results) == 6, (
-            f"Expected 6 passed tasks. Got {len(process_result.passed_tasks_results)}"
-        )
-        assert len(process_result.failed_tasks) == 0, (
-            f"Expected 0 failed tasks. Got {len(process_result.failed_tasks)}"
+        assert len(report.successes) == 6, f"Expected 6 passed tasks. Got {len(report.successes)}"
+        assert len(report.errored) + len(report.skipped) == 0, (
+            f"Expected 0 failed tasks. Got {len(report.errored) + len(report.skipped)}"
         )
         if n_workers and n_workers > 2:
             assert int(round(t_end - t_start, 0)) == 2, (

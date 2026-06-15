@@ -406,10 +406,10 @@ def main() -> int:
     else:
         print("-" * 72)
         print("passed:")
-        for name in sorted(result.passed_tasks_results):
+        for name in sorted(result.successes):
             print(f"  + {name}")
         print("failed (includes cascading-skipped):")
-        for name in sorted(result.failed_tasks):
+        for name in sorted(set(result.errored) | set(result.skipped)):
             print(f"  - {name}")
 
     if exit_code == 0:

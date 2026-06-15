@@ -2,7 +2,7 @@
 Parallel-execution race-condition stress tests.
 
 Two scenarios designed to maximise contention on ``ProcessRunner``'s
-shared state (``passed_results``, ``failed_tasks``, ``submitted_tasks``):
+shared state (``results``, ``submitted_tasks``):
 
 1. ``test_diamond_fan_in_race`` — wide fan-in diamond. Many sibling
    tasks gate on a ``threading.Barrier`` and release simultaneously,
@@ -100,10 +100,11 @@ def _run_diamond_iteration(sibling_count: int, run_idx: int, log_dir: str) -> No
         f"{tag} collector received {call_counts['__collector_arg_count']} "
         f"args, expected {sibling_count}"
     )
-    assert not result.failed_tasks, f"{tag} unexpected failures: {result.failed_tasks}"
-    assert len(result.passed_tasks_results) == sibling_count + 2, f"{tag} passed count mismatch"
+    failed = set(result.errored) | set(result.skipped)
+    assert not failed, f"{tag} unexpected failures: {failed}"
+    assert len(result.successes) == sibling_count + 2, f"{tag} passed count mismatch"
 
-    stored = result.passed_tasks_results["collector"].result
+    stored = result.successes["collector"].result
     assert stored == sorted(f"sibling_{i}_payload" for i in range(sibling_count)), (
         f"{tag} collector result missing sibling payloads: {stored}"
     )
@@ -201,23 +202,23 @@ def _run_cascading_iteration(
     expected_failed = {n for chain in failing_chains for n in chain}
     expected_passed = {n for chain in passing_chains for n in chain}
 
-    assert result.failed_tasks == expected_failed, (
+    failed = set(result.errored) | set(result.skipped)
+    passed = set(result.successes)
+
+    assert failed == expected_failed, (
         f"{tag} failed set mismatch: "
-        f"missing={expected_failed - result.failed_tasks}, "
-        f"extra={result.failed_tasks - expected_failed}"
+        f"missing={expected_failed - failed}, "
+        f"extra={failed - expected_failed}"
     )
-    assert set(result.passed_tasks_results) == expected_passed, (
+    assert passed == expected_passed, (
         f"{tag} passed set mismatch: "
-        f"missing={expected_passed - set(result.passed_tasks_results)}, "
-        f"extra={set(result.passed_tasks_results) - expected_passed}"
+        f"missing={expected_passed - passed}, "
+        f"extra={passed - expected_passed}"
     )
-    assert not (result.failed_tasks & set(result.passed_tasks_results)), (
-        f"{tag} a task appears in both passed and failed sets"
-    )
-    assert len(result.failed_tasks) + len(result.passed_tasks_results) == len(tasks), (
+    assert not (failed & passed), f"{tag} a task appears in both passed and failed sets"
+    assert len(failed) + len(passed) == len(tasks), (
         f"{tag} task accounting drifted: "
-        f"{len(result.failed_tasks)} failed + "
-        f"{len(result.passed_tasks_results)} passed != {len(tasks)} total"
+        f"{len(failed)} failed + {len(passed)} passed != {len(tasks)} total"
     )
 
 

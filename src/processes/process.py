@@ -3,44 +3,12 @@ from collections import deque
 from types import TracebackType
 from typing import Literal, Self
 
+from ._error_data import ErrorData
 from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
-from .task import Task, TaskResult
+from .execution_report import ProcessExecutionReport
+from .task import Task, TaskResult, TaskStatus
 
 __all__ = ["CircularDependencyError", "DependencyNotFoundError", "TaskNotFoundError"]
-
-
-class ProcessResult:
-    """
-    Container for the results of a process execution.
-
-    Holds the outcomes of all tasks executed in a process, separating successful
-    and failed tasks with their respective results.
-
-    Attributes
-    ----------
-    passed_tasks_results : dict[str, TaskResult]
-        Mapping of task names to TaskResult objects for all tasks that executed successfully.
-    failed_tasks : set[str]
-        All tasks that did not produce a result — union of ``errored_tasks`` and
-        ``skipped_tasks``.
-    skipped_tasks : set[str]
-        Subset of ``failed_tasks``: tasks that were never run because an upstream
-        dependency failed (cascade-skipped).
-    errored_tasks : set[str]
-        Subset of ``failed_tasks``: tasks whose function actually raised an exception
-        (``failed_tasks - skipped_tasks``).
-    """
-
-    def __init__(
-        self,
-        passed_tasks_results: dict[str, TaskResult],
-        failed_tasks: set[str],
-        skipped_tasks: set[str],
-    ):
-        self.passed_tasks_results = passed_tasks_results
-        self.failed_tasks = failed_tasks
-        self.skipped_tasks = skipped_tasks
-        self.errored_tasks: set[str] = failed_tasks - skipped_tasks
 
 
 class Process:
@@ -211,7 +179,7 @@ class Process:
         except KeyError as err:
             raise TaskNotFoundError(task_name) from err
 
-    def run(self, parallel: bool | None = None, max_workers: int = 4) -> ProcessResult:
+    def run(self, parallel: bool | None = None, max_workers: int = 4) -> ProcessExecutionReport:
         """Execute all tasks in the process.
 
         Runs tasks sequentially or in parallel while respecting dependencies.
@@ -230,9 +198,8 @@ class Process:
 
         Returns
         -------
-        ProcessResult
-            Contains passed_tasks_results (dict mapping task names to TaskResult)
-            and failed_tasks (set of task names that failed).
+        ProcessExecutionReport
+            Per-task breakdown of the run, in topological order.
         """
         if parallel is None:
             parallel = len(self.tasks) >= 10
@@ -241,8 +208,7 @@ class Process:
         if parallel:
             if max_workers == 1:
                 parallel = False  # Fallback to sequential if only one worker
-        process_result = self.runner.run(parallel, max_workers)
-        return process_result
+        return self.runner.run(parallel, max_workers)
 
     def get_dependant_tasks(self, task_name: str) -> list[Task]:
         """Retrieve all tasks that directly or indirectly depend on a given task.
@@ -287,42 +253,38 @@ class ProcessRunner:
     """
     Executes tasks in a Process, handling both sequential and parallel execution.
 
-    Manages task execution state, tracks passed and failed tasks, and coordinates
-    dependencies during execution.
+    Manages task execution state and coordinates dependencies during execution.
 
     Attributes
     ----------
     process : Process
         Reference to the parent Process being executed.
-    passed_results : dict[str, TaskResult]
-        Results from successfully executed tasks.
-    failed_tasks : set[str]
-        Names of tasks that failed during execution.
-    skipped_tasks : set[str]
-        Names of tasks that were never run because an upstream dependency failed.
+    results : dict[str, TaskResult]
+        One entry per task, keyed by task name. Every task starts out
+        ``PENDING`` and transitions to ``SUCCESS``, ``ERRORED``, or
+        ``SKIPPED`` once it is resolved.
     submitted_tasks : set[str]
         Names of tasks that have been submitted for execution.
     """
 
     def __init__(self, process_ref: Process):
         self.process = process_ref
-        self.passed_results: dict[str, TaskResult] = {}
-        self.failed_tasks: set[str] = set()
-        self.skipped_tasks: set[str] = set()
+        self.results: dict[str, TaskResult] = {
+            task.name: TaskResult.pending() for task in process_ref.tasks
+        }
         self.submitted_tasks: set[str] = set()
 
     def _is_done(self) -> bool:
-        """Check whether every task has either passed or failed.
+        """Check whether every task has been resolved.
 
         Returns
         -------
         bool
-            True if every task has a recorded result (passed or failed),
-            False otherwise.
+            True if no task is still ``PENDING``, False otherwise.
         """
-        return len(self.passed_results) + len(self.failed_tasks) >= len(self.process.tasks)
+        return all(res.status != TaskStatus.PENDING for res in self.results.values())
 
-    def run(self, parallel: bool, max_workers: int) -> ProcessResult:
+    def run(self, parallel: bool, max_workers: int) -> ProcessExecutionReport:
         """Execute all tasks in the process using the specified execution mode.
 
         Parameters
@@ -334,17 +296,20 @@ class ProcessRunner:
 
         Returns
         -------
-        ProcessResult
-            The combined results of all task executions.
+        ProcessExecutionReport
+            Per-task breakdown of the run, in topological order.
         """
         if parallel:
             self._run_parallel(max_workers)
         else:
             self._run_sequential()
-        return ProcessResult(self.passed_results, self.failed_tasks, self.skipped_tasks)
+        return ProcessExecutionReport.from_results(self.process, self.results)
 
-    def _is_unrunnable(self, task: Task) -> bool:
-        """Check if a task cannot be run due to failed dependencies.
+    def _has_failed_dep(self, task: Task) -> bool:
+        """Return whether any dependency errored or was skipped.
+
+        Pure query with no side effects: it does not record the task as
+        ``SKIPPED``. Callers decide when to mark the cascade-skip.
 
         Parameters
         ----------
@@ -354,15 +319,13 @@ class ProcessRunner:
         Returns
         -------
         bool
-            True if any of the task's dependencies have failed, False otherwise.
-            If True, the task is recorded in both ``failed_tasks`` and
-            ``skipped_tasks`` (cascade-skip).
+            True if any of the task's dependencies errored or were skipped,
+            False otherwise.
         """
-        if any(d.task_name in self.failed_tasks for d in task.dependencies):
-            self.failed_tasks.add(task.name)
-            self.skipped_tasks.add(task.name)
-            return True
-        return False
+        return any(
+            self.results[d.task_name].status in (TaskStatus.ERRORED, TaskStatus.SKIPPED)
+            for d in task.dependencies
+        )
 
     def _all_deps_met(self, task: Task) -> bool:
         """Check if all dependencies of a task have been successfully executed.
@@ -375,21 +338,18 @@ class ProcessRunner:
         Returns
         -------
         bool
-            True if all dependencies have passed, False otherwise.
+            True if all dependencies succeeded, False otherwise.
         """
-        return all(d.task_name in self.passed_results for d in task.dependencies)
+        return all(self.results[d.task_name].worked for d in task.dependencies)
 
     def _run_sequential(self) -> None:
         """Execute all tasks sequentially in dependency order."""
         for task in self.process.tasks:
-            if self._is_unrunnable(task):
+            if self._has_failed_dep(task):
+                self.results[task.name] = TaskResult.skipped()
                 continue
             if self._all_deps_met(task):
-                res = task.run(self.process)
-                if res.worked:
-                    self.passed_results[task.name] = res
-                else:
-                    self.failed_tasks.add(task.name)
+                self.results[task.name] = task.run(self.process)
 
     def _run_parallel(self, max_workers: int) -> None:
         """Execute tasks in parallel using a thread pool while respecting dependencies.
@@ -407,13 +367,21 @@ class ProcessRunner:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             fut_to_name = {}
             while not self._is_done():
-                # Look for candidates to execute now
+                # Record cascade-skips first (a dependency errored or was
+                # skipped), then look for candidates whose deps all succeeded.
+                for t in self.process.tasks:
+                    if (
+                        t.name not in self.submitted_tasks
+                        and self.results[t.name].status == TaskStatus.PENDING
+                        and self._has_failed_dep(t)
+                    ):
+                        self.results[t.name] = TaskResult.skipped()
+
                 candidates = [
                     t
                     for t in self.process.tasks
                     if t.name not in self.submitted_tasks
-                    and t.name not in self.failed_tasks
-                    and not self._is_unrunnable(t)
+                    and self.results[t.name].status == TaskStatus.PENDING
                     and self._all_deps_met(t)
                 ]
 
@@ -424,7 +392,7 @@ class ProcessRunner:
                     self.submitted_tasks.add(task.name)
 
                 # If there are tasks pending, wait. As soon one is completed,
-                # save as passed or failed and remove from futures.
+                # save its result and remove from futures.
                 if fut_to_name:
                     done, _ = concurrent.futures.wait(
                         fut_to_name.keys(), return_when="FIRST_COMPLETED"
@@ -432,17 +400,15 @@ class ProcessRunner:
                     for fut in done:
                         name = fut_to_name.pop(fut)
                         try:
-                            res = fut.result()
-                            if res.worked:
-                                self.passed_results[name] = res
-                            else:
-                                self.failed_tasks.add(name)
-                        except Exception:
-                            self.failed_tasks.add(name)
+                            self.results[name] = fut.result()
+                        except Exception as e:
+                            self.results[name] = TaskResult.errored(
+                                e, error_data=ErrorData(task_name=name, exception=str(e))
+                            )
                 else:
                     # No running tasks and no new candidates. The
                     # ``_is_unrunnable`` side effect above may have
-                    # marked the remaining tasks as failed, completing
+                    # marked the remaining tasks as skipped, completing
                     # the DAG. Re-check the loop condition before
                     # declaring a stall.
                     if not self._is_done():

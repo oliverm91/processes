@@ -224,20 +224,21 @@ def _run_one_combo(
         return False, 2
 
     print("passed:")
-    for name in sorted(result.passed_tasks_results):
+    for name in sorted(result.successes):
         print(f"  + {name}")
     print("failed (includes cascading-skipped):")
-    for name in sorted(result.failed_tasks):
+    failed = set(result.errored) | set(result.skipped)
+    for name in sorted(failed):
         print(f"  - {name}")
 
     # Strict post-conditions: downstream tasks were never invoked.
     ok = (
-        "risky_step" in result.failed_tasks
-        and "child_a" in result.failed_tasks
-        and "child_b" in result.failed_tasks
-        and "risky_step" not in result.passed_tasks_results
-        and "child_a" not in result.passed_tasks_results
-        and "child_b" not in result.passed_tasks_results
+        "risky_step" in failed
+        and "child_a" in failed
+        and "child_b" in failed
+        and "risky_step" not in result.successes
+        and "child_a" not in result.successes
+        and "child_b" not in result.successes
     )
     if not ok:
         print(

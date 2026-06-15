@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import concurrent.futures
+import time
 from collections.abc import Callable
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -9,32 +11,123 @@ if TYPE_CHECKING:
 
 import logging
 
+from ._error_data import ErrorData
 from ._tb_utils import _build_traced_vars, _build_traced_vars_location, _format_traceback
 from .exceptions import CircularDependencyError
 from .notification_channels import NotificationChannel, _FileChannel
+
+
+class TaskStatus(Enum):
+    """Outcome of a task within a process execution.
+
+    Attributes
+    ----------
+    PENDING
+        The task has not been executed yet.
+    SUCCESS
+        The task ran and its function returned without raising.
+    ERRORED
+        The task ran and its function raised an exception (after exhausting
+        retries, if any).
+    SKIPPED
+        The task never ran because an upstream dependency failed.
+    """
+
+    PENDING = "pending"
+    SUCCESS = "success"
+    ERRORED = "errored"
+    SKIPPED = "skipped"
 
 
 class TaskResult:
     """
     Container for the result of a task execution.
 
-    Holds the outcome of running a task, including whether it succeeded,
-    its return value, and any exception that occurred.
+    Holds the outcome of running a task, including its status, return value,
+    and any exception that occurred.
 
     Attributes
     ----------
+    status : TaskStatus
+        Outcome of the task: ``PENDING``, ``SUCCESS``, ``ERRORED``, or ``SKIPPED``.
     worked : bool
-        True if the task executed successfully, False if an exception occurred.
+        True if ``status`` is ``SUCCESS``, False otherwise.
     result : Any
         The return value of the task's function if execution succeeded, None if failed.
     exception : Exception | None
         The exception object if execution failed, None if successful.
+    error_data : ErrorData | None
+        Structured failure context (function, args, kwargs, traceback, traced
+        variables, downstream impact) when execution failed; None if the task
+        succeeded.
+    elapsed_seconds : float
+        Wall-clock time spent running the task across all attempts, in
+        seconds. Defaults to ``0.0``.
+    attempts : int
+        Number of attempts actually executed (1 or more if the task ran,
+        0 if it never ran). Defaults to ``0``.
     """
 
-    def __init__(self, worked: bool, result: Any, exception: Exception | None):
-        self.worked = worked
+    def __init__(
+        self,
+        status: TaskStatus,
+        result: Any,
+        exception: Exception | None,
+        error_data: ErrorData | None = None,
+        elapsed_seconds: float = 0.0,
+        attempts: int = 0,
+    ):
+        self.status = status
         self.result = result
         self.exception = exception
+        self.error_data = error_data
+        self.elapsed_seconds = elapsed_seconds
+        self.attempts = attempts
+
+    @property
+    def worked(self) -> bool:
+        """True if the task executed successfully, False otherwise."""
+        return self.status == TaskStatus.SUCCESS
+
+    @classmethod
+    def pending(cls) -> TaskResult:
+        """Build the placeholder result for a task that has not run yet."""
+        return cls(TaskStatus.PENDING, None, None)
+
+    @classmethod
+    def skipped(cls) -> TaskResult:
+        """Build the result for a task skipped after an upstream dependency failed."""
+        return cls(TaskStatus.SKIPPED, None, None)
+
+    @classmethod
+    def success(cls, result: Any, *, elapsed_seconds: float = 0.0, attempts: int = 0) -> TaskResult:
+        """Build the result for a task whose function returned without raising."""
+        return cls(
+            TaskStatus.SUCCESS,
+            result,
+            None,
+            elapsed_seconds=elapsed_seconds,
+            attempts=attempts,
+        )
+
+    @classmethod
+    def errored(
+        cls,
+        exception: Exception,
+        *,
+        error_data: ErrorData | None = None,
+        elapsed_seconds: float = 0.0,
+        attempts: int = 0,
+    ) -> TaskResult:
+        """Build the result for a task whose function raised after exhausting retries."""
+        return cls(
+            TaskStatus.ERRORED,
+            None,
+            exception,
+            error_data=error_data,
+            elapsed_seconds=elapsed_seconds,
+            attempts=attempts,
+        )
 
 
 class TaskDependency:
@@ -352,7 +445,7 @@ class Task:
         final_kwargs = self.kwargs.copy()
         if executing_process is not None:
             for dep in self.dependencies:
-                dep_result = executing_process.runner.passed_results[dep.task_name].result
+                dep_result = executing_process.runner.results[dep.task_name].result
                 if dep.use_result_as_additional_args:
                     final_args.append(dep_result)
                 if dep.use_result_as_additional_kwargs:
@@ -381,8 +474,29 @@ class Task:
             "traced_vars_location": _build_traced_vars_location(exc_tb, self._frame_filter),
         }
 
+    def _errored_result(
+        self,
+        exc: Exception,
+        executing_process: Process | None,
+        elapsed_seconds: float,
+        attempts: int,
+    ) -> TaskResult:
+        """Log ``exc`` through this task's handlers and wrap it in a TaskResult."""
+        task_context = self._build_failure_context(exc, executing_process)
+        self.logger.error(str(exc), exc_info=exc, extra={"task_context": task_context})
+        return TaskResult.errored(
+            exc,
+            error_data=ErrorData(**task_context),
+            elapsed_seconds=elapsed_seconds,
+            attempts=attempts,
+        )
+
     def run(self, executing_process: Process | None = None) -> TaskResult:
         """Execute the task, retrying on transient failures up to ``retries`` times.
+
+        Never propagates: a failure while resolving dependency arguments (before
+        any attempt runs) is captured and returned as an ``ERRORED`` result with
+        ``attempts=0``, just like a failure inside the task's function.
 
         Parameters
         ----------
@@ -396,21 +510,27 @@ class Task:
             ``worked=True`` with the return value on success; ``worked=False``
             with the last exception on failure.
         """
-        final_args, final_kwargs = self._resolve_args(executing_process)
-
         max_attempts = self.retries + 1
         effective_retry_on = (
             self.retry_on if self.retry_on is not None else (ConnectionError, TimeoutError)
         )
 
         self.logger.info(f"Starting {self.name}.")
-        last_exc: Exception | None = None
+        start = time.monotonic()
 
+        try:
+            final_args, final_kwargs = self._resolve_args(executing_process)
+        except Exception as e:
+            return self._errored_result(e, executing_process, time.monotonic() - start, attempts=0)
+
+        last_exc: Exception | None = None
         for attempt in range(1, max_attempts + 1):
             try:
                 result = self._call_with_timeout(final_args, final_kwargs)
                 self.logger.info(f"Finished {self.name}.")
-                return TaskResult(True, result, None)
+                return TaskResult.success(
+                    result, elapsed_seconds=time.monotonic() - start, attempts=attempt
+                )
             except Exception as e:
                 last_exc = e
                 retryable = self.retries >= 1 and attempt < max_attempts
@@ -422,6 +542,6 @@ class Task:
                 break
 
         assert last_exc is not None
-        task_context = self._build_failure_context(last_exc, executing_process)
-        self.logger.error(str(last_exc), exc_info=last_exc, extra={"task_context": task_context})
-        return TaskResult(False, None, last_exc)
+        return self._errored_result(
+            last_exc, executing_process, time.monotonic() - start, attempts=attempt
+        )
