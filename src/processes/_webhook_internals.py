@@ -7,7 +7,7 @@ import logging
 import urllib.request
 from typing import Any
 
-from ._error_data import _ErrorContextFormatter, _ErrorData
+from ._error_data import ErrorData, _ErrorContextFormatter
 from .webhook_config import WebhookConfig
 
 _SIGNATURE_HEADER = "X-Signature-SHA256"
@@ -46,8 +46,8 @@ class _WebhookFormatter(_ErrorContextFormatter):
         payload = {**generic_payload, **self._extra_payload}
         return json.dumps(payload)
 
-    def _build_payload(self, error: _ErrorData) -> dict[str, Any]:
-        """Build the JSON-serializable payload dict from ``_ErrorData``.
+    def _build_payload(self, error: ErrorData) -> dict[str, Any]:
+        """Build the JSON-serializable payload dict from ``ErrorData``.
 
         Subclasses targeting a specific webhook service can override this
         to reshape the payload, while reusing ``format`` and the rest of
@@ -55,7 +55,7 @@ class _WebhookFormatter(_ErrorContextFormatter):
 
         Parameters
         ----------
-        error : _ErrorData
+        error : ErrorData
             Typed failure context for the record being formatted.
 
         Returns

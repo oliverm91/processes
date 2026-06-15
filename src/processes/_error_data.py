@@ -6,7 +6,7 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class _ErrorData:
+class ErrorData:
     """Typed view of a task failure, extracted from ``record.task_context``.
 
     Attributes
@@ -46,7 +46,7 @@ class _ErrorData:
 class _ErrorContextFormatter(logging.Formatter):
     """Base formatter providing typed access to a record's failure context."""
 
-    def _error_data(self, record: logging.LogRecord) -> _ErrorData:
+    def _error_data(self, record: logging.LogRecord) -> ErrorData:
         """Extract the failure context from a log record.
 
         Parameters
@@ -57,12 +57,12 @@ class _ErrorContextFormatter(logging.Formatter):
 
         Returns
         -------
-        _ErrorData
+        ErrorData
             Typed view of ``record.task_context``, with defaults filled in
             for any missing fields.
         """
         ctx = getattr(record, "task_context", None) or {}
-        return _ErrorData(
+        return ErrorData(
             task_name=str(ctx.get("task_name", "?")),
             function=str(ctx.get("function", "?")),
             args=ctx.get("args", ()),

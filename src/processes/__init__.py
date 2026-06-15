@@ -1,6 +1,7 @@
 from importlib.metadata import PackageNotFoundError as _pnfe
 from importlib.metadata import version as _v
 
+from ._error_data import ErrorData as ErrorData
 from .email_config import HTMLEmailStyle as HTMLEmailStyle
 from .email_config import SMTPConfig as SMTPConfig
 from .exceptions import (

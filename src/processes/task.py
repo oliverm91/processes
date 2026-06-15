@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -9,6 +10,7 @@ if TYPE_CHECKING:
 
 import logging
 
+from ._error_data import ErrorData
 from ._tb_utils import _build_traced_vars, _build_traced_vars_location, _format_traceback
 from .exceptions import CircularDependencyError
 from .notification_channels import NotificationChannel, _FileChannel
@@ -29,12 +31,33 @@ class TaskResult:
         The return value of the task's function if execution succeeded, None if failed.
     exception : Exception | None
         The exception object if execution failed, None if successful.
+    error_data : ErrorData | None
+        Structured failure context (function, args, kwargs, traceback, traced
+        variables, downstream impact) when execution failed; None if the task
+        succeeded.
+    elapsed_seconds : float
+        Wall-clock time spent running the task across all attempts, in
+        seconds. Defaults to ``0.0``.
+    attempts : int
+        Number of attempts actually executed (1 or more if the task ran,
+        0 if it never ran). Defaults to ``0``.
     """
 
-    def __init__(self, worked: bool, result: Any, exception: Exception | None):
+    def __init__(
+        self,
+        worked: bool,
+        result: Any,
+        exception: Exception | None,
+        error_data: ErrorData | None = None,
+        elapsed_seconds: float = 0.0,
+        attempts: int = 0,
+    ):
         self.worked = worked
         self.result = result
         self.exception = exception
+        self.error_data = error_data
+        self.elapsed_seconds = elapsed_seconds
+        self.attempts = attempts
 
 
 class TaskDependency:
@@ -405,12 +428,14 @@ class Task:
 
         self.logger.info(f"Starting {self.name}.")
         last_exc: Exception | None = None
+        start = time.monotonic()
 
         for attempt in range(1, max_attempts + 1):
             try:
                 result = self._call_with_timeout(final_args, final_kwargs)
                 self.logger.info(f"Finished {self.name}.")
-                return TaskResult(True, result, None)
+                elapsed = time.monotonic() - start
+                return TaskResult(True, result, None, elapsed_seconds=elapsed, attempts=attempt)
             except Exception as e:
                 last_exc = e
                 retryable = self.retries >= 1 and attempt < max_attempts
@@ -422,6 +447,14 @@ class Task:
                 break
 
         assert last_exc is not None
+        elapsed = time.monotonic() - start
         task_context = self._build_failure_context(last_exc, executing_process)
         self.logger.error(str(last_exc), exc_info=last_exc, extra={"task_context": task_context})
-        return TaskResult(False, None, last_exc)
+        return TaskResult(
+            False,
+            None,
+            last_exc,
+            error_data=ErrorData(**task_context),
+            elapsed_seconds=elapsed,
+            attempts=attempt,
+        )
