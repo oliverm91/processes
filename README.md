@@ -277,11 +277,64 @@ process.run(parallel: bool | None = None, max_workers: int = 4) -> ProcessResult
 ```python
 result.passed_tasks_results  # dict[str, TaskResult] — name → TaskResult for every task that succeeded
 result.failed_tasks          # set[str] — all tasks that did not produce a result (errored + skipped)
+result.failed_tasks_results  # dict[str, TaskResult] — name → TaskResult for every task that errored
 result.errored_tasks         # set[str] — tasks whose function actually raised
 result.skipped_tasks         # set[str] — tasks skipped because an upstream dependency failed
 
-TaskResult(worked: bool, result: Any, exception: Exception | None)
+TaskResult(
+    worked: bool,
+    result: Any,
+    exception: Exception | None,
+    error_data: ErrorData | None = None,
+    elapsed_seconds: float = 0.0,  # wall-clock time across all attempts
+    attempts: int = 0,             # attempts actually executed (0 if never run)
+)
 ```
+
+### `ProcessExecutionReport`
+
+```python
+ProcessExecutionReport.from_result(process: Process, result: ProcessResult) -> ProcessExecutionReport
+
+report.entries    # dict[str, TaskReportEntry] — one entry per task, in topological order
+report.successes  # dict[str, TaskReportEntry] — entries with status == TaskStatus.SUCCESS
+report.errored    # dict[str, TaskReportEntry] — entries with status == TaskStatus.ERRORED
+report.skipped    # dict[str, TaskReportEntry] — entries with status == TaskStatus.SKIPPED
+```
+
+A `TaskReportEntry` carries `name`, `function`, `args`, `kwargs`, `status`
+(`TaskStatus.SUCCESS | ERRORED | SKIPPED`), `elapsed_seconds`, `attempts`,
+plus `result` (set when `SUCCESS`) and `error: ErrorData | None` (set when
+`ERRORED`).
+
+```python
+with Process([load_task, apply_task, notify_task]) as process:
+    result = process.run()
+
+report = ProcessExecutionReport.from_result(process, result)
+for name, entry in report.entries.items():
+    if entry.status is TaskStatus.ERRORED:
+        print(f"{name} failed after {entry.attempts} attempt(s): {entry.error.exception}")
+```
+
+### `ErrorData`
+
+```python
+ErrorData(
+    task_name: str,
+    function: str,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    downstream_impact: list[str],
+    exception: str,
+    traceback_str: str,
+    traced_vars: dict[str, str],
+    traced_vars_location: str,
+)
+```
+
+Structured failure context for a single task, available via
+`TaskResult.error_data` and `TaskReportEntry.error`.
 
 ### `SMTPConfig`
 
