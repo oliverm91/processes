@@ -15,7 +15,6 @@ from .exceptions import (
 )
 from .execution_report import ProcessExecutionReport as ProcessExecutionReport
 from .execution_report import TaskReportEntry as TaskReportEntry
-from .execution_report import TaskStatus as TaskStatus
 from .notification_channels import EmailChannel as EmailChannel
 from .notification_channels import NotificationChannel as NotificationChannel
 from .notification_channels import WebhookChannel as WebhookChannel
@@ -23,6 +22,7 @@ from .process import Process as Process
 from .task import Task as Task
 from .task import TaskDependency as TaskDependency
 from .task import TaskResult as TaskResult
+from .task import TaskStatus as TaskStatus
 from .webhook_config import WebhookConfig as WebhookConfig
 
 try:

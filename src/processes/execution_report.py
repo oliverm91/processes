@@ -1,32 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from ._error_data import ErrorData
+from .task import TaskStatus
 
 if TYPE_CHECKING:
     from .process import Process, ProcessResult
-
-
-class TaskStatus(Enum):
-    """Outcome of a task within a process execution.
-
-    Attributes
-    ----------
-    SUCCESS
-        The task ran and its function returned without raising.
-    ERRORED
-        The task ran and its function raised an exception (after exhausting
-        retries, if any).
-    SKIPPED
-        The task never ran because an upstream dependency failed.
-    """
-
-    SUCCESS = "success"
-    ERRORED = "errored"
-    SKIPPED = "skipped"
 
 
 @dataclass(frozen=True)

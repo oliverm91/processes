@@ -5,7 +5,7 @@ from typing import Literal, Self
 
 from ._error_data import ErrorData
 from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
-from .task import Task, TaskResult
+from .task import Task, TaskResult, TaskStatus
 
 __all__ = ["CircularDependencyError", "DependencyNotFoundError", "TaskNotFoundError"]
 
@@ -454,7 +454,7 @@ class ProcessRunner:
                         except Exception as e:
                             self.failed_tasks.add(name)
                             self.failed_results[name] = TaskResult(
-                                False,
+                                TaskStatus.ERRORED,
                                 None,
                                 e,
                                 error_data=ErrorData(task_name=name, exception=str(e)),

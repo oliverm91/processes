@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import time
 from collections.abc import Callable
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -16,17 +17,41 @@ from .exceptions import CircularDependencyError
 from .notification_channels import NotificationChannel, _FileChannel
 
 
+class TaskStatus(Enum):
+    """Outcome of a task within a process execution.
+
+    Attributes
+    ----------
+    PENDING
+        The task has not been executed yet.
+    SUCCESS
+        The task ran and its function returned without raising.
+    ERRORED
+        The task ran and its function raised an exception (after exhausting
+        retries, if any).
+    SKIPPED
+        The task never ran because an upstream dependency failed.
+    """
+
+    PENDING = "pending"
+    SUCCESS = "success"
+    ERRORED = "errored"
+    SKIPPED = "skipped"
+
+
 class TaskResult:
     """
     Container for the result of a task execution.
 
-    Holds the outcome of running a task, including whether it succeeded,
-    its return value, and any exception that occurred.
+    Holds the outcome of running a task, including its status, return value,
+    and any exception that occurred.
 
     Attributes
     ----------
+    status : TaskStatus
+        Outcome of the task: ``PENDING``, ``SUCCESS``, ``ERRORED``, or ``SKIPPED``.
     worked : bool
-        True if the task executed successfully, False if an exception occurred.
+        True if ``status`` is ``SUCCESS``, False otherwise.
     result : Any
         The return value of the task's function if execution succeeded, None if failed.
     exception : Exception | None
@@ -45,19 +70,24 @@ class TaskResult:
 
     def __init__(
         self,
-        worked: bool,
+        status: TaskStatus,
         result: Any,
         exception: Exception | None,
         error_data: ErrorData | None = None,
         elapsed_seconds: float = 0.0,
         attempts: int = 0,
     ):
-        self.worked = worked
+        self.status = status
         self.result = result
         self.exception = exception
         self.error_data = error_data
         self.elapsed_seconds = elapsed_seconds
         self.attempts = attempts
+
+    @property
+    def worked(self) -> bool:
+        """True if the task executed successfully, False otherwise."""
+        return self.status == TaskStatus.SUCCESS
 
 
 class TaskDependency:
@@ -435,7 +465,9 @@ class Task:
                 result = self._call_with_timeout(final_args, final_kwargs)
                 self.logger.info(f"Finished {self.name}.")
                 elapsed = time.monotonic() - start
-                return TaskResult(True, result, None, elapsed_seconds=elapsed, attempts=attempt)
+                return TaskResult(
+                    TaskStatus.SUCCESS, result, None, elapsed_seconds=elapsed, attempts=attempt
+                )
             except Exception as e:
                 last_exc = e
                 retryable = self.retries >= 1 and attempt < max_attempts
@@ -451,7 +483,7 @@ class Task:
         task_context = self._build_failure_context(last_exc, executing_process)
         self.logger.error(str(last_exc), exc_info=last_exc, extra={"task_context": task_context})
         return TaskResult(
-            False,
+            TaskStatus.ERRORED,
             None,
             last_exc,
             error_data=ErrorData(**task_context),
