@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from ._error_data import ErrorData
-from .task import TaskStatus
+from .task import TaskResult, TaskStatus
 
 if TYPE_CHECKING:
-    from .process import Process, ProcessResult
+    from .process import Process
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,9 @@ class ProcessExecutionReport:
         return self._filter(TaskStatus.SKIPPED)
 
     @classmethod
-    def from_result(cls, process: Process, process_result: ProcessResult) -> ProcessExecutionReport:
+    def from_results(
+        cls, process: Process, results: dict[str, TaskResult]
+    ) -> ProcessExecutionReport:
         """Build a report from a finished process run.
 
         Parameters
@@ -88,8 +90,9 @@ class ProcessExecutionReport:
         process : Process
             The process that was run. Used for task definitions (name,
             function, args, kwargs) and topological ordering.
-        process_result : ProcessResult
-            The result returned by :meth:`Process.run`.
+        results : dict[str, TaskResult]
+            One ``TaskResult`` per task, keyed by task name, as produced by
+            :class:`~processes.process.ProcessRunner`.
 
         Returns
         -------
@@ -98,38 +101,16 @@ class ProcessExecutionReport:
         """
         entries: dict[str, TaskReportEntry] = {}
         for task in process.tasks:
-            if task.name in process_result.skipped_tasks:
-                entries[task.name] = TaskReportEntry(
-                    name=task.name,
-                    function=task.func.__name__,
-                    args=task.args,
-                    kwargs=task.kwargs,
-                    status=TaskStatus.SKIPPED,
-                    elapsed_seconds=0.0,
-                    attempts=0,
-                )
-            elif task.name in process_result.passed_tasks_results:
-                passed = process_result.passed_tasks_results[task.name]
-                entries[task.name] = TaskReportEntry(
-                    name=task.name,
-                    function=task.func.__name__,
-                    args=task.args,
-                    kwargs=task.kwargs,
-                    status=TaskStatus.SUCCESS,
-                    elapsed_seconds=passed.elapsed_seconds,
-                    attempts=passed.attempts,
-                    result=passed.result,
-                )
-            else:
-                failed = process_result.failed_tasks_results[task.name]
-                entries[task.name] = TaskReportEntry(
-                    name=task.name,
-                    function=task.func.__name__,
-                    args=task.args,
-                    kwargs=task.kwargs,
-                    status=TaskStatus.ERRORED,
-                    elapsed_seconds=failed.elapsed_seconds,
-                    attempts=failed.attempts,
-                    error=failed.error_data,
-                )
+            res = results[task.name]
+            entries[task.name] = TaskReportEntry(
+                name=task.name,
+                function=task.func.__name__,
+                args=task.args,
+                kwargs=task.kwargs,
+                status=res.status,
+                elapsed_seconds=res.elapsed_seconds,
+                attempts=res.attempts,
+                result=res.result if res.status == TaskStatus.SUCCESS else None,
+                error=res.error_data if res.status == TaskStatus.ERRORED else None,
+            )
         return cls(entries)

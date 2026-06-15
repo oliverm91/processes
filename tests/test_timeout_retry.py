@@ -56,13 +56,10 @@ class TestTimeout(BaseTest):
 
         task = Task("t_seq", slow, self._log("seq.log"), timeout=0.05)
         with Process([task]) as process:
-            pr = process.run(parallel=False)
+            report = process.run(parallel=False)
 
-        assert "t_seq" in pr.failed_tasks
-        assert "t_seq" in pr.errored_tasks
-        assert isinstance(
-            pr.passed_tasks_results.get("t_seq", None) or pr.failed_tasks, set
-        )  # task did not pass
+        assert "t_seq" in report.errored
+        assert "t_seq" not in report.successes
 
     def test_timeout_in_parallel_process(self) -> None:
         """Timeout propagates through Process.run(parallel=True)."""
@@ -73,10 +70,10 @@ class TestTimeout(BaseTest):
 
         task = Task("t_par", slow, self._log("par.log"), timeout=0.05)
         with Process([task]) as process:
-            pr = process.run(parallel=True)
+            report = process.run(parallel=True)
 
-        assert "t_par" in pr.failed_tasks
-        assert "t_par" in pr.errored_tasks
+        assert "t_par" in report.errored
+        assert "t_par" not in report.successes
 
     def test_timeout_cascades_to_dependants(self) -> None:
         """A timed-out task causes its dependants to be cascade-skipped."""
@@ -96,11 +93,11 @@ class TestTimeout(BaseTest):
             dependencies=[TaskDependency("root", use_result_as_additional_args=True)],
         )
         with Process([t_root, t_child]) as process:
-            pr = process.run(parallel=False)
+            report = process.run(parallel=False)
 
-        assert "root" in pr.errored_tasks
-        assert "child" in pr.skipped_tasks
-        assert "child" not in pr.passed_tasks_results
+        assert "root" in report.errored
+        assert "child" in report.skipped
+        assert "child" not in report.successes
 
     # --- validation ---
 
@@ -267,10 +264,10 @@ class TestRetry(BaseTest):
 
         task = Task("proc_retry", flaky, self._log("pr.log"), retries=1)
         with Process([task]) as process:
-            pr = process.run(parallel=False)
+            report = process.run(parallel=False)
 
-        assert "proc_retry" in pr.passed_tasks_results
-        assert pr.passed_tasks_results["proc_retry"].result == "ok"
+        assert "proc_retry" in report.successes
+        assert report.successes["proc_retry"].result == "ok"
         assert len(calls) == 2
 
     # --- validation ---

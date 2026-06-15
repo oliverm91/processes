@@ -72,12 +72,13 @@ class TestArgsKwargs(BaseTest):
             dependencies=[TaskDependency("task_1", use_result_as_additional_args=True)],
         )
         with Process([t1, t2]) as process:
-            process_result = process.run()
+            report = process.run()
 
-        assert len(process_result.failed_tasks) == 0
-        assert len(process_result.passed_tasks_results) == 2
-        assert process_result.passed_tasks_results["task_1"].result == 2
-        assert process_result.passed_tasks_results["task_2"].result == 5
+        assert len(report.errored) == 0
+        assert len(report.skipped) == 0
+        assert len(report.successes) == 2
+        assert report.successes["task_1"].result == 2
+        assert report.successes["task_2"].result == 5
 
     def test_add_extra_args_kwargs(self) -> None:
         """Test passing extra arguments and keyword arguments to a Task
@@ -116,10 +117,11 @@ class TestArgsKwargs(BaseTest):
             ],
         )
         with Process([t0, t1, t2, t3]) as process:
-            process_result = process.run()
+            report = process.run()
 
-        assert len(process_result.failed_tasks) == 0
-        assert len(process_result.passed_tasks_results) == 4
-        assert process_result.passed_tasks_results["task_1"].result == 10
-        assert process_result.passed_tasks_results["task_2"].result == 5
-        assert process_result.passed_tasks_results["task_3"].result == 4
+        assert len(report.errored) == 0
+        assert len(report.skipped) == 0
+        assert len(report.successes) == 4
+        assert report.successes["task_1"].result == 10
+        assert report.successes["task_2"].result == 5
+        assert report.successes["task_3"].result == 4

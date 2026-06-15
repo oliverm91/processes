@@ -405,7 +405,7 @@ class Task:
         final_kwargs = self.kwargs.copy()
         if executing_process is not None:
             for dep in self.dependencies:
-                dep_result = executing_process.runner.passed_results[dep.task_name].result
+                dep_result = executing_process.runner.results[dep.task_name].result
                 if dep.use_result_as_additional_args:
                     final_args.append(dep_result)
                 if dep.use_result_as_additional_kwargs:

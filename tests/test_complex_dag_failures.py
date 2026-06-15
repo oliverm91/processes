@@ -138,24 +138,21 @@ class TestComplexDagFailures(BaseTest):
             assert call_counts[name] == 1, (
                 f"Independent task {name} did not execute exactly once (got {call_counts[name]})"
             )
-            assert name in result.passed_tasks_results, (
-                f"Independent task {name} missing from passed_results"
-            )
-            assert result.passed_tasks_results[name].worked is True
-            assert result.passed_tasks_results[name].result == f"payload_{name}"
-            assert result.passed_tasks_results[name].exception is None
+            assert name in result.successes, f"Independent task {name} missing from successes"
+            assert result.successes[name].result == f"payload_{name}"
+            assert result.successes[name].error is None
 
-        assert len(result.passed_tasks_results) == len(independent_task_names)
-        assert len(result.failed_tasks) == len(expected_failed)
-        assert result.errored_tasks == failing_task_names, (
-            f"errored_tasks should be exactly the two tasks whose func raised, "
-            f"got {result.errored_tasks}"
+        assert len(result.successes) == len(independent_task_names)
+        assert len(result.errored) + len(result.skipped) == len(expected_failed)
+        assert set(result.errored) == failing_task_names, (
+            f"errored entries should be exactly the two tasks whose func raised, "
+            f"got {set(result.errored)}"
         )
-        assert result.skipped_tasks == skipped_task_names, (
-            f"skipped_tasks should be the three cascade-skipped tasks, got {result.skipped_tasks}"
+        assert set(result.skipped) == skipped_task_names, (
+            f"skipped entries should be the three cascade-skipped tasks, got {set(result.skipped)}"
         )
-        assert result.errored_tasks.isdisjoint(result.skipped_tasks), (
-            "errored_tasks and skipped_tasks must be disjoint"
+        assert set(result.errored).isdisjoint(result.skipped), (
+            "errored and skipped entries must be disjoint"
         )
 
         # OUTCOME #2 — Cascading Skip Control
@@ -167,9 +164,9 @@ class TestComplexDagFailures(BaseTest):
             assert call_counts[name] == 0, (
                 f"Skipped task {name} func was called {call_counts[name]} times — must be 0"
             )
-        assert result.failed_tasks == expected_failed
+        assert set(result.errored) | set(result.skipped) == expected_failed
         for name in skipped_task_names:
-            assert name not in result.passed_tasks_results
+            assert name not in result.successes
 
         # OUTCOME #3 — Data-Driven Logger Payload
         for name in failing_task_names:

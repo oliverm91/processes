@@ -1,4 +1,4 @@
-"""Tests for ``ProcessExecutionReport.from_result``.
+"""Tests for ``ProcessExecutionReport`` as returned by ``Process.run()``.
 
 Covers status classification (success / errored / skipped), the data carried
 by each ``TaskReportEntry`` (result, error, elapsed_seconds, attempts), entry
@@ -11,7 +11,6 @@ from __future__ import annotations
 from processes import (
     ErrorData,
     Process,
-    ProcessExecutionReport,
     Task,
     TaskDependency,
     TaskStatus,
@@ -51,8 +50,7 @@ class TestProcessExecutionReport(BaseTest):
     def test_sequential_report_classifies_each_task(self) -> None:
         process, load_task, apply_task, notify_task = self._build_process()
         with process:
-            result = process.run(parallel=False)
-            report = ProcessExecutionReport.from_result(process, result)
+            report = process.run(parallel=False)
 
         assert list(report.entries) == ["load", "apply", "notify"]
 
@@ -86,8 +84,7 @@ class TestProcessExecutionReport(BaseTest):
     def test_filter_accessors_partition_entries(self) -> None:
         process, load_task, apply_task, notify_task = self._build_process()
         with process:
-            result = process.run(parallel=False)
-            report = ProcessExecutionReport.from_result(process, result)
+            report = process.run(parallel=False)
 
         assert set(report.successes) == {"load"}
         assert set(report.errored) == {"apply"}
@@ -98,8 +95,7 @@ class TestProcessExecutionReport(BaseTest):
     def test_parallel_report_classifies_each_task(self) -> None:
         process, load_task, apply_task, notify_task = self._build_process()
         with process:
-            result = process.run(parallel=True, max_workers=4)
-            report = ProcessExecutionReport.from_result(process, result)
+            report = process.run(parallel=True, max_workers=4)
 
         assert report.entries["load"].status == TaskStatus.SUCCESS
         assert report.entries["apply"].status == TaskStatus.ERRORED
@@ -114,8 +110,7 @@ class TestProcessExecutionReport(BaseTest):
         task = Task("step", step, self._log("report_all_success.log"))
         process = Process([task])
         with process:
-            result = process.run(parallel=False)
-            report = ProcessExecutionReport.from_result(process, result)
+            report = process.run(parallel=False)
 
         assert report.entries["step"].status == TaskStatus.SUCCESS
         assert report.entries["step"].result == 42
