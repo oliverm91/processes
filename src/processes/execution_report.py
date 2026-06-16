@@ -9,9 +9,8 @@ from ._error_data import ErrorData
 from .task import TaskResult, TaskStatus
 
 if TYPE_CHECKING:
-    from .email_config import HTMLEmailStyle, SMTPConfig
+    from .notification_channels import ReportChannel
     from .process import Process
-    from .webhook_config import WebhookConfig
 
 
 def _json_default(obj: Any) -> Any:
@@ -168,63 +167,30 @@ class ProcessExecutionReport:
         dumps_kwargs.pop("default", None)
         return json.dumps(self, default=_json_default, indent=indent, **dumps_kwargs)
 
-    def notify(
-        self,
-        *,
-        email: SMTPConfig | None = None,
-        email_style: HTMLEmailStyle | None = None,
-        webhook: WebhookConfig | None = None,
-    ) -> None:
-        """Send the full execution report via the configured channels.
+    def notify(self, *channels: ReportChannel) -> None:
+        """Deliver the full report through each channel, in order.
 
-        Email delivery will be configurable in presentation (``email_style``)
-        and in the information included; webhook delivery will POST the report
-        as JSON (see :meth:`to_json`). At least one channel must be provided.
-
-        Not implemented yet.
+        Each channel renders and sends the report itself (email, webhook, ...).
+        What detail is included is configured per channel (see ``ReportContent``).
 
         Parameters
         ----------
-        email : SMTPConfig, optional
-            SMTP transport for the email report. ``None`` disables email.
-        email_style : HTMLEmailStyle, optional
-            HTML presentation settings for the email report.
-        webhook : WebhookConfig, optional
-            Webhook transport for the JSON report. ``None`` disables webhook.
-
-        Raises
-        ------
-        NotImplementedError
-            Always, until report notification is implemented.
+        *channels : ReportChannel
+            Channels to deliver the report to. No-op if none are given.
         """
-        raise NotImplementedError("ProcessExecutionReport.notify is not implemented yet.")
+        for channel in channels:
+            channel.send_report(self, errors_only=False)
 
-    def notify_errors(
-        self,
-        *,
-        email: SMTPConfig | None = None,
-        email_style: HTMLEmailStyle | None = None,
-        webhook: WebhookConfig | None = None,
-    ) -> None:
-        """Send only the errored entries of the report via the configured channels.
+    def notify_errors(self, *channels: ReportChannel) -> None:
+        """Deliver only the ``ERRORED`` entries through each channel, in order.
 
-        Same configuration as :meth:`notify`, but the payload is restricted to
-        tasks whose status is ``ERRORED`` (see :attr:`errored`).
-
-        Not implemented yet.
+        Same as :meth:`notify`, but each channel restricts the payload to tasks
+        whose status is ``ERRORED`` (see :attr:`errored`).
 
         Parameters
         ----------
-        email : SMTPConfig, optional
-            SMTP transport for the email report. ``None`` disables email.
-        email_style : HTMLEmailStyle, optional
-            HTML presentation settings for the email report.
-        webhook : WebhookConfig, optional
-            Webhook transport for the JSON report. ``None`` disables webhook.
-
-        Raises
-        ------
-        NotImplementedError
-            Always, until report notification is implemented.
+        *channels : ReportChannel
+            Channels to deliver the errored report to. No-op if none are given.
         """
-        raise NotImplementedError("ProcessExecutionReport.notify_errors is not implemented yet.")
+        for channel in channels:
+            channel.send_report(self, errors_only=True)

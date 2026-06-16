@@ -2,12 +2,60 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from ._email_internals import _build_task_email_handler
 from ._logfile_formatting import _TaskLogfileFormatter
 from ._webhook_internals import _build_task_webhook_handler
 from .email_config import HTMLEmailStyle, SMTPConfig
 from .webhook_config import WebhookConfig
+
+if TYPE_CHECKING:
+    from .execution_report import ProcessExecutionReport
+
+
+@dataclass(frozen=True)
+class ReportContent:
+    """What detail a report notification includes.
+
+    Channel-agnostic content selection, shared by every ``ReportChannel``.
+    Construct once and pass the same instance to several channels for uniform
+    content, or give each channel its own for per-destination verbosity.
+
+    Attributes
+    ----------
+    show_traceback : bool
+        Include each failure's full traceback. Defaults to ``True``.
+    show_traced_vars : bool
+        Include each failure's traced local variables. Defaults to ``True``.
+    """
+
+    show_traceback: bool = True
+    show_traced_vars: bool = True
+
+
+class ReportChannel(ABC):
+    """Base class for channels that deliver a finished ``ProcessExecutionReport``.
+
+    Unlike ``NotificationChannel`` (which builds a streaming ``logging.Handler``
+    for a single ``Task``), a report channel sends a complete report **once**,
+    after the run. ``ProcessExecutionReport.notify`` / ``notify_errors`` iterate
+    the channels they are given and call ``send_report`` on each.
+    """
+
+    @abstractmethod
+    def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
+        """Deliver ``report`` to this channel's destination.
+
+        Parameters
+        ----------
+        report : ProcessExecutionReport
+            The finished report to deliver.
+        errors_only : bool
+            If True, only the ``ERRORED`` entries are sent; otherwise the whole
+            report is sent.
+        """
 
 
 class NotificationChannel(ABC):
@@ -96,8 +144,13 @@ class _FileChannel(NotificationChannel):
         return handler
 
 
-class EmailChannel(NotificationChannel):
-    """Notification channel that sends an HTML email alert on task failure.
+class EmailChannel(NotificationChannel, ReportChannel):
+    """Channel that sends HTML email: a per-task failure alert and/or a report.
+
+    As a ``NotificationChannel`` it builds a streaming handler for a ``Task``
+    (one email per failure). As a ``ReportChannel`` it sends a finished
+    ``ProcessExecutionReport`` once via :meth:`send_report`. The same instance
+    can serve both roles.
 
     Attributes
     ----------
@@ -105,6 +158,9 @@ class EmailChannel(NotificationChannel):
         SMTP transport configuration for the alert.
     style : HTMLEmailStyle
         HTML presentation settings used to render the alert.
+    content : ReportContent
+        Content selection used by :meth:`send_report` (ignored by the per-task
+        handler).
 
     Parameters
     ----------
@@ -113,11 +169,20 @@ class EmailChannel(NotificationChannel):
     style : HTMLEmailStyle | None
         HTML presentation settings used to render the alert. Defaults to
         ``HTMLEmailStyle()`` (modern, neutral, English) when ``None``.
+    content : ReportContent | None
+        Content selection for report delivery. Defaults to ``ReportContent()``
+        (everything) when ``None``.
     """
 
-    def __init__(self, smtp_config: SMTPConfig, style: HTMLEmailStyle | None = None):
+    def __init__(
+        self,
+        smtp_config: SMTPConfig,
+        style: HTMLEmailStyle | None = None,
+        content: ReportContent | None = None,
+    ):
         self.smtp_config = smtp_config
         self.style = style or HTMLEmailStyle()
+        self.content = content or ReportContent()
 
     def build_handler(self, task_name: str) -> logging.Handler:
         """Build an HTML email handler bound to ``task_name``.
@@ -147,29 +212,50 @@ class EmailChannel(NotificationChannel):
         """
         return self.style.traced_vars_frame_filter
 
+    def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
+        """Send the report as an HTML email. Not implemented yet.
 
-class WebhookChannel(NotificationChannel):
-    """Notification channel that POSTs a JSON alert to a webhook URL on task failure.
+        Rendering (a report-shaped HTML body honoring ``style`` and ``content``)
+        and the one-shot SMTP send are deferred.
 
-    The JSON payload is built generically from the task's failure context
-    (function, args/kwargs, exception, traceback, downstream impact, traced
-    variables), so it can be consumed directly or transformed by downstream
-    relays (e.g. Slack/Discord/Teams webhook adapters, custom alerting
-    servers). It is not coupled to any specific service.
+        Raises
+        ------
+        NotImplementedError
+            Always, until report email rendering is implemented.
+        """
+        raise NotImplementedError("EmailChannel.send_report is not implemented yet.")
+
+
+class WebhookChannel(NotificationChannel, ReportChannel):
+    """Channel that POSTs JSON: a per-task failure alert and/or a report.
+
+    As a ``NotificationChannel`` it builds a streaming handler for a ``Task``
+    (one POST per failure). As a ``ReportChannel`` it POSTs a finished
+    ``ProcessExecutionReport`` once via :meth:`send_report`. The payload is
+    generic JSON, so it can be consumed directly or transformed by downstream
+    relays (Slack/Discord/Teams adapters, custom alerting servers); it is not
+    coupled to any specific service.
 
     Attributes
     ----------
     webhook_config : WebhookConfig
         Webhook transport configuration for the alert.
+    content : ReportContent
+        Content selection used by :meth:`send_report` (ignored by the per-task
+        handler).
 
     Parameters
     ----------
     webhook_config : WebhookConfig
         Webhook transport configuration for the alert.
+    content : ReportContent | None
+        Content selection for report delivery. Defaults to ``ReportContent()``
+        (everything) when ``None``.
     """
 
-    def __init__(self, webhook_config: WebhookConfig):
+    def __init__(self, webhook_config: WebhookConfig, content: ReportContent | None = None):
         self.webhook_config = webhook_config
+        self.content = content or ReportContent()
 
     def build_handler(self, task_name: str) -> logging.Handler:
         """Build a JSON webhook handler.
@@ -187,3 +273,16 @@ class WebhookChannel(NotificationChannel):
             describing the failure for each error log record.
         """
         return _build_task_webhook_handler(self.webhook_config)
+
+    def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
+        """POST the report as JSON. Not implemented yet.
+
+        Payload shaping (honoring ``content`` and ``errors_only``) and the
+        one-shot signed POST are deferred.
+
+        Raises
+        ------
+        NotImplementedError
+            Always, until report webhook delivery is implemented.
+        """
+        raise NotImplementedError("WebhookChannel.send_report is not implemented yet.")

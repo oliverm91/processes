@@ -17,6 +17,8 @@ from .execution_report import ProcessExecutionReport as ProcessExecutionReport
 from .execution_report import TaskReportEntry as TaskReportEntry
 from .notification_channels import EmailChannel as EmailChannel
 from .notification_channels import NotificationChannel as NotificationChannel
+from .notification_channels import ReportChannel as ReportChannel
+from .notification_channels import ReportContent as ReportContent
 from .notification_channels import WebhookChannel as WebhookChannel
 from .process import Process as Process
 from .task import Task as Task
