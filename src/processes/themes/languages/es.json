@@ -11,5 +11,17 @@
   "lang_traceback_title": "Traza de error",
   "lang_traced_vars_title": "Variables rastreadas",
   "lang_traced_vars_blurb": "Las siguientes variables locales tenían estos valores en {location}:",
-  "lang_email_subject": "Error en la tarea "
+  "lang_email_subject": "Error en la tarea ",
+  "lang_report_title_prefix": "Informe del Proceso",
+  "lang_report_header": "Informe de Ejecución del Proceso",
+  "lang_report_header_errors_only": "Informe de Tareas Fallidas",
+  "lang_report_email_subject": "Informe de Ejecución del Proceso",
+  "lang_report_email_subject_errors": "Tareas Fallidas en el Proceso",
+  "lang_report_summary_title": "Resumen",
+  "lang_report_success_label": "Éxitos",
+  "lang_report_error_label": "Errores",
+  "lang_report_skipped_label": "Omitidas",
+  "lang_status_success": "Éxito",
+  "lang_status_errored": "Error",
+  "lang_status_skipped": "Omitida"
 }

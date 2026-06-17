@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -167,30 +168,58 @@ class ProcessExecutionReport:
         dumps_kwargs.pop("default", None)
         return json.dumps(self, default=_json_default, indent=indent, **dumps_kwargs)
 
-    def notify(self, *channels: ReportChannel) -> None:
+    def notify(
+        self, *channels: ReportChannel, show_warnings: bool = True
+    ) -> None:
         """Deliver the full report through each channel, in order.
 
         Each channel renders and sends the report itself (email, webhook, ...).
         What detail is included is configured per channel (see ``ReportContent``).
+        If a channel raises, the exception is caught so the remaining channels
+        still receive the report; a ``UserWarning`` is emitted when
+        ``show_warnings`` is ``True``.
 
         Parameters
         ----------
         *channels : ReportChannel
             Channels to deliver the report to. No-op if none are given.
+        show_warnings : bool
+            Emit a ``UserWarning`` when a channel fails. Defaults to ``True``.
         """
         for channel in channels:
-            channel.send_report(self, errors_only=False)
+            try:
+                channel.send_report(self, errors_only=False)
+            except Exception as exc:
+                if show_warnings:
+                    warnings.warn(
+                        f"{type(channel).__name__} failed to send report: {exc}",
+                        stacklevel=2,
+                    )
 
-    def notify_errors(self, *channels: ReportChannel) -> None:
+    def notify_errors(
+        self, *channels: ReportChannel, show_warnings: bool = True
+    ) -> None:
         """Deliver only the ``ERRORED`` entries through each channel, in order.
 
         Same as :meth:`notify`, but each channel restricts the payload to tasks
         whose status is ``ERRORED`` (see :attr:`errored`).
+        If a channel raises, the exception is caught so the remaining channels
+        still receive the report; a ``UserWarning`` is emitted when
+        ``show_warnings`` is ``True``.
 
         Parameters
         ----------
         *channels : ReportChannel
             Channels to deliver the errored report to. No-op if none are given.
+        show_warnings : bool
+            Emit a ``UserWarning`` when a channel fails. Defaults to ``True``.
         """
         for channel in channels:
-            channel.send_report(self, errors_only=True)
+            try:
+                channel.send_report(self, errors_only=True)
+            except Exception as exc:
+                if show_warnings:
+                    warnings.warn(
+                        f"{type(channel).__name__} failed to send report: {exc}",
+                        stacklevel=2,
+                    )

@@ -11,5 +11,17 @@
   "lang_traceback_title": "Traceback",
   "lang_traced_vars_title": "Traced Variables",
   "lang_traced_vars_blurb": "The following local variables had these values at {location}:",
-  "lang_email_subject": "Error in task "
+  "lang_email_subject": "Error in task ",
+  "lang_report_title_prefix": "Process Report",
+  "lang_report_header": "Process Execution Report",
+  "lang_report_header_errors_only": "Failed Tasks Report",
+  "lang_report_email_subject": "Process Execution Report",
+  "lang_report_email_subject_errors": "Failed Tasks in Process",
+  "lang_report_summary_title": "Summary",
+  "lang_report_success_label": "Successes",
+  "lang_report_error_label": "Errors",
+  "lang_report_skipped_label": "Skipped",
+  "lang_status_success": "Success",
+  "lang_status_errored": "Error",
+  "lang_status_skipped": "Skipped"
 }

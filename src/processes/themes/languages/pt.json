@@ -11,5 +11,17 @@
   "lang_traceback_title": "Rastreamento de erro",
   "lang_traced_vars_title": "Variáveis rastreadas",
   "lang_traced_vars_blurb": "As seguintes variáveis locais tinham estes valores em {location}:",
-  "lang_email_subject": "Erro na tarefa "
+  "lang_email_subject": "Erro na tarefa ",
+  "lang_report_title_prefix": "Relatório do Processo",
+  "lang_report_header": "Relatório de Execução do Processo",
+  "lang_report_header_errors_only": "Relatório de Tarefas com Falha",
+  "lang_report_email_subject": "Relatório de Execução do Processo",
+  "lang_report_email_subject_errors": "Tarefas com Falha no Processo",
+  "lang_report_summary_title": "Resumo",
+  "lang_report_success_label": "Sucessos",
+  "lang_report_error_label": "Erros",
+  "lang_report_skipped_label": "Ignoradas",
+  "lang_status_success": "Sucesso",
+  "lang_status_errored": "Erro",
+  "lang_status_skipped": "Ignorada"
 }

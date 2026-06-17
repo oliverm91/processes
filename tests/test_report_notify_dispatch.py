@@ -1,14 +1,9 @@
-"""Architecture of report notification: notify/notify_errors dispatch to channels.
-
-Message rendering is deferred, so the built-in channels' ``send_report`` raise
-``NotImplementedError``; these tests cover only the dispatch wiring and config.
-"""
+"""Report notification dispatch: notify/notify_errors wiring and show_warnings behaviour."""
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
-
-import pytest
 
 from processes import (
     EmailChannel,
@@ -27,6 +22,11 @@ class _SpyChannel(ReportChannel):
 
     def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
         self.calls.append((report, errors_only))
+
+
+class _BrokenChannel(ReportChannel):
+    def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
+        raise RuntimeError("boom")
 
 
 def _smtp() -> SMTPConfig:
@@ -53,12 +53,39 @@ def test_notify_with_no_channels_is_noop() -> None:
     ProcessExecutionReport().notify_errors()
 
 
-def test_builtin_channels_send_report_not_implemented_yet() -> None:
+def test_notify_continues_after_channel_failure() -> None:
     report = ProcessExecutionReport()
-    with pytest.raises(NotImplementedError):
-        EmailChannel(_smtp()).send_report(report, errors_only=False)
-    with pytest.raises(NotImplementedError):
-        WebhookChannel(WebhookConfig(url="http://x")).send_report(report, errors_only=True)
+    broken = _BrokenChannel()
+    spy = _SpyChannel()
+    report.notify(broken, spy, show_warnings=False)
+    assert spy.calls == [(report, False)]
+
+
+def test_notify_warns_on_channel_failure() -> None:
+    report = ProcessExecutionReport()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        report.notify(_BrokenChannel())
+    assert len(caught) == 1
+    assert "boom" in str(caught[0].message)
+
+
+def test_notify_silent_when_show_warnings_false() -> None:
+    report = ProcessExecutionReport()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        report.notify(_BrokenChannel(), show_warnings=False)
+    assert caught == []
+
+
+def test_notify_errors_continues_and_warns() -> None:
+    report = ProcessExecutionReport()
+    spy = _SpyChannel()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        report.notify_errors(_BrokenChannel(), spy)
+    assert len(caught) == 1
+    assert spy.calls == [(report, True)]
 
 
 def test_report_content_defaults_and_per_channel_override() -> None:

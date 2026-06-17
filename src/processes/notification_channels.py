@@ -5,9 +5,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ._email_internals import _build_task_email_handler
+from ._email_internals import _build_task_email_handler, send_report_email
 from ._logfile_formatting import _TaskLogfileFormatter
-from ._webhook_internals import _build_task_webhook_handler
+from ._webhook_internals import _build_task_webhook_handler, send_report_webhook
 from .email_config import HTMLEmailStyle, SMTPConfig
 from .webhook_config import WebhookConfig
 
@@ -213,17 +213,22 @@ class EmailChannel(NotificationChannel, ReportChannel):
         return self.style.traced_vars_frame_filter
 
     def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
-        """Send the report as an HTML email. Not implemented yet.
+        """Send the report as a styled HTML email via SMTP.
 
-        Rendering (a report-shaped HTML body honoring ``style`` and ``content``)
-        and the one-shot SMTP send are deferred.
+        Renders a multi-task HTML body using ``style`` (palette + language)
+        and ``content`` (traceback / traced-vars flags), then sends it as a
+        one-shot SMTP message.
 
-        Raises
-        ------
-        NotImplementedError
-            Always, until report email rendering is implemented.
+        Parameters
+        ----------
+        report : ProcessExecutionReport
+            The finished report to deliver.
+        errors_only : bool
+            When ``True`` only ERRORED entries are included in the email.
         """
-        raise NotImplementedError("EmailChannel.send_report is not implemented yet.")
+        send_report_email(
+            report, self.smtp_config, self.style, self.content, errors_only=errors_only
+        )
 
 
 class WebhookChannel(NotificationChannel, ReportChannel):
@@ -275,14 +280,18 @@ class WebhookChannel(NotificationChannel, ReportChannel):
         return _build_task_webhook_handler(self.webhook_config)
 
     def send_report(self, report: ProcessExecutionReport, *, errors_only: bool) -> None:
-        """POST the report as JSON. Not implemented yet.
+        """POST the report as a signed JSON payload.
 
-        Payload shaping (honoring ``content`` and ``errors_only``) and the
-        one-shot signed POST are deferred.
+        Builds the payload from the report entries (all or errored-only),
+        applies ``content`` flags to control traceback / traced-vars inclusion,
+        and performs a one-shot POST via ``webhook_config`` (honoring
+        ``nest_under``, ``extra_payload``, HMAC signing, and custom headers).
 
-        Raises
-        ------
-        NotImplementedError
-            Always, until report webhook delivery is implemented.
+        Parameters
+        ----------
+        report : ProcessExecutionReport
+            The finished report to deliver.
+        errors_only : bool
+            When ``True`` only ERRORED entries are included in the payload.
         """
-        raise NotImplementedError("WebhookChannel.send_report is not implemented yet.")
+        send_report_webhook(report, self.webhook_config, self.content, errors_only=errors_only)

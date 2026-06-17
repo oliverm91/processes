@@ -11,5 +11,17 @@
   "lang_traceback_title": "Traccia dell'errore",
   "lang_traced_vars_title": "Variabili tracciate",
   "lang_traced_vars_blurb": "Le seguenti variabili locali avevano questi valori in {location}:",
-  "lang_email_subject": "Errore nell'attività "
+  "lang_email_subject": "Errore nell'attività ",
+  "lang_report_title_prefix": "Rapporto di Processo",
+  "lang_report_header": "Rapporto di Esecuzione del Processo",
+  "lang_report_header_errors_only": "Rapporto Attività Fallite",
+  "lang_report_email_subject": "Rapporto di Esecuzione del Processo",
+  "lang_report_email_subject_errors": "Attività Fallite nel Processo",
+  "lang_report_summary_title": "Riepilogo",
+  "lang_report_success_label": "Successi",
+  "lang_report_error_label": "Errori",
+  "lang_report_skipped_label": "Saltate",
+  "lang_status_success": "Successo",
+  "lang_status_errored": "Errore",
+  "lang_status_skipped": "Saltata"
 }

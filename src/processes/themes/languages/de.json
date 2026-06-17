@@ -11,5 +11,17 @@
   "lang_traceback_title": "Fehlerverlauf",
   "lang_traced_vars_title": "Verfolgte Variablen",
   "lang_traced_vars_blurb": "Die folgenden lokalen Variablen hatten diese Werte in {location}:",
-  "lang_email_subject": "Fehler in Aufgabe "
+  "lang_email_subject": "Fehler in Aufgabe ",
+  "lang_report_title_prefix": "Prozessbericht",
+  "lang_report_header": "Prozessausführungsbericht",
+  "lang_report_header_errors_only": "Bericht fehlgeschlagener Aufgaben",
+  "lang_report_email_subject": "Prozessausführungsbericht",
+  "lang_report_email_subject_errors": "Fehlgeschlagene Aufgaben im Prozess",
+  "lang_report_summary_title": "Zusammenfassung",
+  "lang_report_success_label": "Erfolge",
+  "lang_report_error_label": "Fehler",
+  "lang_report_skipped_label": "Übersprungen",
+  "lang_status_success": "Erfolg",
+  "lang_status_errored": "Fehler",
+  "lang_status_skipped": "Übersprungen"
 }
