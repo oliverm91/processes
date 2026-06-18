@@ -18,26 +18,35 @@ if TYPE_CHECKING:
 _SIGNATURE_HEADER = "X-Signature-SHA256"
 
 
-def _post_json(config: WebhookConfig, payload: str) -> None:
-    """Sign and POST a JSON string to ``config.url``.
+class _WebhookTransport:
+    """Signs and POSTs a JSON string to the configured webhook URL.
 
-    Parameters
-    ----------
-    config : WebhookConfig
-        Transport configuration (URL, headers, timeout, optional HMAC secret).
-    payload : str
-        JSON string to POST as the request body.
+    The single place that owns the HTTP conversation (HMAC-SHA256 signing,
+    headers, POST). Both the streaming task handler (``_WebhookHandler``) and
+    the one-shot report sender (``send_report_webhook``) delegate here, so the
+    transport logic exists exactly once.
     """
-    body = payload.encode("utf-8")
-    headers = {"Content-Type": "application/json", **config.headers}
-    if config.secret is not None:
-        digest = hmac.new(
-            config.secret.encode("utf-8"), body, hashlib.sha256
-        ).hexdigest()
-        headers[_SIGNATURE_HEADER] = digest
-    request = urllib.request.Request(config.url, data=body, headers=headers, method="POST")
-    with urllib.request.urlopen(request, timeout=config.timeout):
-        pass
+
+    def __init__(self, config: WebhookConfig) -> None:
+        self._config = config
+
+    def post(self, payload: str) -> None:
+        """Sign (if a secret is set) and POST ``payload`` as the request body.
+
+        Parameters
+        ----------
+        payload : str
+            JSON string to POST as the request body.
+        """
+        config = self._config
+        body = payload.encode("utf-8")
+        headers = {"Content-Type": "application/json", **config.headers}
+        if config.secret is not None:
+            digest = hmac.new(config.secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+            headers[_SIGNATURE_HEADER] = digest
+        request = urllib.request.Request(config.url, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=config.timeout):
+            pass
 
 
 class _WebhookFormatter(_ErrorContextFormatter):
@@ -112,7 +121,7 @@ class _WebhookHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            _post_json(self._config, self.format(record))
+            _WebhookTransport(self._config).post(self.format(record))
         except Exception:
             self.handleError(record)
 
@@ -191,7 +200,7 @@ def send_report_webhook(
     """
     entries = report.errored if errors_only else report.entries
     payload = _build_report_webhook_payload(entries, content, config)
-    _post_json(config, json.dumps(payload))
+    _WebhookTransport(config).post(json.dumps(payload))
 
 
 def _build_task_webhook_handler(config: WebhookConfig) -> _WebhookHandler:

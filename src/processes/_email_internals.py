@@ -158,6 +158,49 @@ class _HTMLEmailFormatter(_ErrorContextFormatter):
         return self._render(self._get_template(), substitutions)
 
 
+class _SMTPTransport:
+    """Sends one HTML email per call over a fresh SMTP connection.
+
+    The single place that owns the SMTP conversation (connect, optional
+    STARTTLS + login, ``sendmail``, ``quit``). Both the streaming task handler
+    (``_HTMLEmailHandler``) and the one-shot report sender (``send_report_email``)
+    delegate here, so the transport logic exists exactly once.
+    """
+
+    def __init__(self, config: SMTPConfig) -> None:
+        self._config = config
+
+    def send(self, subject: str, html_body: str) -> None:
+        """Connect, send a single HTML message, and disconnect.
+
+        Parameters
+        ----------
+        subject : str
+            The email subject line.
+        html_body : str
+            The fully rendered HTML body.
+        """
+        config = self._config
+        if isinstance(config.mailhost, tuple):
+            host, port = config.mailhost[0], config.mailhost[1]
+        else:
+            host, port = config.mailhost, smtplib.SMTP_PORT
+
+        smtp = smtplib.SMTP(host, port)
+        mime_msg = MIMEText(html_body, "html")
+        mime_msg["From"] = config.fromaddr
+        mime_msg["To"] = ",".join(config.toaddrs)
+        mime_msg["Subject"] = subject
+        mime_msg["Date"] = formatdate()
+        if config.credentials is not None:
+            username, password = config.credentials
+            if config.secure is not None:
+                smtp.starttls(*config.secure)
+            smtp.login(username, password)
+        smtp.sendmail(config.fromaddr, config.toaddrs, mime_msg.as_string())
+        smtp.quit()
+
+
 class _HTMLEmailHandler(logging.handlers.SMTPHandler):
     """Internal SMTP handler that sends log records as HTML emails."""
 
@@ -171,28 +214,11 @@ class _HTMLEmailHandler(logging.handlers.SMTPHandler):
             secure=config.secure,  # type: ignore[arg-type]
             timeout=config.timeout,
         )
+        self._transport = _SMTPTransport(config)
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            port = self.mailport
-            if not port:
-                port = smtplib.SMTP_PORT
-            host = self.mailhost[0] if isinstance(self.mailhost, tuple) else self.mailhost
-            smtp = smtplib.SMTP(host, port)
-            msg = self.format(record)
-
-            mime_msg = MIMEText(msg, "html")
-            mime_msg["From"] = self.fromaddr
-            mime_msg["To"] = ",".join(self.toaddrs)
-            mime_msg["Subject"] = self.getSubject(record)
-            mime_msg["Date"] = formatdate()
-
-            if self.username:
-                if self.secure is not None:
-                    smtp.starttls(*self.secure)
-                smtp.login(self.username, self.password)
-            smtp.sendmail(self.fromaddr, self.toaddrs, mime_msg.as_string())
-            smtp.quit()
+            self._transport.send(self.getSubject(record), self.format(record))
         except Exception:
             self.handleError(record)
 
@@ -414,22 +440,4 @@ def send_report_email(
     )
     subject = lang.get(subject_key, "Process Execution Report")
     html_body = _build_report_html(report, style, content, errors_only=errors_only)
-
-    if isinstance(smtp_config.mailhost, tuple):
-        host, port = smtp_config.mailhost[0], smtp_config.mailhost[1]
-    else:
-        host, port = smtp_config.mailhost, smtplib.SMTP_PORT
-
-    smtp = smtplib.SMTP(host, port)
-    mime_msg = MIMEText(html_body, "html")
-    mime_msg["From"] = smtp_config.fromaddr
-    mime_msg["To"] = ",".join(smtp_config.toaddrs)
-    mime_msg["Subject"] = subject
-    mime_msg["Date"] = formatdate()
-    if smtp_config.credentials is not None:
-        username, password = smtp_config.credentials
-        if smtp_config.secure is not None:
-            smtp.starttls(*smtp_config.secure)
-        smtp.login(username, password)
-    smtp.sendmail(smtp_config.fromaddr, smtp_config.toaddrs, mime_msg.as_string())
-    smtp.quit()
+    _SMTPTransport(smtp_config).send(subject, html_body)
