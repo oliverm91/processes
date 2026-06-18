@@ -10,10 +10,11 @@ if TYPE_CHECKING:
 
 import logging
 
-from ._error_data import ErrorData
 from ._tb_utils import _build_traced_vars, _build_traced_vars_location, _format_traceback
+from .comms.base import NotificationChannel
+from .comms.channels import _FileChannel
+from .error_data import ErrorData
 from .exceptions import CircularDependencyError
-from .notification_channels import NotificationChannel, _FileChannel
 from .task_types import TaskDependency, TaskResult, TaskStatus
 
 __all__ = ["Task", "TaskDependency", "TaskResult", "TaskStatus"]

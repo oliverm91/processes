@@ -3,7 +3,7 @@ from collections import deque
 from types import TracebackType
 from typing import Literal, Self
 
-from ._error_data import ErrorData
+from .error_data import ErrorData
 from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
 from .execution_report import ProcessExecutionReport
 from .task import Task

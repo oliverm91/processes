@@ -6,11 +6,11 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from ._error_data import ErrorData
+from .error_data import ErrorData
 from .task_types import TaskResult, TaskStatus
 
 if TYPE_CHECKING:
-    from .notification_channels import ReportChannel
+    from .comms.base import ReportChannel
     from .process import Process
 
 

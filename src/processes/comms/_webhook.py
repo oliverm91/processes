@@ -7,13 +7,14 @@ import logging
 import urllib.request
 from typing import TYPE_CHECKING, Any
 
-from ._error_data import ErrorData, _ErrorContextFormatter
-from .task_types import TaskStatus
+from ..error_data import ErrorData
+from ..task_types import TaskStatus
+from ._error_context import _ErrorContextFormatter
 from .webhook_config import WebhookConfig
 
 if TYPE_CHECKING:
-    from .execution_report import ProcessExecutionReport, TaskReportEntry
-    from .notification_channels import ReportContent
+    from ..execution_report import ProcessExecutionReport, TaskReportEntry
+    from .base import ReportContent
 
 _SIGNATURE_HEADER = "X-Signature-SHA256"
 

@@ -127,7 +127,7 @@ class TestComplexDagFailures(BaseTest):
                 t.logger.addHandler(rec)
                 recorders[t.name] = rec
 
-        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
+        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
             with Process(tasks) as process:
                 result = process.run(parallel=True, max_workers=4)
 

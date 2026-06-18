@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from processes import (
     EmailChannel,
+    HTMLEmailStyle,
     ProcessExecutionReport,
     ReportContent,
     SMTPConfig,
@@ -16,9 +17,8 @@ from processes import (
     WebhookChannel,
     WebhookConfig,
 )
-from processes._email_internals import _build_report_html
-from processes._error_data import ErrorData
-from processes.email_config import HTMLEmailStyle
+from processes.comms._email import _build_report_html
+from processes.error_data import ErrorData
 
 # ---------------------------------------------------------------------------
 # Helpers

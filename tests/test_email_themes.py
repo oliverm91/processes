@@ -25,12 +25,12 @@ from unittest.mock import patch
 import pytest
 
 from processes import EmailChannel, HTMLEmailStyle, Process, SMTPConfig, Task
-from processes._email_internals import _HTMLEmailFormatter
 from processes._tb_utils import (
     _build_traced_vars,
     _build_traced_vars_location,
     _format_traceback,
 )
+from processes.comms._email import _HTMLEmailFormatter
 
 from .base_test import BaseTest
 
@@ -376,7 +376,7 @@ class TestTaskEmailWiring(BaseTest):
             channels=[EmailChannel(smtp_cfg, style_cfg)],
         )
 
-        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
+        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
             with Process([task]) as process:
                 process.run(parallel=False)
 
@@ -419,7 +419,7 @@ class TestTaskEmailWiring(BaseTest):
             channels=[EmailChannel(smtp_cfg, style_cfg)],
         )
 
-        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
+        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
             with Process([task]) as process:
                 process.run(parallel=False)
 
@@ -452,7 +452,7 @@ class TestTaskEmailWiring(BaseTest):
             channels=[EmailChannel(smtp_cfg)],
         )
 
-        with patch("processes._email_internals.smtplib.SMTP") as mock_smtp_class:
+        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
             with Process([task]) as process:
                 process.run(parallel=False)
 

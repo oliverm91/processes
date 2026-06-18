@@ -1,7 +1,7 @@
 """Pure task value types with no dependency on the communication layer.
 
 ``TaskStatus``, ``TaskResult`` and ``TaskDependency`` are leaf domain types:
-they import only the standard library and :class:`~processes._error_data.ErrorData`
+they import only the standard library and :class:`~processes.error_data.ErrorData`
 (itself a leaf). Keeping them here — rather than in ``task.py``, which imports the
 notification channels — lets the communication renderers import ``TaskStatus``
 directly without creating an import cycle.
@@ -12,7 +12,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from ._error_data import ErrorData
+from .error_data import ErrorData
 
 
 class TaskStatus(Enum):

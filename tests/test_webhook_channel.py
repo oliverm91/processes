@@ -20,7 +20,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 from processes import WebhookChannel, WebhookConfig
-from processes._webhook_internals import _build_task_webhook_handler, _WebhookFormatter
+from processes.comms._webhook import _build_task_webhook_handler, _WebhookFormatter
 
 from .base_test import BaseTest
 
@@ -91,7 +91,7 @@ class TestWebhookHandlerEmit(BaseTest):
     def test_emit_posts_json_payload(self) -> None:
         handler = _build_task_webhook_handler(self._config())
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record())
 
@@ -105,7 +105,7 @@ class TestWebhookHandlerEmit(BaseTest):
     def test_default_content_type_header(self) -> None:
         handler = _build_task_webhook_handler(self._config())
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record())
 
@@ -116,7 +116,7 @@ class TestWebhookHandlerEmit(BaseTest):
         config = self._config(headers={"Authorization": "Bearer token123"}, timeout=10)
         handler = _build_task_webhook_handler(config)
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record())
 
@@ -129,7 +129,7 @@ class TestWebhookHandlerEmit(BaseTest):
         config = self._config(secret="shh")
         handler = _build_task_webhook_handler(config)
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record())
 
@@ -140,7 +140,7 @@ class TestWebhookHandlerEmit(BaseTest):
     def test_no_signature_header_when_secret_none(self) -> None:
         handler = _build_task_webhook_handler(self._config())
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record())
 
@@ -151,7 +151,7 @@ class TestWebhookHandlerEmit(BaseTest):
         config = self._config(extra_payload={"chat_id": "12345"})
         handler = _build_task_webhook_handler(config)
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record())
 
@@ -163,7 +163,7 @@ class TestWebhookHandlerEmit(BaseTest):
     def test_emit_routes_request_errors_through_handle_error(self) -> None:
         handler = _build_task_webhook_handler(self._config())
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.side_effect = OSError("connection refused")
             with patch.object(handler, "handleError") as mock_handle_error:
                 handler.emit(_make_record())
@@ -176,7 +176,7 @@ class TestWebhookChannelHandlerWiring(BaseTest):
         channel = WebhookChannel(WebhookConfig(url="https://example.test/hook"))
         handler = channel.build_handler("webhook_task")
 
-        with patch("processes._webhook_internals.urllib.request.urlopen") as mock_urlopen:
+        with patch("processes.comms._webhook.urllib.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = MagicMock()
             handler.emit(_make_record("webhook_task"))
 

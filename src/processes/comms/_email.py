@@ -10,13 +10,13 @@ from email.mime.text import MIMEText
 from email.utils import formatdate
 from typing import TYPE_CHECKING, cast
 
-from ._error_data import _ErrorContextFormatter
+from ..task_types import TaskStatus
+from ._error_context import _ErrorContextFormatter
 from .email_config import HTMLEmailStyle, SMTPConfig
-from .task_types import TaskStatus
 
 if TYPE_CHECKING:
-    from .execution_report import ProcessExecutionReport, TaskReportEntry
-    from .notification_channels import ReportContent
+    from ..execution_report import ProcessExecutionReport, TaskReportEntry
+    from .base import ReportContent
 
 _THEMES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "themes")
 _STYLES_DIR = os.path.join(_THEMES_DIR, "styles")
