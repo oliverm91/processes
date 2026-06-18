@@ -22,9 +22,9 @@ from .notification_channels import ReportContent as ReportContent
 from .notification_channels import WebhookChannel as WebhookChannel
 from .process import Process as Process
 from .task import Task as Task
-from .task import TaskDependency as TaskDependency
-from .task import TaskResult as TaskResult
-from .task import TaskStatus as TaskStatus
+from .task_types import TaskDependency as TaskDependency
+from .task_types import TaskResult as TaskResult
+from .task_types import TaskStatus as TaskStatus
 from .webhook_config import WebhookConfig as WebhookConfig
 
 try:

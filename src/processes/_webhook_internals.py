@@ -8,13 +8,12 @@ import urllib.request
 from typing import TYPE_CHECKING, Any
 
 from ._error_data import ErrorData, _ErrorContextFormatter
+from .task_types import TaskStatus
 from .webhook_config import WebhookConfig
 
 if TYPE_CHECKING:
     from .execution_report import ProcessExecutionReport, TaskReportEntry
     from .notification_channels import ReportContent
-
-_STATUS_SUCCESS = "success"
 
 _SIGNATURE_HEADER = "X-Signature-SHA256"
 
@@ -148,7 +147,7 @@ def _build_report_webhook_payload(
             "elapsed_seconds": entry.elapsed_seconds,
             "attempts": entry.attempts,
         }
-        if entry.status.value == _STATUS_SUCCESS:
+        if entry.status == TaskStatus.SUCCESS:
             task_dict["result"] = repr(entry.result)
         if entry.error is not None:
             error_dict: dict[str, Any] = {

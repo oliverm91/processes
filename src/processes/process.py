@@ -6,7 +6,8 @@ from typing import Literal, Self
 from ._error_data import ErrorData
 from .exceptions import CircularDependencyError, DependencyNotFoundError, TaskNotFoundError
 from .execution_report import ProcessExecutionReport
-from .task import Task, TaskDependency, TaskResult, TaskStatus
+from .task import Task
+from .task_types import TaskDependency, TaskResult, TaskStatus
 
 __all__ = ["CircularDependencyError", "DependencyNotFoundError", "TaskNotFoundError"]
 
@@ -264,9 +265,7 @@ class Process:
         self.tasks = [t for t in self.tasks if t.name != task_name]
         self._commit_or_rollback(snapshot)
 
-        for handler in list(task.logger.handlers):
-            handler.close()
-            task.logger.removeHandler(handler)
+        task.close_handlers()
 
     def add_task_dependency(self, task_name: str, dependency: TaskDependency) -> None:
         """Add a dependency to an existing task and re-resolve the graph.
@@ -374,9 +373,7 @@ class Process:
         Should be called when the process is done to ensure proper resource cleanup.
         """
         for task in self.tasks:
-            for handler in list(task.logger.handlers):
-                handler.close()
-                task.logger.removeHandler(handler)
+            task.close_handlers()
 
 
 class ProcessRunner:

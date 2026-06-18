@@ -12,12 +12,11 @@ from typing import TYPE_CHECKING, cast
 
 from ._error_data import _ErrorContextFormatter
 from .email_config import HTMLEmailStyle, SMTPConfig
+from .task_types import TaskStatus
 
 if TYPE_CHECKING:
     from .execution_report import ProcessExecutionReport, TaskReportEntry
     from .notification_channels import ReportContent
-
-_STATUS_ERRORED = "errored"
 
 _THEMES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "themes")
 _STYLES_DIR = os.path.join(_THEMES_DIR, "styles")
@@ -251,7 +250,7 @@ def _build_task_section_html(
         "ERRORED": lang.get("lang_status_errored", "Error"),
         "SKIPPED": lang.get("lang_status_skipped", "Skipped"),
     }.get(status_val, status_val)
-    open_attr = " open" if entry.status.value == _STATUS_ERRORED else ""
+    open_attr = " open" if entry.status == TaskStatus.ERRORED else ""
 
     fn_label = html.escape(lang.get("lang_function_label", "Function"))
     parts = [
@@ -261,7 +260,7 @@ def _build_task_section_html(
         f"</div>"
     ]
 
-    if entry.status.value == _STATUS_ERRORED and entry.error is not None:
+    if entry.status == TaskStatus.ERRORED and entry.error is not None:
         exc_label = html.escape(lang.get("lang_exception_label", "Exception"))
         parts.append(
             f'<div class="row">'
