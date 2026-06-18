@@ -315,3 +315,25 @@ añade un adaptador. Esa es la escalabilidad que se busca.
 Recomendación: aprobar e implementar **Fase 0 y 1** primero (correctitud y
 deduplicación, riesgo mínimo, sin cambio de API). La **Fase 2** (paquete) es la
 más "churny" y conviene revisarla como PR aparte.
+
+---
+
+## 8. Estado de implementación (as-built)
+
+Fases 0, 1 y 2 implementadas y verdes (134 tests, mypy, ruff; wheel verificado
+con `comms/themes/` incluido). Desviaciones menores respecto al plan, todas
+deliberadas:
+
+- **Configs no se fusionaron** en un único `config.py`: se mantienen
+  `comms/email_config.py` y `comms/webhook_config.py` (menos churn, sin
+  beneficio real en fusionar).
+- **Nombres de módulo de delivery**: `comms/_email.py` y `comms/_webhook.py`
+  (en vez de `_smtp.py`/`_webhook.py`); contienen render + transporte +
+  handler de su medio. `_logfile_formatting.py` → `comms/_logfile.py`.
+- **Sin shims** en rutas viejas: los tests acoplados a rutas internas se
+  repuntaron a la nueva ubicación (o al import público cuando el símbolo es
+  público). `html_logging.py` ya no existía, así que no hubo shim que mantener.
+- **Fase 3 (separar render/transport en archivos distintos): no realizada.**
+  Las clases de transporte (`_SMTPTransport`, `_WebhookTransport`) ya quedan
+  nítidamente delimitadas dentro de sus archivos; separarlas más sería
+  fragmentación sin beneficio. Queda como refinamiento opcional futuro.
