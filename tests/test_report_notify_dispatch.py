@@ -1,4 +1,4 @@
-"""Report notification dispatch: notify/notify_errors wiring and show_warnings behaviour."""
+"""Report notification dispatch: notify wiring, filtering and show_warnings behaviour."""
 
 from __future__ import annotations
 
@@ -11,9 +11,29 @@ from processes import (
     ReportChannel,
     ReportContent,
     SMTPConfig,
+    TaskReportEntry,
+    TaskStatus,
     WebhookChannel,
     WebhookConfig,
 )
+
+
+def _report_with(*names: str) -> ProcessExecutionReport:
+    """A report carrying one SUCCESS entry per given task name."""
+    return ProcessExecutionReport(
+        {
+            name: TaskReportEntry(
+                name=name,
+                function="f",
+                args=(),
+                kwargs={},
+                status=TaskStatus.SUCCESS,
+                elapsed_seconds=0.0,
+                attempts=1,
+            )
+            for name in names
+        }
+    )
 
 
 class _SpyChannel(ReportChannel):
@@ -41,16 +61,16 @@ def test_notify_dispatches_to_each_channel_in_order() -> None:
     assert b.calls == [(report, False)]
 
 
-def test_notify_errors_sets_errors_only() -> None:
+def test_notify_only_errors_sets_errors_only() -> None:
     report = ProcessExecutionReport()
     spy = _SpyChannel()
-    report.notify_errors(spy)
+    report.notify(spy, only_errors=True)
     assert spy.calls == [(report, True)]
 
 
 def test_notify_with_no_channels_is_noop() -> None:
     ProcessExecutionReport().notify()
-    ProcessExecutionReport().notify_errors()
+    ProcessExecutionReport().notify(only_errors=True)
 
 
 def test_notify_continues_after_channel_failure() -> None:
@@ -78,14 +98,53 @@ def test_notify_silent_when_show_warnings_false() -> None:
     assert caught == []
 
 
-def test_notify_errors_continues_and_warns() -> None:
+def test_notify_only_errors_continues_and_warns() -> None:
     report = ProcessExecutionReport()
     spy = _SpyChannel()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        report.notify_errors(_BrokenChannel(), spy)
+        report.notify(_BrokenChannel(), spy, only_errors=True)
     assert len(caught) == 1
     assert spy.calls == [(report, True)]
+
+
+def test_notify_tasks_filters_by_name() -> None:
+    report = _report_with("alpha", "beta", "gamma")
+    spy = _SpyChannel()
+    report.notify(spy, tasks=["alpha", "gamma"])
+    (sent_report, errors_only) = spy.calls[0]
+    assert set(sent_report.entries) == {"alpha", "gamma"}
+    assert errors_only is False
+
+
+def test_notify_tasks_is_case_insensitive() -> None:
+    report = _report_with("Fetch_Orders", "Decode_Payload")
+    spy = _SpyChannel()
+    report.notify(spy, tasks=["fetch_orders"])
+    assert set(spy.calls[0][0].entries) == {"Fetch_Orders"}
+
+
+def test_notify_tasks_empty_list_sends_empty_report() -> None:
+    report = _report_with("alpha", "beta")
+    spy = _SpyChannel()
+    report.notify(spy, tasks=[])
+    assert set(spy.calls[0][0].entries) == set()
+
+
+def test_notify_tasks_none_includes_every_task() -> None:
+    report = _report_with("alpha", "beta")
+    spy = _SpyChannel()
+    report.notify(spy)
+    assert spy.calls[0][0] is report
+
+
+def test_notify_tasks_combines_with_only_errors() -> None:
+    report = _report_with("alpha", "beta")
+    spy = _SpyChannel()
+    report.notify(spy, only_errors=True, tasks=["alpha"])
+    (sent_report, errors_only) = spy.calls[0]
+    assert set(sent_report.entries) == {"alpha"}
+    assert errors_only is True
 
 
 def test_report_content_defaults_and_per_channel_override() -> None:

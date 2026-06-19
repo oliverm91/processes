@@ -42,8 +42,8 @@ class ReportChannel(ABC):
 
     Unlike ``NotificationChannel`` (which builds a streaming ``logging.Handler``
     for a single ``Task``), a report channel sends a complete report **once**,
-    after the run. ``ProcessExecutionReport.notify`` / ``notify_errors`` iterate
-    the channels they are given and call ``send_report`` on each.
+    after the run. ``ProcessExecutionReport.notify`` iterates the channels it is
+    given and calls ``send_report`` on each.
     """
 
     @abstractmethod

@@ -2,9 +2,9 @@
 email via SMTP, exercising every traced-variables configuration in one run.
 
 Unlike the other manual scripts (which only send per-task *failure alerts*),
-this one is about the **report** path — ``ProcessExecutionReport.notify`` /
-``notify_errors`` rendering the whole run as a single HTML email and sending it
-to the same maildev server.
+this one is about the **report** path — ``ProcessExecutionReport.notify``
+rendering the whole run as a single HTML email and sending it to the same
+maildev server.
 
 Run by hand and eyeball the result in maildev:
 
@@ -32,14 +32,16 @@ Tasks (independent and dependent):
 
 Report delivery (the point of the script):
 
-*   ``report.notify(full)``         — full report, ``show_traced_vars=True``
-                                      → the traced-variables sections are present
-                                      (rich user locals for ``fetch_orders``,
-                                      json internals for ``decode_payload``,
-                                      empty for ``noop_validate``).
-*   ``report.notify_errors(brief)`` — errored entries only, ``show_traced_vars=
-                                      False`` → the **same** failures rendered
-                                      **WITHOUT** the traced-variables sections.
+*   ``report.notify(full)``                    — full report, ``show_traced_vars=
+                                      True`` → the traced-variables sections are
+                                      present (rich user locals for
+                                      ``fetch_orders``, json internals for
+                                      ``decode_payload``, empty for
+                                      ``noop_validate``).
+*   ``report.notify(brief, only_errors=True)`` — errored entries only,
+                                      ``show_traced_vars=False`` → the **same**
+                                      failures rendered **WITHOUT** the
+                                      traced-variables sections.
 
 So a single run demonstrates, side by side: with/without traced variables (both
 per task and via the report content flag) and with/without a custom traceback
@@ -253,10 +255,10 @@ def deliver_reports(report: ProcessExecutionReport) -> None:
     )
 
     print("\ndelivering reports via SMTP ...")
-    print(f"  notify        -> {REPORT_FULL_TO}   (full, with traced variables)")
+    print(f"  notify                   -> {REPORT_FULL_TO}   (full, with traced vars)")
     report.notify(full)
-    print(f"  notify_errors -> {REPORT_ERRORS_TO} (errors only, without traced variables)")
-    report.notify_errors(brief)
+    print(f"  notify(only_errors=True) -> {REPORT_ERRORS_TO} (errors only, no traced vars)")
+    report.notify(brief, only_errors=True)
 
 
 # --------------------------------------------------------------------------- #
