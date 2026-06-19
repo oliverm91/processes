@@ -1,0 +1,310 @@
+"""Manual inspection: a mixed DAG whose ProcessExecutionReport is delivered by
+email via SMTP, exercising every traced-variables configuration in one run.
+
+Unlike the other manual scripts (which only send per-task *failure alerts*),
+this one is about the **report** path — ``ProcessExecutionReport.notify`` /
+``notify_errors`` rendering the whole run as a single HTML email and sending it
+to the same maildev server.
+
+Run by hand and eyeball the result in maildev:
+
+    python tests/manual_tests/manual_report_notify.py
+
+What this exercises
+-------------------
+Tasks (independent and dependent):
+
+*   ``load_config``    — independent, **succeeds** (produces config).
+*   ``transform``      — **dependent** on ``load_config`` (consumes its result),
+                         **succeeds** — a downstream task that *does* run.
+*   ``fetch_orders``   — independent, **fails** from a frame holding several
+                         rich local variables → **WITH traced variables**, using
+                         the **default** frame filter.
+*   ``decode_payload`` — independent, **fails** inside the stdlib ``json``
+                         parser, with a **CUSTOM** ``traced_vars_frame_filter``
+                         (``"json"``) so the traced variables come from json's
+                         internal frame instead of the task frame.
+*   ``noop_validate``  — independent, **fails** immediately with no locals bound
+                         → **WITHOUT traced variables** (empty section).
+*   ``aggregate``      — **dependent** on ``fetch_orders``, therefore
+                         **cascade-skipped** (never runs) → appears under
+                         "Downstream Impact".
+
+Report delivery (the point of the script):
+
+*   ``report.notify(full)``         — full report, ``show_traced_vars=True``
+                                      → the traced-variables sections are present
+                                      (rich user locals for ``fetch_orders``,
+                                      json internals for ``decode_payload``,
+                                      empty for ``noop_validate``).
+*   ``report.notify_errors(brief)`` — errored entries only, ``show_traced_vars=
+                                      False`` → the **same** failures rendered
+                                      **WITHOUT** the traced-variables sections.
+
+So a single run demonstrates, side by side: with/without traced variables (both
+per task and via the report content flag) and with/without a custom traceback
+frame filter.
+
+Prerequisites
+-------------
+*   maildev running on ``127.0.0.1:1025`` (web UI on 1080).
+*   The script connects to ``127.0.0.1`` (not ``localhost``) on purpose: on
+    Windows, ``localhost`` often resolves to IPv6 ``::1`` first while maildev
+    binds IPv4 only, producing ``WinError 10061``.
+
+Inspect
+-------
+*   The console output for execution order and the per-task outcome table.
+*   The maildev web UI at http://localhost:1080. Expected messages:
+      - 3 per-task failure alerts  (to ``task-alerts@inspect.test``)
+      - 1 full report              (to ``report-full@inspect.test``)
+      - 1 errors-only report       (to ``report-errors@inspect.test``)
+    Compare ``report-full`` vs ``report-errors`` to see the traced-variables
+    sections appear and disappear, and confirm ``decode_payload``'s traced
+    variables differ from ``fetch_orders``' (custom vs default frame filter).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import traceback
+from typing import Any
+
+# Make the in-tree package importable when the script is run directly.
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from processes import (  # noqa: E402
+    EmailChannel,
+    HTMLEmailStyle,
+    Process,
+    ProcessExecutionReport,
+    ReportContent,
+    SMTPConfig,
+    Task,
+    TaskDependency,
+)
+
+# --------------------------------------------------------------------------- #
+# Constants                                                                   #
+# --------------------------------------------------------------------------- #
+
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = 1025
+WEB_PORT = 1080
+FROM_ADDR = "report-canary@enterprise.test"
+
+TASK_ALERTS_TO = "task-alerts@inspect.test"
+REPORT_FULL_TO = "report-full@inspect.test"
+REPORT_ERRORS_TO = "report-errors@inspect.test"
+
+
+def _smtp(toaddr: str) -> SMTPConfig:
+    return SMTPConfig(
+        mailhost=(SMTP_HOST, SMTP_PORT),
+        fromaddr=FROM_ADDR,
+        toaddrs=[toaddr],
+        timeout=5,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Task functions                                                              #
+# --------------------------------------------------------------------------- #
+
+
+def load_config() -> dict[str, Any]:
+    """Independent root task — succeeds and feeds ``transform``."""
+    print("  [load_config] loading configuration ...")
+    return {"region": "us-east-1", "batch_size": 500}
+
+
+def transform(config: dict[str, Any]) -> str:
+    """Dependent task — runs because its upstream succeeded."""
+    print(f"  [transform] transforming with config={config} ...")
+    return f"transformed::{config['region']}"
+
+
+def fetch_orders(source: str, batch_id: int, *, region: str) -> list[int]:
+    """Fails from a frame rich in local variables.
+
+    With the default frame filter, *these* user locals (``endpoint``,
+    ``attempt``, ``page_token``, ``collected``) are the ones traced.
+    """
+    endpoint = f"https://api.internal/{region}/orders"
+    attempt = 3
+    page_token = "p_98f3a2c"
+    collected: list[int] = [101, 102, 103]
+    print(f"  [fetch_orders] source={source!r} batch_id={batch_id} region={region!r}")
+    raise ConnectionError(
+        f"upstream {endpoint!r} refused the connection after {attempt} attempts "
+        f"(page_token={page_token}, collected so far={collected})"
+    )
+
+
+def decode_payload(raw: str) -> Any:
+    """Fails inside the stdlib ``json`` parser.
+
+    Paired with ``traced_vars_frame_filter='json'`` the traced variables are
+    captured from json's internal frame, not from this task frame.
+    """
+    print(f"  [decode_payload] decoding {raw!r} ...")
+    return json.loads(raw)  # malformed input -> JSONDecodeError raised inside json/
+
+
+def noop_validate() -> None:
+    """Fails immediately with no local variables bound — the traced-variables
+    section is empty (the 'without traced variables' case)."""
+    print("  [noop_validate] validating ...")
+    raise ValueError("validation rule 'non_empty' violated")
+
+
+def aggregate(*_args: Any, **_kwargs: Any) -> str:
+    """Downstream of ``fetch_orders`` — must be cascade-skipped, never run."""
+    print("  [aggregate] this should never run — FAILED upstream")
+    return "aggregated"
+
+
+# --------------------------------------------------------------------------- #
+# Build the DAG                                                               #
+# --------------------------------------------------------------------------- #
+
+
+def _log_path(logs_dir: str, name: str) -> str:
+    return os.path.join(logs_dir, f"{name}.log")
+
+
+def build_tasks(logs_dir: str) -> list[Task]:
+    """A 6-task DAG: 2 independent successes/deps, 3 independent failures with
+    distinct traced-vars configs, and 1 cascade-skipped dependent."""
+    task_smtp = _smtp(TASK_ALERTS_TO)
+    default_style = HTMLEmailStyle()  # no custom frame filter
+    json_filter_style = HTMLEmailStyle(traced_vars_frame_filter="json")  # custom filter
+    dep = TaskDependency
+
+    return [
+        # Independent success → feeds a dependent task.
+        Task(
+            name="load_config",
+            log_path=_log_path(logs_dir, "load_config"),
+            func=load_config,
+        ),
+        # Dependent success — consumes load_config's result.
+        Task(
+            name="transform",
+            log_path=_log_path(logs_dir, "transform"),
+            func=transform,
+            dependencies=[dep("load_config", use_result_as_additional_args=True)],
+        ),
+        # Independent failure WITH rich traced variables, DEFAULT frame filter.
+        Task(
+            name="fetch_orders",
+            log_path=_log_path(logs_dir, "fetch_orders"),
+            func=fetch_orders,
+            args=("orders_feed", 4242),
+            kwargs={"region": "us-east-1"},
+            channels=[EmailChannel(task_smtp, default_style)],
+        ),
+        # Independent failure with a CUSTOM frame filter ('json').
+        Task(
+            name="decode_payload",
+            log_path=_log_path(logs_dir, "decode_payload"),
+            func=decode_payload,
+            args=('{"id": 1, "ok"',),  # malformed JSON
+            channels=[EmailChannel(task_smtp, json_filter_style)],
+        ),
+        # Independent failure WITHOUT traced variables (no locals), default filter.
+        Task(
+            name="noop_validate",
+            log_path=_log_path(logs_dir, "noop_validate"),
+            func=noop_validate,
+            channels=[EmailChannel(task_smtp, default_style)],
+        ),
+        # Dependent on a failing task → cascade-skipped, never runs.
+        Task(
+            name="aggregate",
+            log_path=_log_path(logs_dir, "aggregate"),
+            func=aggregate,
+            dependencies=[dep("fetch_orders")],
+        ),
+    ]
+
+
+# --------------------------------------------------------------------------- #
+# Report delivery                                                             #
+# --------------------------------------------------------------------------- #
+
+
+def deliver_reports(report: ProcessExecutionReport) -> None:
+    """Send the report via SMTP twice: a full report with traced variables, and
+    an errors-only report without them."""
+    full = EmailChannel(
+        _smtp(REPORT_FULL_TO),
+        HTMLEmailStyle(style="modern", palette="neutral", language="en"),
+        content=ReportContent(show_traceback=True, show_traced_vars=True),
+    )
+    brief = EmailChannel(
+        _smtp(REPORT_ERRORS_TO),
+        HTMLEmailStyle(style="compact", palette="slate", language="en"),
+        content=ReportContent(show_traceback=True, show_traced_vars=False),
+    )
+
+    print("\ndelivering reports via SMTP ...")
+    print(f"  notify        -> {REPORT_FULL_TO}   (full, with traced variables)")
+    report.notify(full)
+    print(f"  notify_errors -> {REPORT_ERRORS_TO} (errors only, without traced variables)")
+    report.notify_errors(brief)
+
+
+# --------------------------------------------------------------------------- #
+# Entry point                                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def main() -> int:
+    here = os.path.dirname(os.path.abspath(__file__))
+    logs_dir = os.path.join(here, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    cleared = 0
+    for name in os.listdir(logs_dir):
+        if name.endswith(".log"):
+            os.remove(os.path.join(logs_dir, name))
+            cleared += 1
+    print(f"logs dir:   {logs_dir} (cleared {cleared} stale .log file(s))")
+    print(f"from:       {FROM_ADDR}")
+    print(f"smtp:       {SMTP_HOST}:{SMTP_PORT}   web: http://localhost:{WEB_PORT}")
+    print("=" * 72)
+
+    tasks = build_tasks(logs_dir)
+    print(f"tasks: {len(tasks)} (2 independent + dependent successes, 3 failures, 1 skipped)")
+
+    try:
+        with Process(tasks) as process:
+            report = process.run(parallel=False)
+            # Deliver while the process context is open so loggers/handlers
+            # are still alive for the per-task alerts already emitted.
+            print("\noutcome:")
+            for name, entry in report.entries.items():
+                print(f"  {entry.status.value:8s}  {name}")
+            deliver_reports(report)
+    except Exception:
+        print("Process raised an unexpected exception:")
+        traceback.print_exc()
+        return 2
+
+    print("=" * 72)
+    print(f"Expected in maildev (http://localhost:{WEB_PORT}):")
+    print(f"  3 per-task failure alerts -> {TASK_ALERTS_TO}")
+    print(f"  1 full report             -> {REPORT_FULL_TO}")
+    print(f"  1 errors-only report      -> {REPORT_ERRORS_TO}")
+    print("Compare the two reports: traced-variables sections present vs absent,")
+    print("and decode_payload's traced vars (custom 'json' filter) vs fetch_orders'.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
