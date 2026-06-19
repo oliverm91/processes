@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import email as _email_module
 import json
 from unittest.mock import MagicMock, patch
 
@@ -19,6 +18,8 @@ from processes import (
 )
 from processes.comms._email import _build_report_html
 from processes.error_data import ErrorData
+
+from .conftest import SMTPCapture
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -66,17 +67,13 @@ def _report(*entries: TaskReportEntry) -> ProcessExecutionReport:
     return ProcessExecutionReport({e.name: e for e in entries})
 
 
-def _smtp() -> SMTPConfig:
-    return SMTPConfig(mailhost=("localhost", 25), fromaddr="a@b.com", toaddrs=["c@d.com"])
-
-
-def _decode_mime_body(mime_string: str) -> str:
-    """Parse a MIME message string and return the decoded text body."""
-    msg = _email_module.message_from_string(mime_string)
-    payload = msg.get_payload(decode=True)
-    if isinstance(payload, bytes):
-        return payload.decode("utf-8", errors="replace")
-    return str(payload or "")
+def _cfg(server: SMTPCapture, *, toaddrs: list[str] | None = None) -> SMTPConfig:
+    """An SMTPConfig pointed at the in-process capture server."""
+    return SMTPConfig(
+        mailhost=(server.host, server.port),
+        fromaddr="a@b.com",
+        toaddrs=toaddrs if toaddrs is not None else ["c@d.com"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -271,52 +268,74 @@ class TestBuildReportHtml:
 # ---------------------------------------------------------------------------
 
 class TestEmailSendReport:
+    """End-to-end: EmailChannel.send_report against a real in-process SMTP server.
 
-    @patch("smtplib.SMTP")
-    def test_sendmail_called(self, mock_smtp_cls: MagicMock) -> None:
-        mock_smtp = MagicMock()
-        mock_smtp_cls.return_value = mock_smtp
+    send_report is called directly (not via report.notify), so a transport
+    failure propagates and fails the test loudly. Each call must deliver exactly
+    one message; assertions inspect what the server actually received.
+    """
 
+    def test_delivers_one_html_email(self, smtp_server: SMTPCapture) -> None:
         report = _report(
             _entry("a", TaskStatus.SUCCESS),
             _entry("b", TaskStatus.ERRORED, error=_error()),
         )
-        EmailChannel(_smtp()).send_report(report, errors_only=False)
+        EmailChannel(_cfg(smtp_server)).send_report(report, errors_only=False)
 
-        mock_smtp.sendmail.assert_called_once()
-        mock_smtp.quit.assert_called_once()
+        assert len(smtp_server.messages) == 1
+        msg = smtp_server.last()
+        assert msg["From"] == "a@b.com"
+        assert msg.get_content_type() == "text/html"
+        body = smtp_server.last_html()
+        assert "a" in body and "b" in body
 
-    @patch("smtplib.SMTP")
-    def test_mime_type_is_html(self, mock_smtp_cls: MagicMock) -> None:
-        mock_smtp = MagicMock()
-        mock_smtp_cls.return_value = mock_smtp
+    def test_to_header_lists_all_recipients(self, smtp_server: SMTPCapture) -> None:
+        cfg = _cfg(smtp_server, toaddrs=["c@d.com", "e@f.com"])
+        EmailChannel(cfg).send_report(_report(_entry("a", TaskStatus.SUCCESS)), errors_only=False)
 
-        EmailChannel(_smtp()).send_report(
-            _report(_entry("a", TaskStatus.SUCCESS)), errors_only=False
+        assert len(smtp_server.messages) == 1
+        to_header = smtp_server.last()["To"]
+        assert "c@d.com" in to_header
+        assert "e@f.com" in to_header
+
+    def test_errors_only_subject_and_excludes_success(self, smtp_server: SMTPCapture) -> None:
+        report = _report(
+            _entry("ok_task", TaskStatus.SUCCESS),
+            _entry("bad_task", TaskStatus.ERRORED, error=_error()),
         )
+        EmailChannel(_cfg(smtp_server)).send_report(report, errors_only=True)
 
-        _, _, msg_str = mock_smtp.sendmail.call_args[0]
-        assert 'Content-Type: text/html' in msg_str
+        assert len(smtp_server.messages) == 1
+        subject = smtp_server.last()["Subject"]
+        assert "Failed" in subject or "failed" in subject.lower()
+        body = smtp_server.last_html()
+        assert "bad_task" in body
+        assert "ok_task" not in body
 
-    @patch("smtplib.SMTP")
-    def test_html_body_contains_task_name(self, mock_smtp_cls: MagicMock) -> None:
-        mock_smtp = MagicMock()
-        mock_smtp_cls.return_value = mock_smtp
+    def test_show_traceback_false_omits_traceback_in_received_body(
+        self, smtp_server: SMTPCapture
+    ) -> None:
+        report = _report(
+            _entry("b", TaskStatus.ERRORED, error=_error(traceback_str="UNIQUE_TRACE_TEXT"))
+        )
+        channel = EmailChannel(
+            _cfg(smtp_server), content=ReportContent(show_traceback=False, show_traced_vars=False)
+        )
+        channel.send_report(report, errors_only=False)
 
-        report = _report(_entry("my_task", TaskStatus.ERRORED, error=_error()))
-        EmailChannel(_smtp()).send_report(report, errors_only=False)
+        assert len(smtp_server.messages) == 1
+        assert "UNIQUE_TRACE_TEXT" not in smtp_server.last_html()
 
-        _, _, msg_str = mock_smtp.sendmail.call_args[0]
-        body = _decode_mime_body(msg_str)
-        assert "my_task" in body
+    def test_show_traceback_true_includes_traceback_in_received_body(
+        self, smtp_server: SMTPCapture
+    ) -> None:
+        report = _report(
+            _entry("b", TaskStatus.ERRORED, error=_error(traceback_str="UNIQUE_TRACE_TEXT"))
+        )
+        channel = EmailChannel(
+            _cfg(smtp_server), content=ReportContent(show_traceback=True, show_traced_vars=False)
+        )
+        channel.send_report(report, errors_only=False)
 
-    @patch("smtplib.SMTP")
-    def test_errors_only_uses_errors_subject(self, mock_smtp_cls: MagicMock) -> None:
-        mock_smtp = MagicMock()
-        mock_smtp_cls.return_value = mock_smtp
-
-        report = _report(_entry("b", TaskStatus.ERRORED, error=_error()))
-        EmailChannel(_smtp()).send_report(report, errors_only=True)
-
-        _, _, msg_str = mock_smtp.sendmail.call_args[0]
-        assert "Failed" in msg_str or "failed" in msg_str.lower()
+        assert len(smtp_server.messages) == 1
+        assert "UNIQUE_TRACE_TEXT" in smtp_server.last_html()

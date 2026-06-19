@@ -28,11 +28,11 @@ import os
 import re
 from collections import defaultdict
 from collections.abc import Iterable
-from unittest.mock import patch
 
 from processes import EmailChannel, Process, SMTPConfig, Task, TaskDependency
 
 from .base_test import BaseTest
+from .conftest import SMTPCapture
 
 
 class _RecordHandler(logging.Handler):
@@ -61,7 +61,7 @@ def _ancestors_of(task_name: str, tasks: Iterable[Task]) -> set[str]:
 
 
 class TestComplexDagFailures(BaseTest):
-    def test_complex_dag_dual_independent_failures(self) -> None:
+    def test_complex_dag_dual_independent_failures(self, smtp_server: SMTPCapture) -> None:
         """Enterprise-pipeline integration test (14-task DAG, dual failures)."""
         call_counts: dict[str, int] = defaultdict(int)
 
@@ -76,7 +76,7 @@ class TestComplexDagFailures(BaseTest):
             return _func
 
         smtp_config = SMTPConfig(
-            mailhost=("smtp.enterprise.test", 25),
+            mailhost=(smtp_server.host, smtp_server.port),
             fromaddr="pipeline-alerts@enterprise.test",
             toaddrs=["sre-oncall@enterprise.test"],
         )
@@ -127,9 +127,8 @@ class TestComplexDagFailures(BaseTest):
                 t.logger.addHandler(rec)
                 recorders[t.name] = rec
 
-        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
-            with Process(tasks) as process:
-                result = process.run(parallel=True, max_workers=4)
+        with Process(tasks) as process:
+            result = process.run(parallel=True, max_workers=4)
 
         # OUTCOME #1 — Independent Execution
         assert independent_task_names == {"A0", "A1", "A2", "A3", "B0", "B1", "B2", "C0", "C1"}
@@ -218,78 +217,65 @@ class TestComplexDagFailures(BaseTest):
                     f"Task {name} task_context contains an HTML entity ({entity}): {serialized}"
                 )
 
-        # OUTCOME #4 — Mocked Alert Validation
-        assert mock_smtp_class.call_count == len(failing_task_names), (
-            f"smtplib.SMTP should be instantiated {len(failing_task_names)} times, "
-            f"got {mock_smtp_class.call_count}"
-        )
-        for c in mock_smtp_class.call_args_list:
-            assert isinstance(c.args[0], str), (
-                f"smtplib.SMTP host arg must be a string, got {type(c.args[0]).__name__}: "
-                f"{c.args[0]!r}"
-            )
-            assert c.args[0] == "smtp.enterprise.test"
-            assert c.args[1] == 25
-
-        smtp_instance = mock_smtp_class.return_value
-        sendmail_calls = smtp_instance.sendmail.call_args_list
-        assert len(sendmail_calls) == len(failing_task_names), (
-            f"sendmail should fire {len(failing_task_names)} times, got {len(sendmail_calls)}"
+        # OUTCOME #4 — Real Alert Delivery: exactly one HTML email per failing
+        # task, each carrying the default theme and its accurate Downstream Impact.
+        assert len(smtp_server.messages) == len(failing_task_names), (
+            f"exactly {len(failing_task_names)} failure emails should be delivered, "
+            f"got {len(smtp_server.messages)}"
         )
 
-        for call in sendmail_calls:
-            fromaddr, toaddrs, msg = call.args
+        delivered_failing: set[str] = set()
+        for m in smtp_server.messages:
+            assert m["From"] == "pipeline-alerts@enterprise.test"
+            assert m["To"] == "sre-oncall@enterprise.test"
+            assert m.get_content_type() == "text/html"
 
-            assert fromaddr == "pipeline-alerts@enterprise.test"
-            assert toaddrs == ["sre-oncall@enterprise.test"]
-            assert "From: pipeline-alerts@enterprise.test" in msg
-            assert "To: sre-oncall@enterprise.test" in msg
-            assert "Subject: Error in task " in msg
-            assert "MIME-Version: 1.0" in msg
-            assert "Content-Type: text/html" in msg
+            body = (m.get_payload(decode=True) or b"").decode("utf-8", errors="replace")
 
-            match = re.search(r"Pipeline Failure: (\w+)", msg)
+            match = re.search(r"Pipeline Failure: (\w+)", body)
             assert match is not None, "Email body missing per-task failure heading"
             failing = match.group(1)
             assert failing in failing_task_names
-            assert f"Subject: Error in task {failing}" in msg, (
-                f"Subject should be 'Error in task {failing}'"
+            delivered_failing.add(failing)
+            assert m["Subject"] == f"Error in task {failing}", (
+                f"Subject should be 'Error in task {failing}', got {m['Subject']!r}"
             )
 
-            assert "--accent: #2563eb" in msg, (
+            assert "--accent: #2563eb" in body, (
                 "Default 'neutral' palette marker missing from email body — "
                 "formatter did not load the bundled theme"
             )
-            assert 'class="card"' in msg, (
+            assert 'class="card"' in body, (
                 "Default 'modern' style marker missing from email body — "
                 "formatter did not load the bundled theme"
             )
-            assert 'class="header"' in msg, (
+            assert 'class="header"' in body, (
                 "Email body missing the modern 'header' wrapper around the failure heading"
             )
-            assert "Pipeline Failure:" in msg, "Email body missing the per-task failure heading"
-            assert "<h2>Downstream Impact</h2>" in msg, (
+            assert "<h2>Downstream Impact</h2>" in body, (
                 "Email body missing 'Downstream Impact' heading"
             )
-            assert "<ul" in msg and "</ul>" in msg, "Email body missing <ul> list"
+            assert "<ul" in body and "</ul>" in body, "Email body missing <ul> list"
 
             expected_downstream = sorted(
                 n for n in skipped_task_names if failing in _ancestors_of(n, tasks)
             )
             for ds in expected_downstream:
-                assert f"<li>{ds}</li>" in msg, (
+                assert f"<li>{ds}</li>" in body, (
                     f"Email for {failing} is missing downstream impact entry for {ds!r}"
                 )
             other_branch_downstream = sorted(
                 n for n in skipped_task_names if failing not in _ancestors_of(n, tasks)
             )
             for ds in other_branch_downstream:
-                assert f"<li>{ds}</li>" not in msg, (
+                assert f"<li>{ds}</li>" not in body, (
                     f"Email for {failing} incorrectly lists downstream entry "
                     f"for {ds!r} from the other failure branch"
                 )
 
-            assert f"func_{failing}" in msg, "Function name missing from email body"
-            assert "Planned enterprise failure" in msg, "Exception text missing from email body"
+            assert f"func_{failing}" in body, "Function name missing from email body"
+            assert "Planned enterprise failure" in body, "Exception text missing from email body"
 
-        assert smtp_instance.quit.call_count == len(failing_task_names)
+        assert delivered_failing == failing_task_names, (
+            f"delivered alerts should cover exactly the failing tasks, got {delivered_failing}"
+        )

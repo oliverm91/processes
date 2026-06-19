@@ -19,8 +19,6 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
-from email import message_from_string
-from unittest.mock import patch
 
 import pytest
 
@@ -33,14 +31,7 @@ from processes._tb_utils import (
 from processes.comms._email import _HTMLEmailFormatter
 
 from .base_test import BaseTest
-
-
-def _decode_mime_body(msg: str) -> str:
-    """Decode the base64 HTML body from a sendmail payload."""
-    parsed = message_from_string(msg)
-    payload = parsed.get_payload(decode=True) or b""
-    return payload.decode("utf-8", errors="replace")
-
+from .conftest import SMTPCapture
 
 _STYLE_MARKERS = {
     "classic": ["<h1>Pipeline Failure:", 'class="impact"', 'class="traceback"'],
@@ -355,15 +346,17 @@ class TestEmailRendering(BaseTest):
 
 
 class TestTaskEmailWiring(BaseTest):
-    def test_task_wiring_propagates_style_palette_language(self) -> None:
-        """An EmailChannel with a non-default style attached to a Task must produce
-        an email body that carries the chosen style, palette and language, and a
-        subject carrying the language prefix."""
-        smtp_cfg = SMTPConfig(
-            mailhost=("smtp.enterprise.test", 25),
+    @staticmethod
+    def _cfg(server: SMTPCapture) -> SMTPConfig:
+        return SMTPConfig(
+            mailhost=(server.host, server.port),
             fromaddr="alerts@enterprise.test",
             toaddrs=["oncall@enterprise.test"],
         )
+
+    def test_task_wiring_propagates_style_palette_language(self, smtp_server: SMTPCapture) -> None:
+        """A failing Task with an EmailChannel must deliver one email whose body
+        carries the chosen style, palette and language."""
         style_cfg = HTMLEmailStyle(style="modern", palette="catppuccin", language="es")
 
         def boom() -> None:
@@ -373,19 +366,14 @@ class TestTaskEmailWiring(BaseTest):
             name="wired",
             log_path=self._log("wired_task.log"),
             func=boom,
-            channels=[EmailChannel(smtp_cfg, style_cfg)],
+            channels=[EmailChannel(self._cfg(smtp_server), style_cfg)],
         )
 
-        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
-            with Process([task]) as process:
-                process.run(parallel=False)
+        with Process([task]) as process:
+            process.run(parallel=False)
 
-        smtp_instance = mock_smtp_class.return_value
-        assert smtp_instance.sendmail.call_count == 1, (
-            "Failing task should trigger exactly one sendmail call"
-        )
-        _fromaddr, _toaddrs, msg = smtp_instance.sendmail.call_args.args
-        body = _decode_mime_body(msg)
+        assert len(smtp_server.messages) == 1, "Failing task should deliver exactly one email"
+        body = smtp_server.last_html()
 
         assert 'class="card"' in body, (
             "Rendered email body is missing the 'modern' style marker class=\"card\""
@@ -399,14 +387,9 @@ class TestTaskEmailWiring(BaseTest):
         assert "Función" in body, "Rendered email body is missing the Spanish 'lang_function_label'"
         assert "planned end-to-end failure" in body
 
-    def test_task_subject_carries_language_prefix(self) -> None:
-        """The subject set on the handler in Task.__init__ must be the
-        language-specific prefix followed by the task name."""
-        smtp_cfg = SMTPConfig(
-            mailhost=("smtp.enterprise.test", 25),
-            fromaddr="alerts@enterprise.test",
-            toaddrs=["oncall@enterprise.test"],
-        )
+    def test_task_subject_carries_language_prefix(self, smtp_server: SMTPCapture) -> None:
+        """The delivered email's Subject must be the language-specific prefix
+        followed by the task name."""
         style_cfg = HTMLEmailStyle(language="de")
 
         def boom() -> None:
@@ -416,31 +399,21 @@ class TestTaskEmailWiring(BaseTest):
             name="subject_de",
             log_path=self._log("subject_task.log"),
             func=boom,
-            channels=[EmailChannel(smtp_cfg, style_cfg)],
+            channels=[EmailChannel(self._cfg(smtp_server), style_cfg)],
         )
 
-        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
-            with Process([task]) as process:
-                process.run(parallel=False)
+        with Process([task]) as process:
+            process.run(parallel=False)
 
-        smtp_instance = mock_smtp_class.return_value
-        assert smtp_instance.sendmail.call_count == 1
-        _fromaddr, _toaddrs, msg = smtp_instance.sendmail.call_args.args
-
-        assert "Subject:" in msg
-        assert _SUBJECT_MARKERS["de"] + "subject_de" in msg, (
-            f"Expected subject containing {_SUBJECT_MARKERS['de']!r} + task name, "
-            f"got message:\n{msg}"
+        assert len(smtp_server.messages) == 1
+        subject = smtp_server.last()["Subject"]
+        assert subject == _SUBJECT_MARKERS["de"] + "subject_de", (
+            f"Expected subject {_SUBJECT_MARKERS['de']!r} + task name, got {subject!r}"
         )
 
-    def test_task_without_email_style_uses_defaults(self) -> None:
-        """When EmailChannel is constructed without a style, the handler uses
-        the HTMLEmailStyle defaults (modern/neutral/en)."""
-        smtp_cfg = SMTPConfig(
-            mailhost=("smtp.test", 25),
-            fromaddr="a@b.test",
-            toaddrs=["c@d.test"],
-        )
+    def test_task_without_email_style_uses_defaults(self, smtp_server: SMTPCapture) -> None:
+        """When EmailChannel is constructed without a style, the delivered body
+        uses the HTMLEmailStyle defaults (modern/neutral/en)."""
 
         def boom() -> None:
             raise RuntimeError("boom")
@@ -449,21 +422,32 @@ class TestTaskEmailWiring(BaseTest):
             name="default_style",
             log_path=self._log("default_style_task.log"),
             func=boom,
-            channels=[EmailChannel(smtp_cfg)],
+            channels=[EmailChannel(self._cfg(smtp_server))],
         )
 
-        with patch("processes.comms._email.smtplib.SMTP") as mock_smtp_class:
-            with Process([task]) as process:
-                process.run(parallel=False)
+        with Process([task]) as process:
+            process.run(parallel=False)
 
-        smtp_instance = mock_smtp_class.return_value
-        assert smtp_instance.sendmail.call_count == 1
-        _fromaddr, _toaddrs, msg = smtp_instance.sendmail.call_args.args
-        body = _decode_mime_body(msg)
+        assert len(smtp_server.messages) == 1
+        body = smtp_server.last_html()
 
         assert 'class="card"' in body, "Default 'modern' style marker missing"
         assert "--accent: #2563eb" in body, "Default 'neutral' palette marker missing"
         assert "Pipeline Failure:" in body, "Default English language marker missing"
+
+    def test_successful_run_sends_no_email(self, smtp_server: SMTPCapture) -> None:
+        """A task that succeeds must deliver zero failure alerts."""
+        task = Task(
+            name="ok",
+            log_path=self._log("ok_task.log"),
+            func=lambda: "fine",
+            channels=[EmailChannel(self._cfg(smtp_server))],
+        )
+
+        with Process([task]) as process:
+            process.run(parallel=False)
+
+        assert smtp_server.messages == []
 
     def test_two_tasks_sharing_smtp_config_get_independent_subjects(self) -> None:
         """Two tasks sharing one SMTPConfig must each get a handler with their own
