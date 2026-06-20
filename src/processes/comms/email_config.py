@@ -41,7 +41,7 @@ class SMTPConfig:
     timeout: int = 5
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class HTMLEmailStyle:
     """HTML presentation settings for the report email.
 

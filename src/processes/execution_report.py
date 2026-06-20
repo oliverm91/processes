@@ -35,7 +35,7 @@ def _json_default(obj: Any) -> Any:
     return repr(obj)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TaskReportEntry:
     """Per-task entry in a :class:`ProcessExecutionReport`.
 
@@ -73,7 +73,7 @@ class TaskReportEntry:
     error: ErrorData | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ProcessExecutionReport:
     """Per-task breakdown of a finished :meth:`Process.run` call.
 

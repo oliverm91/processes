@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..execution_report import ProcessExecutionReport
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ReportContent:
     """What detail a report notification includes.
 

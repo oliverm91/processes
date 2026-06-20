@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ErrorData:
     """Typed view of a task failure, extracted from ``record.task_context``.
 
