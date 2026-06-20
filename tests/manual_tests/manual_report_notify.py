@@ -1,10 +1,11 @@
 """Manual inspection: a mixed DAG whose ProcessExecutionReport is delivered by
 email via SMTP, exercising every traced-variables configuration in one run.
 
-Unlike the other manual scripts (which only send per-task *failure alerts*),
-this one is about the **report** path — ``ProcessExecutionReport.notify``
-rendering the whole run as a single HTML email and sending it to the same
-maildev server.
+Tasks no longer send per-task alerts; notification is delegated entirely to the
+**report** path — ``ProcessExecutionReport.notify`` rendering the whole run as a
+single HTML email and sending it to maildev. The traced-vars frame filter is now
+configured per ``Task`` (capture-time), which feeds both the report and the
+per-task logfile.
 
 Run by hand and eyeball the result in maildev:
 
@@ -58,12 +59,12 @@ Inspect
 -------
 *   The console output for execution order and the per-task outcome table.
 *   The maildev web UI at http://localhost:1080. Expected messages:
-      - 3 per-task failure alerts  (to ``task-alerts@inspect.test``)
-      - 1 full report              (to ``report-full@inspect.test``)
-      - 1 errors-only report       (to ``report-errors@inspect.test``)
+      - 1 full report        (to ``report-full@inspect.test``)
+      - 1 errors-only report (to ``report-errors@inspect.test``)
     Compare ``report-full`` vs ``report-errors`` to see the traced-variables
     sections appear and disappear, and confirm ``decode_payload``'s traced
     variables differ from ``fetch_orders``' (custom vs default frame filter).
+*   The per-task logfiles in ``tests/manual_tests/logs/``.
 """
 
 from __future__ import annotations
@@ -99,7 +100,6 @@ SMTP_PORT = 1025
 WEB_PORT = 1080
 FROM_ADDR = "report-canary@enterprise.test"
 
-TASK_ALERTS_TO = "task-alerts@inspect.test"
 REPORT_FULL_TO = "report-full@inspect.test"
 REPORT_ERRORS_TO = "report-errors@inspect.test"
 
@@ -181,10 +181,12 @@ def _log_path(logs_dir: str, name: str) -> str:
 
 def build_tasks(logs_dir: str) -> list[Task]:
     """A 6-task DAG: 2 independent successes/deps, 3 independent failures with
-    distinct traced-vars configs, and 1 cascade-skipped dependent."""
-    task_smtp = _smtp(TASK_ALERTS_TO)
-    default_style = HTMLEmailStyle()  # no custom frame filter
-    json_filter_style = HTMLEmailStyle(traced_vars_frame_filter="json")  # custom filter
+    distinct traced-vars configs, and 1 cascade-skipped dependent.
+
+    The traced-vars frame filter is configured per ``Task`` (capture-time), not
+    per channel: ``decode_payload`` pins capture to the stdlib ``json`` frame,
+    the others use the default outermost-user-frame selection.
+    """
     dep = TaskDependency
 
     return [
@@ -208,7 +210,6 @@ def build_tasks(logs_dir: str) -> list[Task]:
             func=fetch_orders,
             args=("orders_feed", 4242),
             kwargs={"region": "us-east-1"},
-            channels=[EmailChannel(task_smtp, default_style)],
         ),
         # Independent failure with a CUSTOM frame filter ('json').
         Task(
@@ -216,14 +217,13 @@ def build_tasks(logs_dir: str) -> list[Task]:
             log_path=_log_path(logs_dir, "decode_payload"),
             func=decode_payload,
             args=('{"id": 1, "ok"',),  # malformed JSON
-            channels=[EmailChannel(task_smtp, json_filter_style)],
+            traced_vars_frame_filter="json",
         ),
         # Independent failure WITHOUT traced variables (no locals), default filter.
         Task(
             name="noop_validate",
             log_path=_log_path(logs_dir, "noop_validate"),
             func=noop_validate,
-            channels=[EmailChannel(task_smtp, default_style)],
         ),
         # Dependent on a failing task → cascade-skipped, never runs.
         Task(
@@ -245,12 +245,12 @@ def deliver_reports(report: ProcessExecutionReport) -> None:
     an errors-only report without them."""
     full = EmailChannel(
         _smtp(REPORT_FULL_TO),
-        HTMLEmailStyle(style="modern", palette="neutral", language="en"),
+        HTMLEmailStyle(palette="neutral", language="en"),
         content=ReportContent(show_traceback=True, show_traced_vars=True),
     )
     brief = EmailChannel(
         _smtp(REPORT_ERRORS_TO),
-        HTMLEmailStyle(style="compact", palette="slate", language="en"),
+        HTMLEmailStyle(palette="slate", language="en"),
         content=ReportContent(show_traceback=True, show_traced_vars=False),
     )
 
@@ -287,8 +287,6 @@ def main() -> int:
     try:
         with Process(tasks) as process:
             report = process.run(parallel=False)
-            # Deliver while the process context is open so loggers/handlers
-            # are still alive for the per-task alerts already emitted.
             print("\noutcome:")
             for name, entry in report.entries.items():
                 print(f"  {entry.status.value:8s}  {name}")
@@ -300,9 +298,8 @@ def main() -> int:
 
     print("=" * 72)
     print(f"Expected in maildev (http://localhost:{WEB_PORT}):")
-    print(f"  3 per-task failure alerts -> {TASK_ALERTS_TO}")
-    print(f"  1 full report             -> {REPORT_FULL_TO}")
-    print(f"  1 errors-only report      -> {REPORT_ERRORS_TO}")
+    print(f"  1 full report        -> {REPORT_FULL_TO}")
+    print(f"  1 errors-only report -> {REPORT_ERRORS_TO}")
     print("Compare the two reports: traced-variables sections present vs absent,")
     print("and decode_payload's traced vars (custom 'json' filter) vs fetch_orders'.")
     return 0
