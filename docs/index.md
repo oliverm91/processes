@@ -73,7 +73,7 @@ from datetime import date
 
 from processes import Process, Task, TaskDependency, SMTPConfig, HTMLEmailStyle, EmailChannel
 
-# 1. Setup Email Alerts (Optional)
+# 1. Setup the report email (Optional)
 smtp_config = SMTPConfig(
     mailhost=('smtp_server', 587),
     fromaddr='sender@example.com',
@@ -82,7 +82,6 @@ smtp_config = SMTPConfig(
     secure=(),                       # () = STARTTLS; omit for no encryption
 )
 email_style = HTMLEmailStyle(
-    style='modern',                  # classic | modern | compact
     palette='neutral',                # neutral | catppuccin | neobones | slate
     language='en',                    # en | es | pt | fr | de | it
 )
@@ -100,7 +99,7 @@ def sum_data_from_csv_and_x(x, a=1, b=2):
 # 3. Create the Task Graph (order is irrelevant, that is handled by Process)
 tasks = [
     Task("t-1", get_previous_working_day, "etl.log"),
-    Task("intependent", indep_task, "indep.log", channels=[EmailChannel(smtp_config, email_style)]),  # This task will send email on failure
+    Task("intependent", indep_task, "indep.log"),
     Task("sum_csv", search_and_sum_csv, "etl.log",
             dependencies= [
                 TaskDependency("t-1",
@@ -117,9 +116,10 @@ tasks = [
     )
 ]
 
-# 4. Run the Process
+# 4. Run the Process and notify the report (only the errored tasks)
 with Process(tasks) as process: # Context Manager ensures correct disposal of loggers
-    process_result = process.run() # To enable parallelization use .run(parallel=True)
+    report = process.run() # To enable parallelization use .run(parallel=True)
+    report.notify(EmailChannel(smtp_config, email_style), only_errors=True)
 
 ```
 
@@ -127,26 +127,26 @@ with Process(tasks) as process: # Context Manager ensures correct disposal of lo
 
 ## 📧 Customizing the HTML email
 
-When a task with an `EmailChannel` raises, the alert is a **styled HTML
-email** built from a bundled template. The body includes the exception,
-the traceback (with the user-frame highlighted), the task context, the
-list of downstream tasks that were skipped because of the failure, and
-the local variables at the failing frame (see [Traced Variables](#traced-variables) below).
+When you deliver a finished report with `report.notify(EmailChannel(...))`, the
+report is a **styled HTML email** built from a bundled template. It lists every
+task with its status, and for each failure includes the exception, the traceback,
+the downstream tasks that were skipped, and the local variables captured at the
+failing frame (see [Traced Variables](#traced-variables) below). How much per-task
+detail is included is controlled by `ReportContent(show_traceback=…,
+show_traced_vars=…)`.
 
 Email delivery and presentation are configured with two separate dataclasses:
 
 - **`SMTPConfig`** — transport settings (host, credentials, sender/recipients, TLS).
-- **`HTMLEmailStyle`** — presentation settings, all optional:
+- **`HTMLEmailStyle`** — presentation settings, both optional:
 
 | Field | Values | Default |
 |---|---|---|
-| `style` | `classic`, `modern`, `compact` | `modern` |
 | `palette` | `neutral`, `catppuccin`, `neobones`, `slate` | `neutral` |
 | `language` | `en`, `es`, `pt`, `fr`, `de`, `it` | `en` |
-| `traced_vars_frame_filter` | any path substring, or `None` | `None` (outermost user frame) |
 
 ```python
-from processes import SMTPConfig, HTMLEmailStyle, EmailChannel, Task
+from processes import SMTPConfig, HTMLEmailStyle, EmailChannel, ReportContent
 
 smtp = SMTPConfig(
     mailhost=("smtp.example.com", 587),
@@ -157,34 +157,33 @@ smtp = SMTPConfig(
 )
 
 style = HTMLEmailStyle(
-    style="compact",                    # classic | modern | compact
     palette="catppuccin",               # neutral | catppuccin | neobones | slate
     language="es",                      # en | es | pt | fr | de | it
 )
 
-t = Task("task_name", func_to_run, "logfile", channels=[EmailChannel(smtp, style)])
+channel = EmailChannel(smtp, style, content=ReportContent(show_traced_vars=False))
+report.notify(channel)                  # or notify(channel, only_errors=True)
 ```
 
 If `style` is omitted, `EmailChannel` defaults to `HTMLEmailStyle()`
-(modern, neutral, English). If no `EmailChannel` is included in `channels`,
-no email handler is attached.
+(neutral, English).
 
-All assets ship inside the wheel — the styles are Jinja-style HTML
-templates at `src/processes/themes/styles/` and the palettes are CSS
-fragments at `src/processes/themes/palettes/`. No template engine or
-extra install is required; the formatter composes them at send time.
+All assets ship inside the wheel — the report layout is an HTML template at
+`src/processes/comms/themes/styles/report.html` and the palettes are CSS
+fragments at `src/processes/comms/themes/palettes/`. No template engine or
+extra install is required; the renderer composes them at send time.
 
 ### Traced Variables
 
-On failure, the email body includes the local variables of the
-**outermost user frame in the traceback** — i.e. the last frame in
-the chain that is not inside `site-packages` or your virtualenv.
-A `file:line` reference next to the section tells you exactly where
-in the source the listed values were captured, which is usually the
-fastest way to figure out *why* a complex task broke deep inside a
-wrapper.
+On failure, each task captures the local variables of the **outermost user
+frame in the traceback** — i.e. the last frame in the chain that is not inside
+`site-packages` or your virtualenv. A `file:line` reference next to the section
+tells you exactly where in the source the listed values were captured, which is
+usually the fastest way to figure out *why* a complex task broke deep inside a
+wrapper. These captured variables flow into both the task's logfile and the
+report email.
 
-This default can be overridden with `HTMLEmailStyle.traced_vars_frame_filter`.
+This default can be overridden per task with `Task(traced_vars_frame_filter=…)`.
 Set it to a path substring (e.g. the name of one of your own packages or
 modules) to capture locals from the outermost frame whose filename contains
 that substring instead — useful for deep-debugging code that runs through

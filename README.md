@@ -188,7 +188,6 @@ tasks = [
         notify_slack,
         LOG_DIR / "notify_slack.log",
         dependencies=[TaskDependency("build_report", use_result_as_additional_args=True)],
-        channels=[EmailChannel(smtp)],
     ),
     Task(
         "archive_report",
@@ -200,6 +199,7 @@ tasks = [
 
 with Process(tasks) as process:
     result = process.run(parallel=True)
+    result.notify(EmailChannel(smtp), only_errors=True)  # one report email for the failed task(s)
 
 print("passed:", sorted(result.successes))
 # archive_report, build_report, compute_revenue, compute_stock, fetch_inventory, fetch_orders
@@ -209,7 +209,7 @@ print("report:", result.successes["build_report"].result)
 # daily-report | revenue=59.50 stock=262.50
 ```
 
-The failing `notify_slack` task does **not** abort the run. `archive_report` is a sibling of the failed task (both depend on the successful `build_report`), so it runs unaffected — the rest of the workflow is not blackholed by one broken step. The HTML email handler also fires on the `notify_slack` task, paging on-call with the full traceback and the list of downstream tasks that were skipped because of it.
+The failing `notify_slack` task does **not** abort the run. `archive_report` is a sibling of the failed task (both depend on the successful `build_report`), so it runs unaffected — the rest of the workflow is not blackholed by one broken step. Calling `result.notify(EmailChannel(smtp), only_errors=True)` then delivers a single report email covering the failed task with its traceback and the downstream tasks that were skipped because of it.
 
 </details>
 
@@ -230,7 +230,7 @@ Task(
     args: tuple = (),
     kwargs: dict | None = None,
     dependencies: list[TaskDependency] | None = None,
-    channels: list[NotificationChannel] | None = None,
+    traced_vars_frame_filter: str | None = None,
     timeout: float | None = None,
     retries: int | None = 0,
     retry_on: tuple[type[Exception], ...] | None = None,
@@ -238,9 +238,9 @@ Task(
 ```
 
 - `name` — unique within the `Process`; no spaces.
-- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`); wired internally into a file `NotificationChannel`. `None` (the default) means no file logging; if no other `channels` are configured either, a `NullHandler` is attached.
+- `log_path` — the file this task logs to (INFO level, format `%(asctime)s - %(name)s - %(levelname)s - %(message)s`), with the structured failure context appended on error. `None` (the default) means no file logging; a `NullHandler` is attached instead. A `Task` does not send notifications — error notification is delegated to `ProcessExecutionReport.notify`.
 - `func` — the callable; receives `func(*args, **kwargs)` after result-injection.
-- `channels` — additional `NotificationChannel`s attached to the task's logger. Use `EmailChannel(smtp_config, style=None)` to fire an HTML email on `logging.ERROR`; body includes `task_name`, `function`, `args`, `kwargs`, and `downstream_impact`. `style` defaults to `HTMLEmailStyle()` (modern, neutral, English).
+- `traced_vars_frame_filter` — substring selecting which traceback frame's locals are captured into the failure context (and thus into both the logfile and any report notification). `None` (default) captures the outermost user frame.
 - `timeout` — seconds allowed per attempt; `None` means no limit. When the timeout fires the underlying thread is detached (Python threading limitation).
 - `retries` — additional attempts after the first failure; `0` or `None` means a single attempt. Defaults to `0`.
 - `retry_on` — tuple of exception types that trigger a retry. When `retries >= 1` and `retry_on` is `None`, defaults to `(ConnectionError, TimeoutError)` at call time.
@@ -311,6 +311,21 @@ for name, entry in report.entries.items():
         print(f"{name} failed after {entry.attempts} attempt(s): {entry.error.exception}")
 ```
 
+Deliver the report through one or more channels with `notify`:
+
+```python
+report.notify(
+    *channels: ReportChannel,
+    only_errors: bool = False,        # restrict the payload to ERRORED tasks
+    tasks: list[str] | None = None,   # restrict to these task names (case-insensitive)
+    show_warnings: bool = True,       # warn (not raise) if a channel fails
+)
+```
+
+`only_errors` and `tasks` compose (both filters apply). A failing channel never
+aborts the others. Built-in channels: `EmailChannel` (HTML email) and
+`WebhookChannel` (JSON POST).
+
 ### `ErrorData`
 
 ```python
@@ -347,55 +362,59 @@ SMTPConfig(
 
 ```python
 HTMLEmailStyle(
-    style="modern",                # classic | modern | compact
     palette="neutral",             # neutral | catppuccin | neobones | slate
     language="en",                 # en | es | pt | fr | de | it
-    traced_vars_frame_filter=None, # substring to pick the traced frame | None
 )
 ```
 
-### `NotificationChannel`
+### `ReportContent`
 
 ```python
-NotificationChannel  # ABC: subclass and implement build_handler(task_name) -> logging.Handler
+ReportContent(
+    show_traceback=True,    # include each failure's full traceback
+    show_traced_vars=True,  # include each failure's traced local variables
+)
 ```
 
-If `log_path` is set, every `Task` attaches an internal file channel built from it. Extra channels passed via `channels` are attached on top of it. If neither `log_path` nor `channels` is set, the task's logger gets a `NullHandler`.
+Per-channel selection of how much per-task detail a report notification includes.
+Pass the same instance to several channels for uniform content, or give each its
+own.
 
 ### `EmailChannel`
 
 ```python
 EmailChannel(
     smtp_config: SMTPConfig,
-    style: HTMLEmailStyle | None = None,  # defaults to HTMLEmailStyle()
+    style: HTMLEmailStyle | None = None,    # defaults to HTMLEmailStyle()
+    content: ReportContent | None = None,   # defaults to ReportContent()
 )
 ```
 
-Fires a styled HTML email on `logging.ERROR` and above.
-
-All fields are optional — omit `HTMLEmailStyle` entirely to use the defaults.
+A `ReportChannel` that delivers a finished report as a styled HTML email when
+passed to `report.notify(...)`. The body lists every task with its status and,
+for each failure, the exception, traceback, downstream impact, and traced
+variables (subject to `content`).
 
 #### Traced Variables
 
-On failure, the email body includes the local variables of the **outermost
-user frame in the traceback** — i.e. the last frame that is not inside
-`site-packages` or your virtualenv. A `file:line` reference next to the
-section shows exactly where those values were captured.
-
-`traced_vars_frame_filter` lets you point this at a different frame: set it
-to a path substring (e.g. one of your own package or module names) to
-capture locals from the outermost frame whose filename contains that
-substring instead. This is useful for deep-debugging code that runs through
-several layers of internal libraries or wrappers, where the default
-outermost-user-frame would land too high up the call stack.
+On failure, each task captures the local variables of the **outermost user
+frame in the traceback** — i.e. the last frame that is not inside
+`site-packages` or your virtualenv — into both its logfile and the report email.
+A `file:line` reference next to the section shows exactly where those values
+were captured. Point this at a different frame per task with
+`Task(traced_vars_frame_filter=…)`.
 
 ### `WebhookChannel`
 
 ```python
 WebhookChannel(
     webhook_config: WebhookConfig,
+    content: ReportContent | None = None,   # defaults to ReportContent()
 )
 ```
+
+A `ReportChannel` that POSTs the finished report as JSON when passed to
+`report.notify(...)`.
 
 ```python
 WebhookConfig(
@@ -408,11 +427,12 @@ WebhookConfig(
 )
 ```
 
-POSTs a generic JSON payload to `url` on `logging.ERROR` and above —
-`task_name`, `function`, `args`, `kwargs`, `exception`, `traceback`,
-`downstream_impact`, `traced_vars`, and `traced_vars_location`. Not coupled
-to any specific service (Slack, Discord, etc.); subclass and override
-`_WebhookFormatter._build_payload` to reshape the payload for one.
+Transport configuration for `WebhookChannel`. When the report is delivered,
+POSTs a generic JSON payload to `url` — an `entries` object mapping each task
+name to its `status`, `function`, `elapsed_seconds`, `attempts`, and (for
+failures) an `error` block with `exception`, `traceback`, `downstream_impact`,
+and `traced_vars` (subject to `ReportContent`). Not coupled to any specific
+service (Slack, Discord, etc.).
 
 `extra_payload` keys are merged into the JSON body and take precedence over
 the generic fields on collision — useful for service-specific routing data
