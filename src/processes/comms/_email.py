@@ -48,6 +48,33 @@ def _load_language_strings(language: str) -> dict[str, str]:
         return cast(dict[str, str], json.load(fh))
 
 
+@cache
+def _load_palette_css(palette: str) -> str:
+    """Load the CSS fragment for the given palette name.
+
+    Cached per palette: the bundled CSS files never change at runtime, so each
+    palette is read from disk at most once per process. The returned string is
+    immutable, so sharing it across renders is safe.
+    """
+    path = os.path.join(_PALETTES_DIR, f"{palette}.css")
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+@cache
+def _load_report_template() -> str:
+    """Load the ``report.html`` body template.
+
+    Cached: it is a single invariant bundled file, read from disk at most once
+    per process. The returned string is immutable; callers compose it with
+    ``str.replace`` (which yields a new string), so the cached value is never
+    mutated.
+    """
+    path = os.path.join(_STYLES_DIR, "report.html")
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
 class _SMTPTransport:
     """Sends one HTML email per call over a fresh SMTP connection.
 
@@ -199,14 +226,8 @@ def _build_report_html(
         When ``True`` only ERRORED entries appear in the output.
     """
     lang = _load_language_strings(style.language)
-    palette_path = os.path.join(_PALETTES_DIR, f"{style.palette}.css")
-    with open(palette_path, encoding="utf-8") as fh:
-        palette_css = fh.read()
-    report_template_path = os.path.join(_STYLES_DIR, "report.html")
-    with open(report_template_path, encoding="utf-8") as fh:
-        template = fh.read()
-
-    template = template.replace(_PALETTE_MARKER, palette_css)
+    palette_css = _load_palette_css(style.palette)
+    template = _load_report_template().replace(_PALETTE_MARKER, palette_css)
 
     entries = report.errored if errors_only else report.entries
     header = (
