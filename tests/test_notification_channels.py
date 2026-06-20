@@ -26,10 +26,10 @@ from processes import (
     WebhookChannel,
     WebhookConfig,
 )
-from processes._email_internals import _HTMLEmailFormatter
-from processes._logfile_formatting import _TaskLogfileFormatter
-from processes._webhook_internals import _WebhookFormatter
-from processes.notification_channels import _FileChannel
+from processes.comms._email import _HTMLEmailFormatter
+from processes.comms._logfile import _TaskLogfileFormatter
+from processes.comms._webhook import _WebhookFormatter
+from processes.comms.channels import _FileChannel
 
 from .base_test import BaseTest
 

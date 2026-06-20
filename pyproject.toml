@@ -28,6 +28,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "aiosmtpd>=1.4.6",
     "commitizen>=4.11.6",
     "mkdocs>=1.6.1",
     "mkdocs-material[imaging]>=9.7.1",

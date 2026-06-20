@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from ._error_data import _ErrorContextFormatter
+from ._error_context import _ErrorContextFormatter
 
 _LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 

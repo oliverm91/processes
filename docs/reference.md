@@ -9,6 +9,6 @@ This page is automatically generated from the source code docstrings.
 ::: processes.execution_report.ProcessExecutionReport
 ::: processes.execution_report.TaskReportEntry
 ::: processes.execution_report.TaskStatus
-::: processes._error_data.ErrorData
-::: processes.email_config.SMTPConfig
-::: processes.email_config.HTMLEmailStyle
+::: processes.error_data.ErrorData
+::: processes.comms.email_config.SMTPConfig
+::: processes.comms.email_config.HTMLEmailStyle

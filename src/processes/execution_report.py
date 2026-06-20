@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from ._error_data import ErrorData
-from .task import TaskResult, TaskStatus
+from .error_data import ErrorData
+from .task_types import TaskResult, TaskStatus
 
 if TYPE_CHECKING:
+    from .comms.base import ReportChannel
     from .process import Process
 
 
@@ -165,3 +167,50 @@ class ProcessExecutionReport:
         """
         dumps_kwargs.pop("default", None)
         return json.dumps(self, default=_json_default, indent=indent, **dumps_kwargs)
+
+    def notify(
+        self,
+        *channels: ReportChannel,
+        only_errors: bool = False,
+        tasks: list[str] | None = None,
+        show_warnings: bool = True,
+    ) -> None:
+        """Deliver the report through each channel, in order.
+
+        Each channel renders and sends the report itself (email, webhook, ...).
+        What detail is included is configured per channel (see ``ReportContent``).
+        If a channel raises, the exception is caught so the remaining channels
+        still receive the report; a ``UserWarning`` is emitted when
+        ``show_warnings`` is ``True``.
+
+        Parameters
+        ----------
+        *channels : ReportChannel
+            Channels to deliver the report to. No-op if none are given.
+        only_errors : bool
+            When ``True``, each channel restricts the payload to tasks whose
+            status is ``ERRORED`` (see :attr:`errored`). Defaults to ``False``.
+        tasks : list[str], optional
+            Restrict the report to these task names, compared case-insensitively.
+            ``None`` (default) includes every task; an empty list includes none.
+            Combines with ``only_errors`` — both filters apply.
+        show_warnings : bool
+            Emit a ``UserWarning`` when a channel fails. Defaults to ``True``.
+        """
+        report = self if tasks is None else self._for_tasks(tasks)
+        for channel in channels:
+            try:
+                channel.send_report(report, errors_only=only_errors)
+            except Exception as exc:
+                if show_warnings:
+                    warnings.warn(
+                        f"{type(channel).__name__} failed to send report: {exc}",
+                        stacklevel=2,
+                    )
+
+    def _for_tasks(self, tasks: list[str]) -> ProcessExecutionReport:
+        """A copy of this report restricted to ``tasks`` (case-insensitive names)."""
+        wanted = {name.lower() for name in tasks}
+        return ProcessExecutionReport(
+            {name: entry for name, entry in self.entries.items() if name.lower() in wanted}
+        )
