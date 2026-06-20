@@ -329,7 +329,7 @@ def _build_task_section_html(
 
     return (
         f"<details{open_attr}>\n"
-        f'  <summary>'
+        f"  <summary>"
         f'<span class="task-name-text">{html.escape(entry.name)}</span>'
         f'<span class="badge {badge_class}">{html.escape(status_label)}</span>'
         f"</summary>\n"
@@ -389,16 +389,12 @@ def _build_report_html(
         "lang_report_title_prefix": html.escape(
             lang.get("lang_report_title_prefix", "Process Report")
         ),
-        "lang_report_summary_title": html.escape(
-            lang.get("lang_report_summary_title", "Summary")
-        ),
+        "lang_report_summary_title": html.escape(lang.get("lang_report_summary_title", "Summary")),
         "lang_report_success_label": html.escape(
             lang.get("lang_report_success_label", "Successes")
         ),
         "lang_report_error_label": html.escape(lang.get("lang_report_error_label", "Errors")),
-        "lang_report_skipped_label": html.escape(
-            lang.get("lang_report_skipped_label", "Skipped")
-        ),
+        "lang_report_skipped_label": html.escape(lang.get("lang_report_skipped_label", "Skipped")),
         "summary_successes": str(len(report.successes)),
         "summary_errors": str(len(report.errored)),
         "summary_skipped": str(len(report.skipped)),
@@ -435,9 +431,7 @@ def send_report_email(
         uses ``lang_report_email_subject_errors``.
     """
     lang = _load_language_strings(style.language)
-    subject_key = (
-        "lang_report_email_subject_errors" if errors_only else "lang_report_email_subject"
-    )
+    subject_key = "lang_report_email_subject_errors" if errors_only else "lang_report_email_subject"
     subject = lang.get(subject_key, "Process Execution Report")
     html_body = _build_report_html(report, style, content, errors_only=errors_only)
     _SMTPTransport(smtp_config).send(subject, html_body)

@@ -25,6 +25,7 @@ from .conftest import SMTPCapture
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _entry(
     name: str,
     status: TaskStatus,
@@ -80,8 +81,8 @@ def _cfg(server: SMTPCapture, *, toaddrs: list[str] | None = None) -> SMTPConfig
 # Webhook tests
 # ---------------------------------------------------------------------------
 
-class TestWebhookSendReport:
 
+class TestWebhookSendReport:
     @patch("urllib.request.urlopen")
     def test_posts_json_with_all_entries(self, mock_urlopen: MagicMock) -> None:
         mock_urlopen.return_value.__enter__ = lambda s: s
@@ -200,6 +201,7 @@ class TestWebhookSendReport:
 # Report HTML renderer tests (pure, no I/O mocks needed)
 # ---------------------------------------------------------------------------
 
+
 class TestBuildReportHtml:
     def _style(self) -> HTMLEmailStyle:
         return HTMLEmailStyle()
@@ -266,6 +268,7 @@ class TestBuildReportHtml:
 # ---------------------------------------------------------------------------
 # Email send tests (verify SMTP transport)
 # ---------------------------------------------------------------------------
+
 
 class TestEmailSendReport:
     """End-to-end: EmailChannel.send_report against a real in-process SMTP server.
