@@ -6,6 +6,7 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.utils import formatdate
+from functools import cache
 from typing import TYPE_CHECKING, cast
 
 from ..task_types import TaskStatus
@@ -23,8 +24,14 @@ _LANGUAGES_DIR = os.path.join(_THEMES_DIR, "languages")
 _PALETTE_MARKER = "{{__palette_css__}}"
 
 
+@cache
 def _load_language_strings(language: str) -> dict[str, str]:
     """Load translatable strings for the given ISO 639-1 language code.
+
+    Cached per language: the bundled JSON files never change at runtime, so the
+    file is read from disk at most once per language for the life of the
+    process. Callers only read the returned mapping (never mutate it), so the
+    shared cached dict is safe.
 
     Parameters
     ----------
