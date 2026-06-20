@@ -62,7 +62,9 @@ class Task:
     Parameters
     ----------
     name : str
-        Unique task name; must not contain spaces.
+        Unique task name; must not contain spaces. Normalized to lowercase,
+        so task names (and the dependency references that point at them) are
+        matched case-insensitively.
     func : Callable[..., Any]
         The callable executed when the task runs.
     log_path : str | None
@@ -127,7 +129,9 @@ class Task:
         retries: int | None = 0,
         retry_on: tuple[type[Exception], ...] | None = None,
     ):
-        self.name = name
+        if not isinstance(name, str):
+            raise TypeError(f"name must be str. Got {type(name)}")
+        self.name = name.lower()
         self.log_path = log_path
         self.func = func
         self.args = args

@@ -148,7 +148,7 @@ def _run_cascading_iteration(
 
     failing_chains: list[list[str]] = []
     for b in range(failing_branches):
-        chain_names = [f"F{b}_{d}" for d in range(chain_depth + 1)]
+        chain_names = [f"f{b}_{d}" for d in range(chain_depth + 1)]
         failing_chains.append(chain_names)
         tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=True), log_dir))
         for d in range(1, chain_depth + 1):
@@ -163,7 +163,7 @@ def _run_cascading_iteration(
 
     passing_chains: list[list[str]] = []
     for b in range(passing_branches):
-        chain_names = [f"P{b}_{d}" for d in range(chain_depth + 1)]
+        chain_names = [f"p{b}_{d}" for d in range(chain_depth + 1)]
         passing_chains.append(chain_names)
         tasks.append(_make_task(chain_names[0], make_root(chain_names[0], fail=False), log_dir))
         for d in range(1, chain_depth + 1):

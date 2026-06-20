@@ -139,7 +139,8 @@ class TaskDependency:
     Attributes
     ----------
     task_name : str
-        The name of the task this dependency refers to.
+        The name of the task this dependency refers to. Normalized to lowercase
+        to match :class:`Task` names case-insensitively.
     use_result_as_additional_args : bool
         If True, the result of the dependency task will be passed as an
         additional positional argument as the last argument. Defaults to False.
@@ -165,13 +166,13 @@ class TaskDependency:
         use_result_as_additional_kwargs: bool = False,
         additional_kwarg_name: str = "",
     ):
-        self.task_name = task_name
+        if not isinstance(task_name, str):
+            raise TypeError(f"task_name must be of type str. Got {type(task_name)}")
+        self.task_name = task_name.lower()
         self.use_result_as_additional_args = use_result_as_additional_args
         self.use_result_as_additional_kwargs = use_result_as_additional_kwargs
         self.additional_kwarg_name = additional_kwarg_name
 
-        if not isinstance(self.task_name, str):
-            raise TypeError(f"task_name must be of type str. Got {type(self.task_name)}")
         if not isinstance(self.use_result_as_additional_args, bool):
             raise TypeError(
                 f"use_result_as_additional_args must be of type bool. "

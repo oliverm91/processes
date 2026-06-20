@@ -1,8 +1,39 @@
 import pytest
 
-from processes import Process, Task
+from processes import Process, Task, TaskDependency
 
 from .base_test import BaseTest
+
+
+class TestNameNormalization(BaseTest):
+    def test_name_lowercased_on_construction(self) -> None:
+        t = Task("Fetch_Data", lambda: 1, self._log("norm.log"))
+        try:
+            assert t.name == "fetch_data"
+            assert TaskDependency("Fetch_Data").task_name == "fetch_data"
+        finally:
+            self._close_handlers(t)
+
+    def test_duplicate_names_detected_case_insensitively(self) -> None:
+        t1 = Task("Fetch", lambda: 1, self._log("ci1.log"))
+        t2 = Task("fetch", lambda: 2, self._log("ci2.log"))
+        with pytest.raises(ValueError, match="Duplicate task name: fetch"):
+            with Process([t1, t2]) as _:
+                pass
+
+    def test_dependency_resolves_across_case(self) -> None:
+        """A dependency referencing a differently-cased upstream still resolves
+        and its result is injected — no DependencyNotFoundError."""
+        producer = Task("Producer", lambda: 21, self._log("prod.log"))
+        consumer = Task(
+            "Consumer",
+            lambda upstream: upstream * 2,
+            self._log("cons.log"),
+            dependencies=[TaskDependency("PRODUCER", use_result_as_additional_args=True)],
+        )
+        with Process([producer, consumer]) as process:
+            report = process.run()
+        assert report.entries["consumer"].result == 42
 
 
 class TestUniqueName(BaseTest):

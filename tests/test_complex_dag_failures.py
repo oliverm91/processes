@@ -69,6 +69,7 @@ class TestComplexDagFailures(BaseTest):
             return _func
 
         def make_task(name: str, deps, fail: bool = False) -> Task:
+            name = name.lower()  # Task normalizes names to lowercase; stay consistent
             return Task(
                 name=name,
                 log_path=os.path.join(self._CURDIR, f"{name}.log"),
@@ -99,8 +100,8 @@ class TestComplexDagFailures(BaseTest):
             make_task("D", deps=[dep("A3"), dep("B4"), dep("C3")]),
         ]
 
-        failing_task_names = {"B3", "C2"}
-        skipped_task_names = {"B4", "C3", "D"}
+        failing_task_names = {"b3", "c2"}
+        skipped_task_names = {"b4", "c3", "d"}
         expected_failed = failing_task_names | skipped_task_names
         independent_task_names = {t.name for t in tasks} - expected_failed
 
@@ -117,7 +118,7 @@ class TestComplexDagFailures(BaseTest):
             result = process.run(parallel=True, max_workers=4)
 
         # OUTCOME #1 — Independent Execution
-        assert independent_task_names == {"A0", "A1", "A2", "A3", "B0", "B1", "B2", "C0", "C1"}
+        assert independent_task_names == {"a0", "a1", "a2", "a3", "b0", "b1", "b2", "c0", "c1"}
 
         for name in independent_task_names:
             assert call_counts[name] == 1, (
