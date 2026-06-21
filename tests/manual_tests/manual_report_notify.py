@@ -306,7 +306,7 @@ def main() -> int:
     print(f"tasks: {len(tasks)} (2 independent + dependent successes, 3 failures, 1 skipped)")
 
     try:
-        with Process(tasks) as process:
+        with Process(tasks, name="nightly-etl") as process:
             report = process.run(parallel=False)
             print("\noutcome:")
             for name, entry in report.entries.items():

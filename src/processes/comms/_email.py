@@ -4,6 +4,7 @@ import html
 import json
 import os
 import smtplib
+from datetime import date
 from email.mime.text import MIMEText
 from email.utils import formatdate
 from functools import cache
@@ -288,5 +289,16 @@ def send_report_email(
     lang = _load_language_strings(style.language)
     subject_key = "lang_report_email_subject_errors" if errors_only else "lang_report_email_subject"
     subject = lang.get(subject_key, "Process Execution Report")
+    subject = _decorate_subject(subject, report.process_name)
     html_body = _build_report_html(report, style, content, errors_only=errors_only)
     _SMTPTransport(smtp_config).send(subject, html_body)
+
+
+def _decorate_subject(base: str, process_name: str) -> str:
+    """Append the process name (when set) and the run date to the subject.
+
+    Produces e.g. ``"Process Execution Report nightly-etl | 20260620"``, or
+    ``"Process Execution Report | 20260620"`` when the process is unnamed.
+    """
+    head = f"{base} {process_name}".rstrip() if process_name else base
+    return f"{head} | {date.today():%Y%m%d}"

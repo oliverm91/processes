@@ -49,6 +49,7 @@ def _build_report_webhook_payload(
     entries: dict[str, TaskReportEntry],
     content: ReportContent,
     config: WebhookConfig,
+    process_name: str,
 ) -> dict[str, Any]:
     """Build the JSON-serializable payload dict for a report POST.
 
@@ -60,6 +61,9 @@ def _build_report_webhook_payload(
         Content selection flags (``show_traceback``, ``show_traced_vars``).
     config : WebhookConfig
         Transport config used for ``nest_under`` and ``extra_payload``.
+    process_name : str
+        Name of the process the report came from (``""`` if unnamed). Always
+        emitted alongside ``entries`` for a stable schema.
 
     Returns
     -------
@@ -90,7 +94,7 @@ def _build_report_webhook_payload(
             task_dict["error"] = error_dict
         tasks_payload[name] = task_dict
 
-    generic: dict[str, Any] = {"entries": tasks_payload}
+    generic: dict[str, Any] = {"process_name": process_name, "entries": tasks_payload}
     if config.nest_under:
         generic = {config.nest_under: generic}
     return {**generic, **config.extra_payload}
@@ -118,5 +122,5 @@ def send_report_webhook(
         When ``True`` only ``ERRORED`` entries are included in the payload.
     """
     entries = report.errored if errors_only else report.entries
-    payload = _build_report_webhook_payload(entries, content, config)
+    payload = _build_report_webhook_payload(entries, content, config, report.process_name)
     _WebhookTransport(config).post(json.dumps(payload))
