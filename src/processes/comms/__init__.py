@@ -1,12 +1,11 @@
-"""Communication layer: channels, transports and renderers.
+"""Communication layer: report channels, transports and renderers.
 
-Public surface re-exported here (and, in turn, from ``processes``):
-the channel ports (``NotificationChannel``, ``ReportChannel``), the shared
-``ReportContent`` selector, the concrete ``EmailChannel`` / ``WebhookChannel``,
-and their transport configs.
+Pure report-delivery package — it never touches task execution or logfiles.
+Public surface re-exported here (and, in turn, from ``processes``): the
+``ReportChannel`` port, the shared ``ReportContent`` selector, the concrete
+``EmailChannel`` / ``WebhookChannel``, and their transport configs.
 """
 
-from .base import NotificationChannel as NotificationChannel
 from .base import ReportChannel as ReportChannel
 from .base import ReportContent as ReportContent
 from .channels import EmailChannel as EmailChannel

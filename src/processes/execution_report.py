@@ -35,7 +35,7 @@ def _json_default(obj: Any) -> Any:
     return repr(obj)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TaskReportEntry:
     """Per-task entry in a :class:`ProcessExecutionReport`.
 
@@ -73,7 +73,7 @@ class TaskReportEntry:
     error: ErrorData | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ProcessExecutionReport:
     """Per-task breakdown of a finished :meth:`Process.run` call.
 
@@ -82,9 +82,13 @@ class ProcessExecutionReport:
     entries : dict[str, TaskReportEntry]
         Mapping of task name to its report entry, ordered the same way as
         ``process.tasks`` (topological order).
+    process_name : str
+        Name of the process the report came from (``""`` if unnamed). Used to
+        label notifications such as the email subject.
     """
 
     entries: dict[str, TaskReportEntry] = field(default_factory=dict)
+    process_name: str = ""
 
     def _filter(self, status: TaskStatus) -> dict[str, TaskReportEntry]:
         return {name: entry for name, entry in self.entries.items() if entry.status == status}
@@ -138,7 +142,7 @@ class ProcessExecutionReport:
                 result=res.result if res.worked else None,
                 error=res.error_data if res.status == TaskStatus.ERRORED else None,
             )
-        return cls(entries)
+        return cls(entries, process.name)
 
     def to_json(self, *, indent: int | None = None, **dumps_kwargs: Any) -> str:
         """Serialize the whole report to a JSON string without dropping any field.
@@ -212,5 +216,6 @@ class ProcessExecutionReport:
         """A copy of this report restricted to ``tasks`` (case-insensitive names)."""
         wanted = {name.lower() for name in tasks}
         return ProcessExecutionReport(
-            {name: entry for name, entry in self.entries.items() if name.lower() in wanted}
+            {name: entry for name, entry in self.entries.items() if name.lower() in wanted},
+            self.process_name,
         )

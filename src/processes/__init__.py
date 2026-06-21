@@ -3,7 +3,6 @@ from importlib.metadata import version as _v
 
 from .comms import EmailChannel as EmailChannel
 from .comms import HTMLEmailStyle as HTMLEmailStyle
-from .comms import NotificationChannel as NotificationChannel
 from .comms import ReportChannel as ReportChannel
 from .comms import ReportContent as ReportContent
 from .comms import SMTPConfig as SMTPConfig

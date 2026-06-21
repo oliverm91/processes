@@ -191,15 +191,15 @@ dependencies=[
 
 ## 📧 Email Notifications
 
-If a task fails it can notify via email:
+After a run, the report can notify via email. For each failure it includes:
 - The name of the failing task
 - The python function being executed with its args and kwargs
 - The traceback of the error
 - The tasks that could not be executed in the process due to this failure.
 
-To set this up, pass an `EmailChannel` to the Task constructor via `channels`:
+To set this up, pass an `EmailChannel` to `report.notify(...)`:
 ```python
-from processes import SMTPConfig, HTMLEmailStyle, EmailChannel, Task
+from processes import SMTPConfig, HTMLEmailStyle, EmailChannel, Process
 
 smtp = SMTPConfig(
     mailhost=('smtp_server', 587),
@@ -211,12 +211,13 @@ smtp = SMTPConfig(
 
 # Optional: customise the HTML presentation (all fields have defaults)
 style = HTMLEmailStyle(
-    style='modern',                  # classic | modern | compact
     palette='neutral',               # neutral | catppuccin | neobones | slate
     language='en',                   # en | es | pt | fr | de | it
 )
 
-t = Task("task_name", func_to_run, "logfile", channels=[EmailChannel(smtp, style)])
+with Process(tasks) as process:
+    report = process.run()
+    report.notify(EmailChannel(smtp, style), only_errors=True)
 ```
 
 ## ⏱️ Retries & Timeouts
@@ -253,5 +254,6 @@ t_fetch = Task(
 
 If every attempt fails, the task is marked failed with the **last**
 exception raised — `retries` only controls how many times `func` is
-retried, not whether the failure is eventually reported. Combine with
-an `EmailChannel` to be paged only once all attempts are exhausted.
+retried, not whether the failure is eventually reported. Notify the
+report with an `EmailChannel` afterwards to be paged only once all
+attempts are exhausted.

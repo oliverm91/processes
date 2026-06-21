@@ -26,6 +26,8 @@ class Process:
     ----------
     tasks : list[Task]
         List of tasks to be executed, automatically sorted by dependencies.
+    name : str
+        Human-readable name for the process (``""`` if unnamed).
     runner : ProcessRunner
         The runner responsible for executing the tasks.
 
@@ -35,6 +37,10 @@ class Process:
         The tasks to orchestrate. Order does not matter — the constructor
         topologically sorts the list in place. The list is mutated during
         construction; pass a copy if the original ordering matters.
+    name : str, optional
+        Human-readable name for the process. Recorded on the resulting
+        ``ProcessExecutionReport`` and used to label notifications (e.g. the
+        email subject). Defaults to ``""`` (unnamed).
 
     Raises
     ------
@@ -48,8 +54,9 @@ class Process:
         If circular dependencies are detected among tasks.
     """
 
-    def __init__(self, tasks: list[Task]):
+    def __init__(self, tasks: list[Task], name: str = ""):
         self.tasks = tasks
+        self.name = name
 
         try:
             self._validate_and_sort()

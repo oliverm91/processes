@@ -10,9 +10,8 @@ if TYPE_CHECKING:
 
 import logging
 
+from ._logfile import _TaskLogfileFormatter
 from ._tb_utils import _build_traced_vars, _build_traced_vars_location, _format_traceback
-from .comms.base import NotificationChannel
-from .comms.channels import _FileChannel
 from .error_data import ErrorData
 from .exceptions import CircularDependencyError
 from .task_types import TaskDependency, TaskResult, TaskStatus
@@ -43,10 +42,10 @@ class Task:
         Keyword arguments to pass to the function. Defaults to empty dict.
     dependencies : list[TaskDependency]
         List of tasks this task depends on. Defaults to empty list.
-    channels : list[NotificationChannel]
-        Additional notification channels attached to this task's logger, on
-        top of the implicit file channel built from ``log_path``. Defaults to
-        empty list.
+    traced_vars_frame_filter : str | None
+        Substring selecting which traceback frame's local variables are
+        captured into the failure context on error. ``None`` selects the
+        outermost user frame. Defaults to ``None``.
     timeout : float | None
         Seconds allowed per attempt before a ``TimeoutError`` is raised.
         ``None`` means no limit. Defaults to ``None``.
@@ -63,15 +62,17 @@ class Task:
     Parameters
     ----------
     name : str
-        Unique task name; must not contain spaces.
+        Unique task name; must not contain spaces. Normalized to lowercase,
+        so task names (and the dependency references that point at them) are
+        matched case-insensitively.
     func : Callable[..., Any]
         The callable executed when the task runs.
     log_path : str | None
         File path the task's log records are written to (one ``FileHandler``
         at ``INFO`` level, format
-        ``"%(asctime)s - %(name)s - %(levelname)s - %(message)s"``). ``None``
-        means no file logging is configured. If this leaves the task with no
-        notification channels at all, a ``NullHandler`` is attached instead.
+        ``"%(asctime)s - %(name)s - %(levelname)s - %(message)s"``, with the
+        structured failure context appended on error). ``None`` means no file
+        logging is configured, and a ``NullHandler`` is attached instead.
         Defaults to ``None``.
     args : tuple[Any, ...]
         Positional arguments forwarded to ``func``. Defaults to ``()``.
@@ -80,13 +81,12 @@ class Task:
         an empty dict.
     dependencies : list[TaskDependency] | None
         Tasks this task depends on. ``None`` is treated as an empty list.
-    channels : list[NotificationChannel] | None
-        Additional notification channels whose handlers are attached to this
-        task's logger, alongside the implicit file channel built from
-        ``log_path``. Use ``EmailChannel`` for HTML email alerts on
-        ``logging.ERROR`` and above, or subclass ``NotificationChannel`` for
-        other destinations. ``None`` is treated as an empty list. Defaults to
-        ``None``.
+    traced_vars_frame_filter : str | None
+        Substring used to select the traceback frame whose local variables are
+        captured into the failure context (and thus into both the logfile and
+        any report notification). When ``None`` (default), the outermost user
+        frame is used; when set, the outermost frame whose filename contains
+        this substring is used instead.
     timeout : float | None
         Seconds allowed per attempt before ``TimeoutError`` is raised for that
         attempt. ``None`` means no limit. When a timeout fires, the underlying
@@ -105,8 +105,8 @@ class Task:
     TypeError
         If any parameter is not of the expected type, ``timeout`` is not a
         positive number, ``retries`` is negative, ``retry_on`` is not a
-        tuple of ``Exception`` subclasses, or ``channels`` is not a list of
-        ``NotificationChannel`` instances.
+        tuple of ``Exception`` subclasses, or ``traced_vars_frame_filter`` is
+        neither ``str`` nor ``None``.
     ValueError
         If ``name`` contains a space, if the same dependency name is
         listed more than once, or if the task lists itself as a
@@ -124,15 +124,18 @@ class Task:
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
         dependencies: list[TaskDependency] | None = None,
-        channels: list[NotificationChannel] | None = None,
+        traced_vars_frame_filter: str | None = None,
         timeout: float | None = None,
         retries: int | None = 0,
         retry_on: tuple[type[Exception], ...] | None = None,
     ):
-        self.name = name
+        if not isinstance(name, str):
+            raise TypeError(f"name must be str. Got {type(name)}")
+        self.name = name.lower()
         self.log_path = log_path
         self.func = func
         self.args = args
+        self.traced_vars_frame_filter = traced_vars_frame_filter
         self.timeout = timeout
         self.retries = retries if retries is not None else 0
         self.retry_on = retry_on
@@ -145,10 +148,6 @@ class Task:
             self.dependencies = []
         else:
             self.dependencies = dependencies
-        if channels is None:
-            self.channels = []
-        else:
-            self.channels = channels
 
         self._check_input_types()
         if " " in self.name:
@@ -165,20 +164,15 @@ class Task:
         logger = logging.getLogger(f"processes.{self.name}.{id(self)}")
         logger.setLevel(logging.DEBUG)
 
-        file_channels: list[NotificationChannel] = (
-            [_FileChannel(self.log_path)] if self.log_path is not None else []
-        )
-        all_channels: list[NotificationChannel] = [*file_channels, *self.channels]
-
-        if all_channels:
-            for channel in all_channels:
-                logger.addHandler(channel.build_handler(self.name))
+        if self.log_path is not None:
+            file_handler = logging.FileHandler(self.log_path)
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(_TaskLogfileFormatter())
+            logger.addHandler(file_handler)
         else:
             logger.addHandler(logging.NullHandler())
 
-        self._frame_filter: str | None = next(
-            (c.frame_filter for c in all_channels if c.frame_filter is not None), None
-        )
+        self._frame_filter: str | None = self.traced_vars_frame_filter
         self.logger = logger
 
     def _check_input_types(self) -> None:
@@ -208,12 +202,13 @@ class Task:
                     f"dependency must be of type TaskDependency. Got {type(dependency)}"
                 )
 
-        if not isinstance(self.channels, list):
-            raise TypeError(f"channels must be list. Got {type(self.channels)}")
-
-        for channel in self.channels:
-            if not isinstance(channel, NotificationChannel):
-                raise TypeError(f"channel must be of type NotificationChannel. Got {type(channel)}")
+        if self.traced_vars_frame_filter is not None and not isinstance(
+            self.traced_vars_frame_filter, str
+        ):
+            raise TypeError(
+                f"traced_vars_frame_filter must be a str or None. "
+                f"Got {type(self.traced_vars_frame_filter)}"
+            )
 
         if self.timeout is not None and (
             not isinstance(self.timeout, (int, float)) or self.timeout <= 0
