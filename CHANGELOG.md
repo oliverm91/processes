@@ -1,3 +1,35 @@
+## v7.0.0 (2026-06-20)
+
+### BREAKING CHANGE
+
+- Task(channels=...) and the NotificationChannel API are removed;
+HTMLEmailStyle.style and traced_vars_frame_filter are removed (the latter moves
+to Task). Per-task email/webhook alerts are replaced by report.notify.
+
+### Feat
+
+- add process name to report, email subject, and webhook payload
+- normalize task names to lowercase for case-insensitive matching
+- delegate notifications to ProcessExecutionReport, drop per-task channels
+- replace notify_errors with notify(only_errors=...) and add task filter
+- implement WebhookChannel and EmailChannel send_report
+- add ReportChannel architecture for report notifications
+- add ProcessExecutionReport.notify/.notify_errors stubs
+- add ProcessExecutionReport.to_json
+- add graph mutation methods to Process
+
+### Refactor
+
+- group communication code into a comms/ package
+- unify SMTP and webhook transport behind single classes
+- extract task value types to leaf module, break import cycle
+
+### Perf
+
+- cache palette CSS and report template loading
+- cache language string loading
+- add slots=True to frozen value types
+
 ## v6.0.0 (2026-06-15)
 
 ### BREAKING CHANGE
