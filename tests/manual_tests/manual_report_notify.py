@@ -265,9 +265,7 @@ def deliver_reports(report: ProcessExecutionReport) -> int:
     so maildev shows them all side by side. Returns the number of emails sent.
     """
     combos = list(
-        itertools.product(
-            LANGUAGES, PALETTES, CONTENT_STYLES.items(), ERROR_MODES.items()
-        )
+        itertools.product(LANGUAGES, PALETTES, CONTENT_STYLES.items(), ERROR_MODES.items())
     )
     print(f"\ndelivering {len(combos)} reports via SMTP ...")
     for i, (lang, palette, (style, content), (mode, only_errors)) in enumerate(combos, 1):
@@ -319,8 +317,10 @@ def main() -> int:
 
     print("=" * 72)
     print(f"Expected in maildev (http://localhost:{WEB_PORT}): {sent} emails")
-    print(f"  matrix: {len(LANGUAGES)} languages x {len(PALETTES)} palettes x "
-          f"{len(CONTENT_STYLES)} styles x {len(ERROR_MODES)} only_errors modes")
+    print(
+        f"  matrix: {len(LANGUAGES)} languages x {len(PALETTES)} palettes x "
+        f"{len(CONTENT_STYLES)} styles x {len(ERROR_MODES)} only_errors modes"
+    )
     print(f"  recipients: report-<lang>-<palette>-<style>-<mode>@{REPORT_TO_DOMAIN}")
     print("Compare across the matrix: language, palette, traced-variables/traceback")
     print("sections (style), and whole-report vs errors-only (mode).")
