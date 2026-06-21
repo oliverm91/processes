@@ -25,13 +25,13 @@ File logging and **email notification** is supported.
 ---
 
 ## 📑 Table of Contents
-* [✨ Features](#-features)
-* [⚙️ Core Concepts](#️-core-concepts)
-* [🛠️ Use Cases](#️-use-cases)
-* [💻 Quick Start](#-quick-start)
-* [📧 Customizing the HTML email](#-customizing-the-html-email)
-* [🛡️ Fault Tolerance & Logs](#️-fault-tolerance--logs)
-* [📦 Installation](#-installation)
+* [✨ Features](#features)
+* [⚙️ Core Concepts](#core-concepts)
+* [🛠️ Use Cases](#use-cases)
+* [💻 Quick Start](#quick-start)
+* [📧 Customizing the HTML email](#customizing-the-html-email)
+* [🛡️ Fault Tolerance & Logs](#fault-tolerance-logs)
+* [📦 Installation](#installation)
 
 ---
 

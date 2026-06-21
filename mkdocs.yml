@@ -38,6 +38,7 @@ nav:
       - Introduction: examples/intro.md
       - Basic Example: examples/basic.md
       - Advanced Case: examples/advanced.md
+      - Reports & Notifications: examples/reports.md
 
 
 plugins:

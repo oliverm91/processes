@@ -468,19 +468,9 @@ This makes the library a good fit for fan-out / fan-in pipelines, "best-effort" 
 </details>
 
 <details>
-<summary>Show comparison with other libraries</summary>
+<summary>Show scope &amp; limitations</summary>
 
-| | **Processes** | Airflow | Celery | Luigi |
-|---|---|---|---|---|
-| External dependencies | **None** | many | broker (Redis/RabbitMQ) | few |
-| Setup cost | `pip install` | cluster | broker + workers | task + config |
-| Parallelism | built-in | via executors | via workers | via workers |
-| Per-task file logs | **yes (built-in)** | via handlers | via signals | partial |
-| HTML email on failure | **yes (built-in)** | via callbacks | via signals | manual |
-| DAG validation at construction | **yes** | yes (DAG file) | n/a | partial |
-| Strict typing (`mypy --strict`) | **yes** | partial | partial | no |
-
-`Processes` is **not** a distributed scheduler — there are no workers on remote machines, no SLA monitoring, no web UI. If you need any of those, you need Airflow or a similar orchestrator. If you want a small, fast, dependency-aware pipeline that *just runs* in a single process, this is it.
+`Processes` is **not** a distributed scheduler — there are no workers on remote machines, no SLA monitoring, no web UI. If you need any of those, reach for a full orchestrator. If you want a small, fast, dependency-aware pipeline that *just runs* in a single process, this is it.
 
 </details>
 

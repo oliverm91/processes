@@ -14,7 +14,7 @@ Welcome to the **Processes** library examples! This directory shows you how to b
 
 ---
 
-## 🗂️ The 2 Examples
+## 🗂️ The 3 Examples
 
 ### 1. [Basic Tasks & Dependencies](./01_basic_tasks_and_dependencies/)
 **When to use:** Run multiple operations at the same time, including tasks with simple dependencies
@@ -36,5 +36,16 @@ Covers:
 - Passing results from one task to the next
 - Automatically running tasks in the right order
 - Running multiple tasks in parallel while respecting dependencies
+
+---
+
+### 3. [Reports & Notifications](./03_reports_and_notifications/)
+**When to use:** Inspect what a run did, and notify once for the whole run
+
+Covers:
+- Naming a process so it labels the email subject and webhook payload
+- Triaging the report: successes vs root failures vs cascade-skipped tasks
+- Delivering through email and webhook in one `notify()` call
+- The `only_errors` / `tasks` filters and `ReportContent` verbosity presets
 
 ---
