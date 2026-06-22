@@ -202,6 +202,8 @@ class ProcessExecutionReport:
             Emit a ``UserWarning`` when a channel fails. Defaults to ``True``.
         """
         report = self if tasks is None else self._for_tasks(tasks)
+        if only_errors and any(v.status == TaskStatus.ERRORED for v in self.entries.values()):
+            return
         for channel in channels:
             try:
                 channel.send_report(report, errors_only=only_errors)
