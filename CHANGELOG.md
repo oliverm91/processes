@@ -1,3 +1,9 @@
+## v7.0.2 (2026-06-22)
+
+### Fix
+
+- **ProcessExecutionReport.notify**: fix in logic excluding non errors report when only_errors kwargs is set to true
+
 ## v7.0.1 (2026-06-22)
 
 ### Fix
