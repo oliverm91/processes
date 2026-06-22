@@ -147,6 +147,7 @@ def test_notify_tasks_none_includes_every_task() -> None:
 #     assert errors_only is True
 
 
+
 def test_report_content_defaults_and_per_channel_override() -> None:
     assert ReportContent() == ReportContent(show_traceback=True, show_traced_vars=True)
 
