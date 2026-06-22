@@ -1,3 +1,9 @@
+## v7.0.1 (2026-06-22)
+
+### Fix
+
+- **ProcessExecutionReport.notify**: when kwar only_errors set to true and no errors in entries, then don't notify
+
 ## v7.0.0 (2026-06-20)
 
 ### BREAKING CHANGE
